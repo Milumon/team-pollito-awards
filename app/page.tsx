@@ -1,26 +1,1042 @@
-// app/page.tsx
-import Head from 'next/head';
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Volume2,
+  VolumeX,
+  Trophy,
+  Award,
+  ChevronLeft,
+  X,
+  Home,
+  ArrowRight
+} from 'lucide-react';
+
+import { CATEGORIES } from '@/src/data/categories';
+import { VoteState } from '@/src/types';
+import RobloxAvatar from '@/components/RobloxAvatar';
+import EggAnimation from '@/components/EggAnimation';
+import ShareCard from '@/components/ShareCard';
+import Confetti from '@/components/Confetti';
+import { soundManager } from '@/lib/sound';
+import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+
+type ScreenState = 'landing' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final';
 
 export default function Home() {
+  const router = useRouter();
+  const [session, setSession] = useState<any>(null);
+  const [screen, setScreen] = useState<ScreenState>('landing');
+  const [votes, setVotes] = useState<VoteState>({});
+  const [currentIdx, setCurrentIdx] = useState<number>(0);
+  const [selectedNomineeId, setSelectedNomineeId] = useState<string | null>(null);
+  const [muted, setMuted] = useState<boolean>(false);
+  
+  // Interactive triggers
+  const [burstActive, setBurstActive] = useState<boolean>(false);
+  const [continuousConfetti, setContinuousConfetti] = useState<boolean>(false);
+  
+  // Modal states
+  const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
+  const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
+
+  // Countdown Timer state for June 16, 2026, 7:30 PM (19:30:00) GMT-5
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    isOver: false
+  });
+
+  // Check user session and fetch existing votes on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        fetchUserVotes(session.user.id);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        fetchUserVotes(session.user.id);
+      } else {
+        setVotes({});
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchUserVotes = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('votes')
+        .select('category_id, nominee_id')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const loadedVotes: VoteState = {};
+        data.forEach((v: any) => {
+          loadedVotes[v.category_id] = v.nominee_id;
+        });
+        setVotes(loadedVotes);
+        
+        // If they voted in everything, jump to final
+        if (data.length >= CATEGORIES.length) {
+          setScreen('final');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user votes:', err);
+    }
+  };
+
+  useEffect(() => {
+    const target = new Date("2026-06-16T19:30:00-05:00").getTime();
+    
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const diff = target - now;
+      
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isOver: true });
+        return;
+      }
+      
+      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setTimeLeft({ days: d, hours: h, minutes: m, seconds: s, isOver: false });
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Sync mute state with sound utility
+  const toggleMuted = () => {
+    const newMuted = soundManager.toggleMute();
+    setMuted(newMuted);
+  };
+
+  const handleStartVotingClick = () => {
+    soundManager.playPop();
+    if (!session) {
+      router.push('/login');
+    } else {
+      setScreen('hatching');
+    }
+  };
+
+  // Restart/reset voting logic
+  const handleRestart = async () => {
+    soundManager.playPop();
+    if (session) {
+      // Clear votes from db if resetting (optional, or just let them reset state)
+      const { error } = await supabase
+        .from('votes')
+        .delete()
+        .eq('user_id', session.user.id);
+      if (error) console.error('Error resetting votes in Supabase:', error);
+    }
+    setVotes({});
+    setCurrentIdx(0);
+    setSelectedNomineeId(null);
+    setContinuousConfetti(false);
+    setScreen('landing');
+  };
+
+  // Vote nomination selection
+  const handleSelectNominee = (nomineeId: string) => {
+    soundManager.playPop();
+    setSelectedNomineeId(nomineeId);
+  };
+
+  // Confirm selected vote and advance
+  const handleConfirmVote = async () => {
+    if (!selectedNomineeId || !session) return;
+
+    soundManager.playPop();
+    setBurstActive(true);
+    setTimeout(() => {
+      setBurstActive(false);
+    }, 1500);
+
+    const categoryId = CATEGORIES[currentIdx].id;
+
+    // Save vote to Supabase
+    const { error } = await supabase.from('votes').insert({
+      user_id: session.user.id,
+      nominee_id: selectedNomineeId,
+      category_id: categoryId,
+    } as any);
+
+    if (error) {
+      console.error('Error saving vote:', error);
+    }
+
+    const newVotes = { ...votes, [categoryId]: selectedNomineeId };
+    setVotes(newVotes);
+
+    setTimeout(() => {
+      setSelectedNomineeId(null);
+      
+      const nextIdx = currentIdx + 1;
+      const totalCategories = CATEGORIES.length;
+
+      // Check for emotional intermissions
+      if ((nextIdx === 3 || nextIdx === 6) && nextIdx < totalCategories) {
+        setScreen('intermission');
+      } else if (nextIdx >= totalCategories) {
+        setScreen('submitting');
+      } else {
+        setCurrentIdx(nextIdx);
+        setScreen('intro');
+      }
+    }, 700);
+  };
+
+  const skipIntermission = () => {
+    soundManager.playPop();
+    const nextIdx = currentIdx + 1;
+    setCurrentIdx(nextIdx);
+    setSelectedNomineeId(null);
+    setScreen('intro');
+  };
+
+  // Trigger continuous confetti on final screen
+  useEffect(() => {
+    if (screen === 'final') {
+      soundManager.playSuccess();
+      setContinuousConfetti(true);
+    } else {
+      setContinuousConfetti(false);
+    }
+  }, [screen]);
+
+  // Transition from submitted to final screen
+  useEffect(() => {
+    if (screen === 'submitting') {
+      const timer = setTimeout(() => {
+        setScreen('final');
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [screen]);
+
   return (
-    <>
-      <Head>
-        <title>Pollitos Awards 2026</title>
-        <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      </Head>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[#FFD700] text-black p-4">
-        <h1 className="text-5xl font-bold mb-4">Pollitos Awards 2026</h1>
-        <p className="text-lg mb-6">
-          ¡Es hora de celebrar un año de streams! Vota por tus amigos y compañeros de Roblox.
-        </p>
-        <a
-          href="/vote"
-          className="bg-black text-[#FFD700] hover:bg-neutral-900 border-4 border-black font-bold px-6 py-3 rounded-xl transition-all"
-        >
-          COMENZAR VOTACIÓN
-        </a>
+    <div id="app-root-container" className="h-[100dvh] md:min-h-screen bg-[#FFD700] text-black flex flex-col justify-between relative selection:bg-black selection:text-yellow-400 md:pb-12 overflow-hidden md:pt-2 pt-0 pb-0 font-sans md:px-4 px-0">
+      
+      {/* Dynamic Confetti triggers */}
+      <Confetti active={continuousConfetti} type="continuous" />
+      <Confetti active={burstActive} type="burst" />
+
+      {/* Main Container with split desktop view and central mock device card */}
+      <main className="flex-grow w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-center gap-0 md:gap-12 relative z-20 my-auto md:py-4 py-0 h-full md:h-auto">
+        
+        {/* LEFT COLUMN: Modern Neobrutalist Title & Badges (Visible on Desktop) */}
+        <div className="hidden md:flex flex-col justify-center space-y-6 w-1/2 text-left shrink-0">
+          <div className="inline-block bg-black text-yellow-400 font-extrabold px-4 py-2 text-2xl transform -rotate-2 border-2 border-black brutalist-shadow rounded-lg self-start">
+            1ER ANIVERSARIO
+          </div>
+          <h1 className="text-6xl font-black text-black leading-none uppercase tracking-tighter font-display">
+            The <br/>
+            <span className="text-orange-600 bg-white border-4 border-black px-4 inline-block rounded-md rotate-1 my-2">Pollitos</span> <br/>
+            Awards
+          </h1>
+          <p className="text-xl font-bold text-black opacity-85 leading-tight font-comic">
+            ¡Es hora de celebrar un año de streams! <br/>Vota por tus amigos y compañeros de Roblox.
+          </p>
+
+          {/* Desktop Live Countdown Banner */}
+          <div className="bg-white border-4 border-black rounded-3xl p-5 brutalist-shadow text-black flex flex-col xl:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left flex-grow">
+              <span className="inline-block bg-orange-600 text-white font-extrabold px-2.5 py-0.5 text-[11px] rounded uppercase tracking-wider mb-2">
+                📢 GALA EN VIVO EN TIKTOK
+              </span>
+              <p className="font-comic text-xs font-bold text-gray-700">
+                El gran live de premiación será el martes 16 de Junio a las 7:30 PM (GMT-5). ¡Te esperamos!
+              </p>
+              
+              <div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
+                <div className="flex flex-col items-center">
+                  <span className="font-mono text-2xl font-black text-black leading-none">{timeLeft.days}</span>
+                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Días</span>
+                </div>
+                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.hours).padStart(2, '0')}</span>
+                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Horas</span>
+                </div>
+                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Mins</span>
+                </div>
+                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                <div className="flex flex-col items-center">
+                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Segs</span>
+                </div>
+              </div>
+            </div>
+            
+            <a
+              href="https://www.tiktok.com/@milumon_gaming"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-black hover:bg-neutral-900 border-4 border-black text-[#FFD700] hover:text-[#fff] font-display font-black text-xs tracking-wider px-4 py-3 rounded-xl transition-all duration-150 active:translate-y-1 block shrink-0 text-center uppercase brutalist-shadow-sm select-none decoration-transparent"
+            >
+              🚀 IR AL LIVE
+            </a>
+          </div>
+
+          <div className="flex items-center space-y-4 flex-col pt-2">
+            <div className="flex space-x-4 w-full">
+              <div className="bg-white p-4 rounded-2xl border-4 border-black brutalist-shadow flex-1">
+                <p className="text-xs uppercase font-bold text-gray-500 font-sans">Categorías</p>
+                <p className="text-3xl font-black font-display text-black">{CATEGORIES.length}</p>
+              </div>
+              <div className="bg-white p-4 rounded-2xl border-4 border-black brutalist-shadow flex-1">
+                <p className="text-xs uppercase font-bold text-gray-500 font-sans">Nominados</p>
+                <p className="text-3xl font-black font-display text-black">
+                  {CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: The High-Contrast Sleek Smartphone Frame Mockup */}
+        <div className="w-full md:max-w-[365px] h-[100dvh] md:h-[690px] bg-white md:rounded-[2.8rem] rounded-none md:border-[8px] border-0 md:shadow-[16px_16px_0px_0px_rgba(0,0,0,0.15)] shadow-none relative flex flex-col overflow-hidden text-black md:shrink-0">
+          
+          {/* Top Speaker Notch Block */}
+          <div className="hidden md:flex h-5 bg-black w-28 mx-auto rounded-b-2xl mb-2 items-center justify-center shrink-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-neutral-800" />
+          </div>
+
+          {/* Header Progress Tag & Audio Toggle inside phone frame */}
+          <div className="px-5 py-1.5 flex justify-between items-center bg-gray-50 border-b-2 border-gray-100 shrink-0">
+            {screen !== 'landing' && screen !== 'hatching' && (
+              <button
+                id="back-to-landing"
+                onClick={handleRestart}
+                className="flex items-center gap-1 bg-white hover:bg-gray-100 border-2 border-black rounded-lg px-2.5 py-1 text-xs font-comic font-black text-black cursor-pointer active:scale-95 transition-all"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" /> INICIO
+              </button>
+            )}
+            {screen === 'landing' && (
+              <span className="text-[10px] uppercase tracking-wider font-extrabold text-gray-400 font-comic animate-pulse">
+                • 1 AÑO DE STREAMS
+              </span>
+            )}
+            
+            {/* Steps text inside phone */}
+            {screen === 'voting' && (
+              <span className="text-[11px] font-black bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full border border-yellow-200">
+                PASO {CATEGORIES[currentIdx].id < 10 ? `0${CATEGORIES[currentIdx].id}` : CATEGORIES[currentIdx].id}/{CATEGORIES.length}
+              </span>
+            )}
+
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                id="audio-toggle-btn"
+                onClick={toggleMuted}
+                className="w-8 h-8 rounded-lg bg-white hover:bg-gray-100 border-2 border-black flex items-center justify-center text-black select-none cursor-pointer active:scale-95 transition-all"
+                title={muted ? 'Activar sonido' : 'Silenciar'}
+              >
+                {muted ? <VolumeX className="w-4 h-4 text-gray-500" /> : <Volume2 className="w-4 h-4 text-black font-black animate-bounce" style={{ animationDuration: '3s' }} />}
+              </button>
+            </div>
+          </div>
+
+          {/* View Container inside Smartphone Viewport */}
+          <div className="flex-grow overflow-y-auto p-4 flex flex-col justify-between relative z-20 scrollbar-thin">
+            <AnimatePresence mode="wait">
+              
+              {/* SCREEN 1: LANDING */}
+              {screen === 'landing' && (
+                <motion.div
+                  key="landing"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="flex flex-col items-center text-center justify-between h-full py-1"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    {/* Mobile rotated badge */}
+                    <div className="inline-block bg-black text-yellow-400 font-black px-3 py-1 text-xs transform -rotate-2 rounded border border-black mb-3 md:hidden">
+                      1ER ANIVERSARIO
+                    </div>
+
+                    {/* Live countdown header */}
+                    <div className="w-full bg-[#ff7a22] text-white border-4 border-black rounded-2xl p-2 mb-3.5 brutalist-shadow-sm flex items-center justify-between gap-1.5 shrink-0">
+                      <div className="flex flex-col items-start leading-none pl-1 text-left">
+                        <span className="text-[8px] uppercase font-black text-white/90 font-comic tracking-wider">
+                          🎁 ¡FALTA PARA EL LIVE!
+                        </span>
+                        <div className="flex items-center gap-0.5 mt-1 font-mono text-[13px] font-black">
+                          {timeLeft.isOver ? (
+                            <span className="animate-pulse text-[10px] text-yellow-300">🔴 ¡ESTAMOS EN VIVO!</span>
+                          ) : (
+                            <>
+                              <span>{timeLeft.days}d</span>
+                              <span>:</span>
+                              <span>{String(timeLeft.hours).padStart(2, '0')}h</span>
+                              <span>:</span>
+                              <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>
+                              <span>:</span>
+                              <span>{String(timeLeft.seconds).padStart(2, '0')}s</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <a
+                        href="https://www.tiktok.com/@milumon_gaming"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-black text-[#FFD700] hover:text-white border-2 border-black rounded-lg px-2.5 py-1.5 text-[9px] uppercase font-black tracking-wider flex items-center gap-1 transition-all shrink-0 select-none decoration-transparent"
+                      >
+                        🔴 LIVE
+                      </a>
+                    </div>
+
+                    {/* Central Hatching Chick Graphics */}
+                    <div className="w-28 h-28 mx-auto relative mb-0.5 flex items-center justify-center shrink-0">
+                      <span className="text-7xl select-none">🐣</span>
+                    </div>
+
+                    {/* High fidelity branded Logo Text */}
+                    <div className="mb-1.5 relative">
+                      <span className="font-display tracking-widest text-[#ea580c] text-xs block uppercase mb-0.5">
+                        ★ THE ★
+                      </span>
+                      <h1 className="font-display text-4xl text-black tracking-normal uppercase leading-none">
+                        POLLITOS
+                      </h1>
+                      <h1 className="font-display text-4xl text-[#ea580c] tracking-normal uppercase leading-none mt-1">
+                        AWARDS
+                      </h1>
+                      <div className="inline-block bg-black text-[#FFD700] font-display text-[10px] px-3.5 py-0.5 rounded-xl uppercase tracking-widest font-black mt-2 transform rotate-1 border border-black">
+                        1ER ANIVERSARIO
+                      </div>
+                    </div>
+
+                    {/* Updated Exact Narrative Hook */}
+                    <p className="font-comic text-[13px] text-gray-700 max-w-xs mt-2.5 px-4 leading-normal font-bold">
+                      ¡Es hora de celebrar un año de streams! <br />
+                      <span className="text-orange-600">Vota por tus amigos y compañeros de Roblox.</span>
+                    </p>
+
+                    {/* Dual Stats Badges for Mobile */}
+                    <div className="flex gap-3 w-full max-w-[290px] mt-4 mb-2.5">
+                      <div className="bg-orange-50 border-4 border-black p-2.5 rounded-2xl flex-1 text-center brutalist-shadow-sm">
+                        <p className="text-[10px] uppercase font-black text-gray-500 font-sans leading-none mb-1">Categorías</p>
+                        <p className="text-2xl font-black font-display text-black leading-none">{CATEGORIES.length}</p>
+                      </div>
+                      <div className="bg-orange-50 border-4 border-black p-2.5 rounded-2xl flex-1 text-center brutalist-shadow-sm border-orange-500">
+                        <p className="text-[10px] uppercase font-black text-orange-600 font-sans leading-none mb-1">Nominados</p>
+                        <p className="text-2xl font-black font-display text-orange-600 leading-none">
+                          {CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Big Golden Action Button */}
+                  <div className="w-full mt-auto">
+                    <button
+                      id="start-awards-btn"
+                      onClick={handleStartVotingClick}
+                      className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-lg tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 transition-all cursor-pointer font-black brutalist-shadow text-center active:translate-y-1 block focus:outline-none"
+                    >
+                      🗳️ COMENZAR VOTACIÓN
+                    </button>
+                    <div className="flex justify-center items-center gap-1.5 text-gray-500 font-comic font-black text-[10px] mt-2 uppercase tracking-wider">
+                      🐣 ¡Es rápido y divertido!
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* SCREEN 2: EGG HATCHING */}
+              {screen === 'hatching' && (
+                <EggAnimation
+                  key="hatching"
+                  onComplete={() => {
+                    setScreen('welcome');
+                  }}
+                />
+              )}
+
+              {/* SCREEN 3: WELCOME */}
+              {screen === 'welcome' && (
+                <motion.div
+                  key="welcome"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="text-center py-2 flex flex-col items-center justify-between h-full"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    <motion.div
+                      animate={{ y: [0, -8, 0] }}
+                      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                      className="w-24 h-24 relative mb-4 flex items-center justify-center shrink-0"
+                    >
+                      <span className="text-7xl select-none">🐣</span>
+                    </motion.div>
+
+                    <h2 className="font-display text-2xl text-black uppercase tracking-normal mb-1">
+                      ¡Hola, Pollito!
+                    </h2>
+                    <p className="font-comic text-xs font-bold text-gray-600 px-2 tracking-wide mb-5">
+                      Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span> de este año.
+                    </p>
+
+                    <div className="w-full bg-orange-50 border-4 border-black p-4 rounded-2xl mb-6 space-y-3.5 text-left">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-yellow-400 flex items-center justify-center text-black shrink-0 border-2 border-black font-display font-bold">
+                          🏆
+                        </div>
+                        <span className="font-comic text-xs uppercase font-black text-black">
+                          <span className="text-orange-600 text-sm">{CATEGORIES.length}</span> categorías exclusivas
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-orange-400 flex items-center justify-center text-black shrink-0 border-2 border-black font-display font-bold">
+                          👥
+                        </div>
+                        <span className="font-comic text-xs uppercase font-black text-black">
+                          <span className="text-orange-600 text-sm">{CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}</span> pollitos nominados
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-black shrink-0 border-2 border-black font-display font-bold">
+                          ⏱️
+                        </div>
+                        <span className="font-comic text-xs uppercase font-black text-black">
+                          VOTACIÓN EN <span className="text-orange-600 text-sm">2</span> MINUTOS
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    id="empezar-votacion-btn"
+                    onClick={() => {
+                      soundManager.playPop();
+                      setScreen('intro');
+                    }}
+                    className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md flex items-center justify-center gap-2 focus:outline-none"
+                  >
+                    👉 EMPEZAR VOTACIÓN
+                  </button>
+                </motion.div>
+              )}
+
+              {/* SCREEN 4: CATEGORY INTRO */}
+              {screen === 'intro' && (
+                <motion.div
+                  key={`intro-${currentIdx}`}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  className="py-2 flex flex-col items-center text-center justify-between h-full"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    <div className="w-20 h-20 bg-yellow-100 rounded-full border-4 border-black flex items-center justify-center mb-4 shadow-md relative">
+                      <span className="text-4xl animate-bounce" style={{ animationDuration: '3s' }}>
+                        {CATEGORIES[currentIdx].emoji || '🏆'}
+                      </span>
+                      <div className="absolute inset-0 border-2 border-dashed border-black/30 rounded-full animate-spin" style={{ animationDuration: '30s' }} />
+                    </div>
+
+                    <span className="font-comic text-xs uppercase tracking-widest text-orange-600 font-extrabold">
+                      Categoría {CATEGORIES[currentIdx].id} de {CATEGORIES.length}
+                    </span>
+                    <h2 className="font-display text-2xl text-black tracking-normal mt-1 max-w-xs leading-none">
+                      {CATEGORIES[currentIdx].title}
+                    </h2>
+
+                    <div className="my-5 px-4 py-5 bg-orange-50 border-4 border-black rounded-[1.8rem] w-full max-w-xs transform hover:scale-101 transition-all">
+                      <span className="text-xl text-orange-500 font-black block leading-none mb-1">“</span>
+                      <p className="font-comic text-[13px] font-bold text-gray-700 leading-relaxed italic font-sans">
+                        {CATEGORIES[currentIdx].description}
+                      </p>
+                      <span className="text-xl text-orange-500 font-black block leading-none mt-1">”</span>
+                    </div>
+                  </div>
+
+                  <button
+                    id="ver-nominados-btn"
+                    onClick={() => {
+                      soundManager.playPop();
+                      setScreen('voting');
+                    }}
+                    className="w-full py-3.5 bg-black text-yellow-400 font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md focus:outline-none"
+                  >
+                    VER NOMINADOS →
+                  </button>
+                </motion.div>
+              )}
+
+              {/* SCREEN 5: VOTING GRID */}
+              {screen === 'voting' && (
+                <motion.div
+                  key={`voting-${currentIdx}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col h-full justify-between"
+                >
+                  <div className="w-full mb-2">
+                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-comic uppercase tracking-wider mb-1 font-bold">
+                      <span>Categoría {CATEGORIES[currentIdx].id} de {CATEGORIES.length}</span>
+                      <span className="text-orange-600 font-bold">{Math.round((CATEGORIES[currentIdx].id / CATEGORIES.length) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden border-2 border-black">
+                      <div
+                        className="bg-orange-500 h-full rounded-full transition-all duration-300"
+                        style={{ width: `${Math.round((CATEGORIES[currentIdx].id / CATEGORIES.length) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-center mb-2 mt-1">
+                    <h3 className="font-display text-xl text-black tracking-normal leading-none uppercase">
+                      🏆 {CATEGORIES[currentIdx].title}
+                    </h3>
+                    <p className="font-comic text-[11px] text-orange-600 uppercase font-bold tracking-wider mt-0.5">
+                      ★ ¡VOTA POR TU FAVORITO! ★
+                    </p>
+                  </div>
+
+                  <div className="bg-yellow-50 border-2 border-black/80 rounded-xl py-1.5 px-3 flex items-center justify-center gap-2 mb-2 shadow-sm">
+                    <span className="text-xs">💡</span>
+                    <span className="font-comic text-[10px] uppercase font-extrabold text-slate-700">
+                      Toca en el pollito que crees que <span className="underline text-orange-600 font-sans">merece ganar</span>
+                    </span>
+                  </div>
+
+                  {/* Nominees list */}
+                  <div className="space-y-2 mb-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
+                    {CATEGORIES[currentIdx].nominees.map((nominee, idx) => {
+                      const isSelected = selectedNomineeId === nominee.id;
+
+                      return (
+                        <button
+                          key={nominee.id}
+                          onClick={() => handleSelectNominee(nominee.id)}
+                          className={`w-full text-left p-2 rounded-xl flex items-center justify-between border-4 select-none cursor-pointer active:scale-98 transition-all relative focus:outline-none ${
+                            isSelected
+                              ? 'bg-orange-50 border-orange-500'
+                              : 'bg-white border-gray-100 hover:border-yellow-400'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full overflow-visible relative flex items-center justify-center bg-yellow-50 border border-black/10 shrink-0">
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-orange-400/20 rounded-full animate-ping pointer-events-none" />
+                              )}
+                              <RobloxAvatar config={nominee.avatar} size={38} />
+                            </div>
+
+                            <div>
+                              <p className={`font-black text-sm text-black ${isSelected ? 'text-orange-600 font-display' : 'text-slate-800 font-display'}`}>
+                                {nominee.name}
+                              </p>
+                              <p className="text-[8px] font-extrabold uppercase tracking-wider text-gray-400 font-comic">
+                                NOMINADO {idx + 1}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className={`w-8 h-8 rounded-full border-2 border-black flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-orange-500 text-white' : 'bg-gray-50 text-slate-400'
+                          }`}>
+                            {isSelected ? (
+                              <span className="text-xs font-black">✓</span>
+                            ) : (
+                              <span className="text-[10px] font-black">{idx + 1}</span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mb-2 shrink-0">
+                    <button
+                      onClick={handleConfirmVote}
+                      disabled={!selectedNomineeId}
+                      className={`w-full py-2.5 px-4 font-display font-black text-xs uppercase tracking-widest rounded-xl border-3 border-black brutalist-shadow-sm transition-all focus:outline-none flex items-center justify-center gap-2 ${
+                        selectedNomineeId
+                          ? 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer active:translate-y-[2px]'
+                          : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                      }`}
+                    >
+                      <span>{selectedNomineeId ? 'Confirmar y Siguiente' : 'Selecciona un Favorito'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                    </button>
+                  </div>
+
+                  {CATEGORIES[currentIdx].funFact && (
+                    <div className="bg-yellow-100 border-4 border-black rounded-2xl py-2 px-3 flex items-center gap-2.5 shrink-0">
+                      <span className="text-lg">📢</span>
+                      <div className="text-left">
+                        <p className="font-comic font-black text-orange-600 uppercase text-[9px] tracking-wider">¿SABÍAS QUÉ?</p>
+                        <p className="text-slate-800 text-[10px] font-bold leading-tight font-sans">
+                          {CATEGORIES[currentIdx].funFact}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* SCREEN 6: INTERMISSION */}
+              {screen === 'intermission' && (
+                <motion.div
+                  key={`intermission-${currentIdx}`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="py-4 text-center flex flex-col items-center justify-between h-full min-h-[300px]"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
+                      className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center border-4 border-black mb-4"
+                    >
+                      <p className="text-3xl">
+                        {currentIdx === 2 ? '🐣' : currentIdx === 5 ? '💛' : '🎉'}
+                      </p>
+                    </motion.div>
+
+                    <h4 className="font-display text-xl text-black tracking-normal uppercase">
+                      {currentIdx === 2
+                        ? '¡SÚPER CHÉVERE!'
+                        : currentIdx === 5
+                        ? '¡MUCHAS GRACIAS!'
+                        : '¡YA CASI ESTAMOS!'}
+                    </h4>
+
+                    <div className="bg-orange-50 border-4 border-black rounded-2xl p-4 my-4 max-w-xs relative overflow-hidden text-left font-sans">
+                      <p className="font-comic text-xs font-bold text-gray-700 leading-relaxed italic">
+                        {currentIdx === 2
+                          ? '¡Levas 3 categorías! El Team Pollito realizó más de 150 directos llenos de parkour y risas.'
+                          : currentIdx === 5
+                          ? 'Gracias por formar parte del Team Pollito. ¡Eres el corazón de toda esta linda aventura en Roblox!'
+                          : 'Solo queda una categoría... ¡el premio más legendario e importante de todos los Pollitos Awards!'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    id="next-intermission-btn"
+                    onClick={skipIntermission}
+                    className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer text-center font-black uppercase active:translate-y-1 block focus:outline-none"
+                  >
+                    CONTINUAR →
+                  </button>
+                </motion.div>
+              )}
+
+              {/* SCREEN 7: SUBMITTING */}
+              {screen === 'submitting' && (
+                <motion.div
+                  key="submitting"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-center py-4 flex flex-col items-center justify-between h-full"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    <div className="relative w-36 h-40 flex items-center justify-center select-none mb-6">
+                      <div className="absolute inset-0 bg-yellow-200 rounded-full filter blur-xl opacity-60" />
+                      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible drop-shadow-md">
+                        <rect x="35" y="22" width="30" height="4" rx="2" fill="#fbbf24" opacity="0.3" className="animate-pulse" />
+                        <path d="M20,40 L80,40 L80,90 C80,93 77,95 74,95 L26,95 C23,95 20,93 20,90 Z" fill="#ffffff" stroke="#000000" strokeWidth="4" />
+                        <rect x="30" y="50" width="40" height="35" rx="5" fill="#facc15" stroke="#000000" strokeWidth="3" />
+                        <circle cx="50" cy="65" r="8" fill="#ffffff" stroke="#000000" strokeWidth="2" />
+                        <circle cx="50" cy="65" r="4" fill="#000000" />
+                        
+                        <g>
+                          <motion.g
+                            initial={{ y: -30, opacity: 1, scale: 0.9 }}
+                            animate={{ y: 28, opacity: [1, 1, 0.4, 0], scale: 0.7 }}
+                            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeIn' }}
+                          >
+                            <rect x="38" y="0" width="24" height="15" rx="1.5" fill="#ffffff" stroke="#000000" strokeWidth="2" />
+                            <line x1="38" y1="0" x2="50" y2="8" stroke="#000000" strokeWidth="2" />
+                            <line x1="62" y1="0" x2="50" y2="8" stroke="#000000" strokeWidth="2" />
+                          </motion.g>
+                        </g>
+                        
+                        <path d="M15,30 L85,30 C87,30 88,32 88,34 L88,40 L12,40 L12,34 C12,32 13,30 15,30 Z" fill="#e2e8f0" stroke="#000000" strokeWidth="4" />
+                        <rect x="34" y="33" width="32" height="3" rx="1.5" fill="#000000" />
+                      </svg>
+                    </div>
+
+                    <h4 className="font-display text-2xl text-black tracking-normal animate-pulse mb-1 uppercase">
+                      📦 GUARDANDO VOTOS
+                    </h4>
+                    <p className="font-comic text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Cerrando la urna...
+                    </p>
+                  </div>
+
+                  <div className="w-8 h-8 border-4 border-black border-t-yellow-400 rounded-full animate-spin mt-2" />
+                </motion.div>
+              )}
+
+              {/* SCREEN 8: FINAL SUMMARY REWARDS */}
+              {screen === 'final' && (
+                <motion.div
+                  key="final"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="py-1 flex flex-col items-center justify-between h-full"
+                >
+                  <div className="text-center mb-3">
+                    <div className="w-14 h-14 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center text-3xl mx-auto shadow-md animate-bounce relative mb-2">
+                      🎉
+                      <div className="absolute inset-0 border-2 border-dashed border-black rounded-full animate-pulse" />
+                    </div>
+                    <h2 className="font-display text-xl text-black tracking-normal uppercase leading-none">
+                      ¡Votos Enviados!
+                    </h2>
+                    <p className="font-comic text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                      ¡Hiciste un gran trabajo, pollito!
+                    </p>
+                  </div>
+
+                  <div className="w-full mb-2 shrink-0 scale-[0.95]">
+                    <ShareCard votes={votes} />
+                  </div>
+
+                  <div className="w-full space-y-2 text-left mb-3">
+                    <p className="font-comic text-[10px] uppercase tracking-widest text-[#ea580c] font-black mb-1 flex items-center gap-1.5 justify-center">
+                      <Award className="w-4 h-4 text-orange-600" /> MÁS CONTENIDO COMUNITARIO
+                    </p>
+                    
+                    <button
+                      id="view-milo-message-btn"
+                      onClick={() => {
+                        soundManager.playPop();
+                        setMiloModalOpen(true);
+                      }}
+                      className="w-full bg-orange-50 hover:bg-orange-100 border-4 border-black py-2 px-3 rounded-xl flex items-center justify-between text-left transition-all active:scale-98 cursor-pointer shadow-sm focus:outline-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">🎥</span>
+                        <div>
+                          <p className="font-display text-[11px] font-extrabold text-black uppercase tracking-wide leading-none">Mensaje Especial de Milumon</p>
+                          <p className="text-[9px] text-gray-500 font-bold uppercase font-comic mt-0.5">Unas palabras con mucho amor</p>
+                        </div>
+                      </div>
+                      <span className="text-orange-600 text-lg font-black font-sans">👉</span>
+                    </button>
+
+                    <button
+                      id="view-date-btn"
+                      onClick={() => {
+                        soundManager.playPop();
+                        setDateModalOpen(true);
+                      }}
+                      className="w-full bg-white hover:bg-slate-50 border-4 border-black py-2 px-3 rounded-xl flex items-center justify-between text-left transition-all active:scale-98 cursor-pointer shadow-sm focus:outline-none"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">📅</span>
+                        <div>
+                          <p className="font-display text-[11px] font-extrabold text-[#ea580c] uppercase tracking-wide leading-none">La Gala de Premiación</p>
+                          <p className="text-[9px] text-gray-500 font-bold uppercase font-comic mt-0.5">Cuándo sabremos quién ganó</p>
+                        </div>
+                      </div>
+                      <span className="text-orange-600 text-lg font-black font-sans">👉</span>
+                    </button>
+                  </div>
+
+                  <button
+                    id="back-home-btn"
+                    onClick={handleRestart}
+                    className="py-2.5 px-6 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-xs tracking-wider rounded-xl border-x-2 border-b-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 uppercase font-medium focus:outline-none"
+                  >
+                    <Home className="w-3.5 h-3.5 text-yellow-400" /> Volver al Inicio
+                  </button>
+                </motion.div>
+              )}
+
+            </AnimatePresence>
+          </div>
+        </div>
+
       </main>
-    </>
+
+      {/* FOOTER */}
+      <footer className="hidden md:block text-center mt-auto py-2 relative z-20">
+        <p className="font-comic text-[10px] text-gray-700 tracking-wide font-black uppercase">
+          🏆 The Pollitos Awards 2026 • Creado con ❤️ para todo el Team Pollito
+        </p>
+      </footer>
+
+      {/* POPUP MODAL A: MENSAJE DE MILUMON */}
+      <AnimatePresence>
+        {miloModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 font-sans"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white border-4 border-black rounded-[2rem] p-6 w-full max-w-sm relative brutalist-shadow text-center text-black"
+            >
+              <button
+                onClick={() => {
+                  soundManager.playPop();
+                  setMiloModalOpen(false);
+                }}
+                className="absolute top-4 right-4 text-black hover:scale-105 active:scale-95 transition-all w-8 h-8 flex items-center justify-center border-2 border-black rounded-lg bg-white cursor-pointer"
+              >
+                <X className="w-5 h-5 stroke-[3]" />
+              </button>
+
+              <div className="w-14 h-14 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-3 text-3xl border-2 border-black">
+                💝
+              </div>
+
+              <h4 className="font-display text-xl text-black tracking-normal uppercase mb-2">
+                ¡Gracias de corazón!
+              </h4>
+
+              <div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold font-sans">
+                <p className="mb-2">“¡Hola, mi pollito hermoso! 🐥”</p>
+                <p className="mb-2">
+                  No puedo creer que ya haya pasado <span className="text-orange-600 font-extrabold">1 año</span> completo desde que empezamos nuestras locas aventuras en Roblox.
+                </p>
+                <p className="mb-2">
+                  Cada risa en el chat, cada código canjeado, y cada vez que me revivieron en Adopt Me... ¡han sido el mejor regalo de mi vida!
+                </p>
+                <p>
+                  Tú haces que el <span className="text-orange-600 font-extrabold">Team Pollito</span> sea la familia más unida y alegre de todas. ¡Nos vemos en la gala de premiación muy pronto! 💛
+                </p>
+              </div>
+
+              <p className="font-display text-base text-orange-600 mt-3 font-black">
+                👑 Milumon • Streamer Oficial
+              </p>
+
+              <button
+                onClick={() => {
+                  soundManager.playPop();
+                  setMiloModalOpen(false);
+                }}
+                className="mt-4 w-full py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-display font-black text-sm tracking-wider rounded-xl border-2 border-black border-b-4 hover:border-b-2 active:translate-y-1 transition-all uppercase cursor-pointer focus:outline-none"
+              >
+                ¡TE QUIERO MILUMON! 💛
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP MODAL B: FECHA DE PREMIACIÓN */}
+      <AnimatePresence>
+        {dateModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 font-sans"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white border-4 border-black rounded-[2rem] p-6 w-full max-w-sm relative brutalist-shadow text-center text-black"
+            >
+              <button
+                onClick={() => {
+                  soundManager.playPop();
+                  setDateModalOpen(false);
+                }}
+                className="absolute top-4 right-4 text-black hover:scale-105 active:scale-95 transition-all w-8 h-8 flex items-center justify-center border-2 border-black rounded-lg bg-white cursor-pointer"
+              >
+                <X className="w-5 h-5 stroke-[3]" />
+              </button>
+
+              <div className="w-14 h-14 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-3 text-3xl border-2 border-black">
+                📅
+              </div>
+
+              <h4 className="font-display text-xl text-black tracking-normal uppercase mb-0.5">
+                La Gran Gala
+              </h4>
+              <p className="font-comic text-[10px] text-orange-600 uppercase tracking-widest font-black mb-3">
+                Pollitos Awards 2026
+              </p>
+
+              <div className="bg-orange-50 p-3.5 rounded-2xl border-4 border-black space-y-3 text-left font-sans text-xs">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">📅</span>
+                  <div>
+                    <p className="font-comic text-[9px] text-[#ea580c] font-black uppercase">Día Legendario</p>
+                    <p className="font-bold text-black">Martes, 16 de Junio de 2026</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">🕕</span>
+                  <div>
+                    <p className="font-comic text-[9px] text-[#ea580c] font-black uppercase">Hora de Conexión</p>
+                    <p className="font-bold text-black">19:30 Hs (GMT-5 / Horario Estelar)</p>
+                  </div>
+                </div>
+  
+                <div className="flex items-start gap-2.5">
+                  <span className="text-xl">🎥</span>
+                  <div>
+                    <p className="font-comic text-[9px] text-[#ea580c] font-black uppercase">Canal del Evento</p>
+                    <p className="font-bold text-[#ea580c]">¡En vivo por TikTok @milumon_gaming!</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-100 border-2 border-dashed border-yellow-400 p-2.5 rounded-xl font-comic text-[10px] text-slate-700 mt-3.5 leading-snug font-bold">
+                🔔 ¡No faltes en Roblox con tu mejor hoodie amarillo para subir al escenario virtual con Milumon!
+              </div>
+
+              <button
+                onClick={() => {
+                  soundManager.playPop();
+                  setDateModalOpen(false);
+                }}
+                className="mt-4 w-full py-3 bg-yellow-400 hover:bg-yellow-300 text-black font-display font-black text-sm tracking-wider rounded-xl border-2 border-black border-b-4 hover:border-b-2 active:translate-y-1 transition-all uppercase cursor-pointer focus:outline-none"
+              >
+                🏆 ¡AGENDADO! LISTO CON MI HOODIE
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>
   );
 }
