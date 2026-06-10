@@ -1,26 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Luckiest+Guy&family=Space+Grotesk:wght@400;500;700;900&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-display: "Luckiest Guy", cursive;
+  --font-comic: "Fredoka", sans-serif;
+  --font-sans: "Space Grotesk", sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer utilities {
+  .text-shadow-hard {
+    text-shadow: 2px 2px 0px #000;
+  }
+  .text-shadow-hard-lg {
+    text-shadow: 4px 4px 0px #000;
+  }
+  .text-shadow-hard-white {
+    text-shadow: 2px 2px 0px #fff;
+  }
+  .brutalist-shadow {
+    box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+  }
+  .brutalist-shadow-lg {
+    box-shadow: 12px 12px 0px 0px rgba(0, 0, 0, 1);
+  }
+  .brutalist-shadow-hover:hover {
+    box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+    transform: translate(4px, 4px);
+  }
+}
+
+/* Base modifications for the Roblox comic gamer feel */
+body {
+  background-color: #FFD700; /* Sleek Interface signature yellow */
+  color: #000000;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Hide scrollbars during transitions */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FFD700;
+}
+::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: 2px solid #FFD700;
+  border-radius: 4px;
+}
+
+:root {
+  --color-primary: #ffd700; /* gold */
+  --color-bg: #ffd700;
+  --color-text: #000000;
+  --font-display: "Luckiest Guy", cursive;
+  --font-sans: "Space Grotesk", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-primary: #ffcc00;
+    --color-bg: #1a1a1a;
+    --color-text: #ffffff;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
 }
