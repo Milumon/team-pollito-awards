@@ -1303,7 +1303,7 @@ export default function LandingPage() {
               </h4>
  
 <div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold">
-  <p className="mb-2">“¡Hola, mi pollito hermoso! 🐣💛”</p>
+  <p className="mb-2">“¡Hola, mi pollit@ hermos@! 🐣💛”</p>
 
   <p className="mb-2">
     No puedo creer que ya haya pasado{" "}
