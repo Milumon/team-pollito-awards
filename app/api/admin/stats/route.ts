@@ -95,11 +95,12 @@ export async function GET(request: NextRequest) {
       if (!robloxProfile && authUser.user_metadata?.roblox_profile) {
         const metaProfile = authUser.user_metadata.roblox_profile;
         robloxProfile = {
-          roblox_user: metaProfile.roblox_user,
-          roblox_display_name: metaProfile.roblox_display_name,
-          roblox_avatar_url: metaProfile.roblox_avatar_url,
-          roblox_verified_at: metaProfile.roblox_verified_at,
-        };
+  id: metaProfile.id ?? authUser.id,   // ← agregar esta línea
+  roblox_user: metaProfile.roblox_user,
+  roblox_display_name: metaProfile.roblox_display_name,
+  roblox_avatar_url: metaProfile.roblox_avatar_url,
+  roblox_verified_at: metaProfile.roblox_verified_at,
+};
       }
 
       const userVotes = votes?.filter((v: any) => v.user_id === authUser.id) || [];
