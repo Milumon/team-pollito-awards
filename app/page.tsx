@@ -1301,23 +1301,35 @@ export default function LandingPage() {
               <h4 className="font-display text-xl text-black tracking-normal uppercase mb-2">
                 ¡Gracias de corazón!
               </h4>
+ 
+<div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold">
+  <p className="mb-2">“¡Hola, mi pollito hermoso! 🐣💛”</p>
 
-              <div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold font-sans">
-                <p className="mb-2">“¡Hola, mi pollito hermoso! 🐥”</p>
-                <p className="mb-2">
-                  No puedo creer que ya haya pasado <span className="text-orange-600 font-extrabold">1 año</span> completo desde que empezamos nuestras locas aventuras en Roblox.
-                </p>
-                <p className="mb-2">
-                  Cada risa en el chat, cada código canjeado, y cada vez que me revivieron en Adopt Me... ¡han sido el mejor regalo de mi vida!
-                </p>
-                <p>
-                  Tú haces que el <span className="text-orange-600 font-extrabold">Team Pollito</span> sea la familia más unida y alegre de todas. ¡Nos vemos en la gala de premiación muy pronto! 💛
-                </p>
-              </div>
+  <p className="mb-2">
+    No puedo creer que ya haya pasado{" "}
+    <span className="text-orange-600 font-extrabold">1 añito</span>{" "}
+    desde que empezó esta hermosa aventura del Team Pollito. Parece que fue ayer cuando todo comenzó donde la meta apenas era 200 seguidores y ahora ya tenemos un montón de recuerdos, risas y momentos inolvidables juntos. ✨
+  </p>
 
-              <p className="font-display text-base text-orange-600 mt-3 font-black">
-                👑 Milumon • Streamer Oficial
-              </p>
+  <p className="mb-2">
+    Gracias por acompañarme en cada stream, por estar siempre ahí, por apoyar cada locura que hacemos y por formar parte de esta comunidad tan especial. 🥹💛
+  </p>
+
+  <p className="mb-2">
+    Cada mensaje, cada conversación y cada momento compartido significa muchísimo para mí. Ustedes son el corazón del{" "}
+    <span className="text-orange-600 font-extrabold">Team Pollito</span>{" "}
+    y hacen que todo esto valga la pena. 🐣
+  </p>
+
+  <p>
+    Gracias por este primer añito juntos. Espero que sigamos compartiendo muchas aventuras, muchas risas y muchísimos momentos más. !PORQUE A PARTIR DE HOY...! TU Y YO... POLLITOS POR SIEMPRE 🐣💛✨
+  </p>
+</div>
+
+<p className="font-display text-base text-orange-600 mt-3 font-black">
+  🐣 Milumon • Streamer Oficial
+</p> 
+
 
               <button
                 onClick={() => {
