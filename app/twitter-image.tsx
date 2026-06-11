@@ -10,7 +10,7 @@ export const size = {
 
 export const contentType = "image/png";
 
-export default function TwitterImage() {
+export default function OpenGraphImage() {
   return new ImageResponse(
     (
       <div
@@ -23,17 +23,18 @@ export default function TwitterImage() {
           overflow: "hidden",
           fontFamily: '"Arial Black", Arial, sans-serif',
           color: "#111111",
+          justifyContent: "center",
+          alignItems: "center",
         }}
       >
         <div
           style={{
-            width: "100%",
-            height: "100%",
+            width: "900px",
+            height: "470px",
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
-            alignItems: "flex-start",
-            padding: "70px 70px 60px 70px",
           }}
         >
           <div
@@ -43,7 +44,7 @@ export default function TwitterImage() {
               color: "#f8d400",
               borderRadius: "22px",
               padding: "16px 28px",
-              fontSize: "42px",
+              fontSize: "40px",
               lineHeight: 1,
               marginBottom: "34px",
               textTransform: "uppercase",
@@ -57,6 +58,7 @@ export default function TwitterImage() {
             style={{
               display: "flex",
               flexDirection: "column",
+              alignItems: "center",
               lineHeight: 0.88,
               textTransform: "uppercase",
             }}
@@ -64,10 +66,10 @@ export default function TwitterImage() {
             <div
               style={{
                 display: "flex",
-                fontSize: "118px",
+                fontSize: "110px",
                 color: "#111111",
                 letterSpacing: "-0.06em",
-                marginBottom: "12px",
+                marginBottom: "10px",
               }}
             >
               The
@@ -76,13 +78,12 @@ export default function TwitterImage() {
             <div
               style={{
                 display: "flex",
-                alignSelf: "flex-start",
                 background: "#f3f3f3",
                 color: "#f05a00",
                 border: "6px solid #111111",
                 borderRadius: "16px",
-                padding: "12px 24px 10px 24px",
-                fontSize: "108px",
+                padding: "12px 28px 10px 28px",
+                fontSize: "102px",
                 letterSpacing: "-0.06em",
                 marginBottom: "16px",
                 boxShadow: "10px 10px 0 #111111",
@@ -94,7 +95,7 @@ export default function TwitterImage() {
             <div
               style={{
                 display: "flex",
-                fontSize: "118px",
+                fontSize: "110px",
                 color: "#111111",
                 letterSpacing: "-0.06em",
               }}
