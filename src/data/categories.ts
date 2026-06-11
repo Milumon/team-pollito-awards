@@ -622,4 +622,73 @@ export const CATEGORIES: Category[] = [
       },
     ],
   },
+  {
+    id: 10,
+    title: 'Pollito MÁS TIERNO DEL AÑO',
+    emoji: '🥺',
+    description: 'El pollito más dulce, adorable y tierno de toda la comunidad. Derrite corazones con su forma de ser.',
+    funFact: 'La ternura también vota fuerte en los Pollitos Awards.',
+    nominees: [
+      {
+        id: 'pollito_tierno',
+        name: 'PollitoTierno',
+        avatar: {
+          skinColor: '#ffe4b5',
+          hoodieColor: '#fbbf24',
+          eyesType: 'cute',
+          mouthType: 'bigSmile',
+          accessory: 'chickHat',
+          hairColor: '#d97706',
+        },
+      },
+      {
+        id: 'milo_cute',
+        name: 'MiloCute',
+        avatar: {
+          skinColor: '#ffd699',
+          hoodieColor: '#ec4899',
+          eyesType: 'smile',
+          mouthType: 'happy',
+          accessory: 'star',
+          hairColor: '#7c2d12',
+        },
+      },
+      {
+        id: 'hug_pollito',
+        name: 'HugPollito',
+        avatar: {
+          skinColor: '#ffcc80',
+          hoodieColor: '#06b6d4',
+          eyesType: 'wink',
+          mouthType: 'laugh',
+          accessory: 'headset',
+          hairColor: '#451a03',
+        },
+      },
+      {
+        id: 'cuddle_roblox',
+        name: 'CuddleRoblox',
+        avatar: {
+          skinColor: '#ffe082',
+          hoodieColor: '#8b5cf6',
+          eyesType: 'cute',
+          mouthType: 'open',
+          accessory: 'crown',
+          hairColor: '#78350f',
+        },
+      },
+      {
+        id: 'pompom_pollito',
+        name: 'PompomPollito',
+        avatar: {
+          skinColor: '#ffb74d',
+          hoodieColor: '#10b981',
+          eyesType: 'starry',
+          mouthType: 'bigSmile',
+          accessory: 'star',
+          hairColor: '#1e293b',
+        },
+      },
+    ],
+  },
 ];

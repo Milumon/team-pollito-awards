@@ -1,38 +1,73 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Volume2,
   VolumeX,
-  Trophy,
   Award,
   ChevronLeft,
+  LogOut,
   X,
   Home,
-  ArrowRight
+  ArrowRight,
+  Search
 } from 'lucide-react';
 
-import { CATEGORIES } from '@/src/data/categories';
-import { VoteState } from '@/src/types';
-import RobloxAvatar from '@/components/RobloxAvatar';
-import EggAnimation from '@/components/EggAnimation';
-import ShareCard from '@/components/ShareCard';
-import Confetti from '@/components/Confetti';
-import { soundManager } from '@/lib/sound';
-import { supabase } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+import { CATEGORIES as DEFAULT_CATEGORIES } from '../src/data/categories';
+import { VoteState } from '../src/types';
+import EggAnimation from '../components/EggAnimation';
+import ShareCard from '../components/ShareCard';
+import Confetti from '../components/Confetti';
+import RobloxOnboarding from '../components/RobloxOnboarding';
+import { soundManager } from '../lib/sound';
+import { supabase } from '../lib/supabaseClient';
 
-type ScreenState = 'landing' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final';
+type ScreenState = 'landing' | 'auth' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final';
 
-export default function Home() {
-  const router = useRouter();
+type PublicNominee = {
+  id: string;
+  name: string;
+  profileImageUrl: string | null;
+};
+
+type RobloxProfileState = {
+  displayName: string;
+  avatarUrl: string | null;
+  username: string | null;
+} | null;
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+export default function LandingPage() {
+  const warnedVotesReadRef = useRef(false);
   const [session, setSession] = useState<any>(null);
   const [screen, setScreen] = useState<ScreenState>('landing');
   const [votes, setVotes] = useState<VoteState>({});
   const [currentIdx, setCurrentIdx] = useState<number>(0);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [selectedNomineeId, setSelectedNomineeId] = useState<string | null>(null);
+  const [nominees, setNominees] = useState<PublicNominee[]>([]);
+  const [nomineesLoading, setNomineesLoading] = useState<boolean>(false);
+  const [nomineeSearch, setNomineeSearch] = useState<string>('');
   const [muted, setMuted] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [robloxProfile, setRobloxProfile] = useState<RobloxProfileState>(null);
+  
+  const sessionRef = useRef<any>(null);
+  const screenRef = useRef<ScreenState>('landing');
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
   
   // Interactive triggers
   const [burstActive, setBurstActive] = useState<boolean>(false);
@@ -41,6 +76,7 @@ export default function Home() {
   // Modal states
   const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
   const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
+  const [robloxOnboardingOpen, setRobloxOnboardingOpen] = useState<boolean>(false);
 
   // Countdown Timer state for June 16, 2026, 7:30 PM (19:30:00) GMT-5
   const [timeLeft, setTimeLeft] = useState({
@@ -53,33 +89,156 @@ export default function Home() {
 
   // Check user session and fetch existing votes on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initializeSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
-      if (session) {
-        fetchUserVotes(session.user.id);
-      }
-    });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        fetchUserVotes(session.user.id);
+      // Limpiar el hash de la URL después de consumir el token de sesión
+      // para evitar que Supabase re-parsee un token expirado en cada navegación
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+
+      if (!session) return;
+
+      // Check if user has completed their Roblox profile
+      await checkRobloxProfile(session);
+
+      const hasFinishedVoting = await fetchUserVotes(session.user.id, true);
+      if (!hasFinishedVoting) {
+        setScreen('hatching');
+      }
+    };
+
+    initializeSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      const wasAlreadyLoggedIn = !!sessionRef.current;
+      const isInsideVotingFlow = ['hatching', 'welcome', 'intro', 'voting', 'intermission', 'submitting'].includes(screenRef.current);
+
+      setSession(nextSession);
+
+      // Limpiar hash de URL stale también en cambios de estado de auth
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+
+      if (nextSession) {
+        setAuthError(null);
+        
+        // Evitar que refrescos de token en segundo plano o enfoque de ventana reinicien la pantalla o interrumpan la votación
+        if (event === 'TOKEN_REFRESHED' || wasAlreadyLoggedIn || isInsideVotingFlow) {
+          return;
+        }
+        
+        // Check if user has completed their Roblox profile
+        await checkRobloxProfile(nextSession);
+        
+        const hasFinishedVoting = await fetchUserVotes(nextSession.user.id, true);
+        if (!hasFinishedVoting) {
+          setScreen((prev) => (prev === 'landing' || prev === 'auth' ? 'hatching' : prev));
+        }
       } else {
         setVotes({});
+        setScreen('landing');
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchUserVotes = async (userId: string) => {
+  useEffect(() => {
+    const loadCategories = async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, title, emoji, description')
+        .order('id', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        console.error('Error loading categories from Supabase:', error);
+        setCategories(DEFAULT_CATEGORIES);
+        return;
+      }
+
+      setCategories(
+        data.map((category: any) => ({
+          id: category.id,
+          title: category.title,
+          emoji: category.emoji,
+          description: category.description,
+          nominees: [],
+        }))
+      );
+    };
+
+    void loadCategories();
+  }, []);
+
+  const checkRobloxProfile = async (session: any) => {
+    if (!session?.access_token) return;
+
+    try {
+      const response = await fetch('/api/profile/verify-roblox', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.profile) {
+        setRobloxProfile({
+          displayName: data.profile.roblox_display_name || data.profile.roblox_user || data.displayName || 'Pollito',
+          avatarUrl: data.profile.roblox_avatar_url || data.avatarUrl || null,
+          username: data.profile.roblox_user || null,
+        });
+      } else if (data.displayName) {
+        setRobloxProfile({
+          displayName: data.displayName,
+          avatarUrl: data.avatarUrl || null,
+          username: null,
+        });
+      }
+
+      // If profile is not complete, show onboarding modal
+      if (!data.isComplete) {
+        setRobloxOnboardingOpen(true);
+      }
+    } catch (err) {
+      console.error('Error checking Roblox profile:', err);
+    }
+  };
+
+  const fetchUserVotes = async (userId: string, shouldRedirect: boolean = false): Promise<boolean> => {
     try {
       const { data, error } = await supabase
         .from('votes')
         .select('category_id, nominee_id')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        const isRlsReadError =
+          error.code === '42501' ||
+          msg.includes('permission denied') ||
+          msg.includes('row-level security');
+
+        if (isRlsReadError) {
+          // Avoid spamming in dev StrictMode; this is configuration, not app flow failure.
+          if (!warnedVotesReadRef.current) {
+            console.warn(
+              'No se pudieron leer los votos por politicas RLS. Agrega policy SELECT para votes.',
+              { code: error.code, message: error.message }
+            );
+            warnedVotesReadRef.current = true;
+          }
+          setVotes({});
+          return false;
+        }
+
+        throw error;
+      }
 
       if (data && data.length > 0) {
         const loadedVotes: VoteState = {};
@@ -87,14 +246,31 @@ export default function Home() {
           loadedVotes[v.category_id] = v.nominee_id;
         });
         setVotes(loadedVotes);
+
+        const firstMissingCategoryIndex = categories.findIndex((category) => !loadedVotes[category.id]);
+        if (firstMissingCategoryIndex >= 0) {
+          setCurrentIdx(firstMissingCategoryIndex);
+          setSelectedNomineeId(loadedVotes[categories[firstMissingCategoryIndex].id] || null);
+        }
         
         // If they voted in everything, jump to final
-        if (data.length >= CATEGORIES.length) {
-          setScreen('final');
+        if (data.length >= categories.length) {
+          if (shouldRedirect) {
+            setScreen('final');
+          }
+          return true;
         }
       }
-    } catch (err) {
-      console.error('Error fetching user votes:', err);
+
+      return false;
+    } catch (err: any) {
+      console.error('Error fetching user votes:', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint,
+      });
+      return false;
     }
   };
 
@@ -123,6 +299,36 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const loadNominees = async () => {
+      setNomineesLoading(true);
+
+      const { data, error } = await supabase
+        .from('nominees')
+        .select('id, roblox_user, nickname, profile_image_url, is_visible')
+        .eq('is_visible', true)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading public nominees:', error);
+        setNominees([]);
+        setNomineesLoading(false);
+        return;
+      }
+
+      setNominees(
+        (data || []).map((nominee: any) => ({
+          id: nominee.id,
+          name: String(nominee.nickname || nominee.roblox_user || ''),
+          profileImageUrl: nominee.profile_image_url || null,
+        }))
+      );
+      setNomineesLoading(false);
+    };
+
+    void loadNominees();
+  }, []);
+
   // Sync mute state with sound utility
   const toggleMuted = () => {
     const newMuted = soundManager.toggleMute();
@@ -132,29 +338,62 @@ export default function Home() {
   const handleStartVotingClick = () => {
     soundManager.playPop();
     if (!session) {
-      router.push('/login');
+      setAuthError(null);
+      setScreen('auth');
     } else {
+      const firstMissingCategoryIndex = categories.findIndex((category) => !votes[category.id]);
+      if (firstMissingCategoryIndex >= 0) {
+        setCurrentIdx(firstMissingCategoryIndex);
+        setSelectedNomineeId(votes[categories[firstMissingCategoryIndex].id] || null);
+      }
       setScreen('hatching');
     }
   };
 
-  // Restart/reset voting logic
-  const handleRestart = async () => {
-    soundManager.playPop();
-    if (session) {
-      // Clear votes from db if resetting (optional, or just let them reset state)
-      const { error } = await supabase
-        .from('votes')
-        .delete()
-        .eq('user_id', session.user.id);
-      if (error) console.error('Error resetting votes in Supabase:', error);
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
     }
-    setVotes({});
-    setCurrentIdx(0);
-    setSelectedNomineeId(null);
-    setContinuousConfetti(false);
-    setScreen('landing');
   };
+
+  const handleLogout = async () => {
+    soundManager.playPop();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error al cerrar sesion:', {
+        message: error.message,
+        code: error.code,
+      });
+    }
+  };
+
+  // Restart/reset voting logic
+  const handleRestart = () => {
+    soundManager.playPop();
+    setCurrentIdx(0);
+    setSelectedNomineeId(votes[categories[0]?.id] || null);
+    setNomineeSearch('');
+    setContinuousConfetti(false);
+    setAuthError(null);
+    // Si el usuario tiene sesión activa, volver al flujo de votación
+    // en vez de la pantalla de landing (que es para usuarios no autenticados)
+    setScreen(session ? 'hatching' : 'landing');
+  };
+
+  const normalizedNomineeSearch = normalizeText(nomineeSearch.trim());
+  const activeNominees = normalizedNomineeSearch
+    ? nominees.filter((nominee) => normalizeText(nominee.name).includes(normalizedNomineeSearch))
+    : nominees;
+  const totalNomineesCount = nominees.length;
 
   // Vote nomination selection
   const handleSelectNominee = (nomineeId: string) => {
@@ -172,35 +411,56 @@ export default function Home() {
       setBurstActive(false);
     }, 1500);
 
-    const categoryId = CATEGORIES[currentIdx].id;
+    const categoryId = categories[currentIdx].id;
 
-    // Save vote to Supabase
-    const { error } = await supabase.from('votes').insert({
-      user_id: session.user.id,
-      nominee_id: selectedNomineeId,
-      category_id: categoryId,
-    } as any);
+    // Refrescar la sesión antes de guardar para asegurar un JWT válido
+    const { data: { session: freshSession } } = await supabase.auth.getSession();
+    if (!freshSession) {
+      setAuthError('Tu sesión expiró. Por favor, volvé a iniciar sesión.');
+      setScreen('landing');
+      return;
+    }
+    setSession(freshSession);
+
+    // Borrar el voto existente para esta categoría si lo hubiera, para evitar políticas de UPDATE en RLS (que no están configuradas)
+    await supabase
+      .from('votes')
+      .delete()
+      .eq('user_id', freshSession.user.id)
+      .eq('category_id', categoryId);
+
+    // Insertar el nuevo voto
+    const { error } = await supabase
+      .from('votes')
+      .insert({
+        user_id: freshSession.user.id,
+        nominee_id: selectedNomineeId,
+        category_id: categoryId,
+      });
 
     if (error) {
       console.error('Error saving vote:', error);
+      setAuthError('Error al guardar tu voto. Intentalo de nuevo.');
+      return;
     }
 
     const newVotes = { ...votes, [categoryId]: selectedNomineeId };
     setVotes(newVotes);
 
     setTimeout(() => {
-      setSelectedNomineeId(null);
-      
       const nextIdx = currentIdx + 1;
-      const totalCategories = CATEGORIES.length;
+      const totalCategories = categories.length;
 
       // Check for emotional intermissions
       if ((nextIdx === 3 || nextIdx === 6) && nextIdx < totalCategories) {
+        setSelectedNomineeId(newVotes[categories[nextIdx]?.id] || null);
         setScreen('intermission');
       } else if (nextIdx >= totalCategories) {
+        setSelectedNomineeId(null);
         setScreen('submitting');
       } else {
         setCurrentIdx(nextIdx);
+        setSelectedNomineeId(newVotes[categories[nextIdx]?.id] || null);
         setScreen('intro');
       }
     }, 700);
@@ -210,7 +470,7 @@ export default function Home() {
     soundManager.playPop();
     const nextIdx = currentIdx + 1;
     setCurrentIdx(nextIdx);
-    setSelectedNomineeId(null);
+    setSelectedNomineeId(votes[categories[nextIdx]?.id] || null);
     setScreen('intro');
   };
 
@@ -235,7 +495,7 @@ export default function Home() {
   }, [screen]);
 
   return (
-    <div id="app-root-container" className="h-[100dvh] md:min-h-screen bg-[#FFD700] text-black flex flex-col justify-between relative selection:bg-black selection:text-yellow-400 md:pb-12 overflow-hidden md:pt-2 pt-0 pb-0 font-sans md:px-4 px-0">
+    <div id="app-root-container" className="h-[100dvh] md:min-h-screen bg-white md:bg-[#FFD700] text-black flex flex-col justify-between relative selection:bg-black selection:text-yellow-400 md:pb-12 overflow-hidden md:pt-2 pt-0 pb-0 font-sans md:px-4 px-0">
       
       {/* Dynamic Confetti triggers */}
       <Confetti active={continuousConfetti} type="continuous" />
@@ -305,20 +565,20 @@ export default function Home() {
             <div className="flex space-x-4 w-full">
               <div className="bg-white p-4 rounded-2xl border-4 border-black brutalist-shadow flex-1">
                 <p className="text-xs uppercase font-bold text-gray-500 font-sans">Categorías</p>
-                <p className="text-3xl font-black font-display text-black">{CATEGORIES.length}</p>
+                <p className="text-3xl font-black font-display text-black">{categories.length}</p>
               </div>
               <div className="bg-white p-4 rounded-2xl border-4 border-black brutalist-shadow flex-1">
-                <p className="text-xs uppercase font-bold text-gray-500 font-sans">Nominados</p>
+                <p className="text-xs uppercase font-bold text-gray-500 font-sans">Pollitos</p>
                 <p className="text-3xl font-black font-display text-black">
-                  {CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}
+                  {nomineesLoading ? '...' : totalNomineesCount}
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: The High-Contrast Sleek Smartphone Frame Mockup */}
-        <div className="w-full md:max-w-[365px] h-[100dvh] md:h-[690px] bg-white md:rounded-[2.8rem] rounded-none md:border-[8px] border-0 md:shadow-[16px_16px_0px_0px_rgba(0,0,0,0.15)] shadow-none relative flex flex-col overflow-hidden text-black md:shrink-0">
+        {/* RIGHT COLUMN: Smartphone Frame Mockup on Desktop, Native Fullscreen on Mobile */}
+        <div className="w-full h-full md:max-w-[365px] md:h-[690px] bg-white rounded-none md:rounded-[2.8rem] border-none md:border-[8px] md:border-solid md:border-black shadow-none md:shadow-[16px_16px_0px_0px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden text-black md:shrink-0">
           
           {/* Top Speaker Notch Block */}
           <div className="hidden md:flex h-5 bg-black w-28 mx-auto rounded-b-2xl mb-2 items-center justify-center shrink-0">
@@ -326,30 +586,45 @@ export default function Home() {
           </div>
 
           {/* Header Progress Tag & Audio Toggle inside phone frame */}
-          <div className="px-5 py-1.5 flex justify-between items-center bg-gray-50 border-b-2 border-gray-100 shrink-0">
-            {screen !== 'landing' && screen !== 'hatching' && (
-              <button
-                id="back-to-landing"
-                onClick={handleRestart}
-                className="flex items-center gap-1 bg-white hover:bg-gray-100 border-2 border-black rounded-lg px-2.5 py-1 text-xs font-comic font-black text-black cursor-pointer active:scale-95 transition-all"
-              >
-                <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" /> INICIO
-              </button>
-            )}
-            {screen === 'landing' && (
-              <span className="text-[10px] uppercase tracking-wider font-extrabold text-gray-400 font-comic animate-pulse">
-                • 1 AÑO DE STREAMS
-              </span>
-            )}
-            
-            {/* Steps text inside phone */}
-            {screen === 'voting' && (
-              <span className="text-[11px] font-black bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full border border-yellow-200">
-                PASO {CATEGORIES[currentIdx].id < 10 ? `0${CATEGORIES[currentIdx].id}` : CATEGORIES[currentIdx].id}/{CATEGORIES.length}
-              </span>
-            )}
+          <div className="px-4 py-1 md:px-5 md:py-1.5 flex items-center justify-between gap-2 bg-white md:bg-gray-50 border-b-2 border-black/5 md:border-gray-100 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {screen !== 'landing' && screen !== 'hatching' && (
+                <button
+                  id="back-to-landing"
+                  onClick={handleRestart}
+                  className="flex items-center gap-1 bg-white hover:bg-gray-100 border-2 border-black rounded-lg px-2.5 py-1 text-xs font-comic font-black text-black cursor-pointer active:scale-95 transition-all"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" /> INICIO
+                </button>
+              )}
 
-            <div className="ml-auto flex items-center gap-2">
+              {screen === 'landing' && (
+                <span className="text-[10px] uppercase tracking-wider font-extrabold text-gray-400 font-comic animate-pulse whitespace-nowrap">
+                  • 1 AÑO DE STREAMS
+                </span>
+              )}
+
+              {/* Steps text inside phone */}
+              {screen === 'voting' && (
+                <span className="ml-1 text-[11px] font-black bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full border border-yellow-200 whitespace-nowrap">
+                  PASO {categories[currentIdx].id < 10 ? `0${categories[currentIdx].id}` : categories[currentIdx].id}/{categories.length}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {session && (
+                <button
+                  id="logout-btn"
+                  onClick={handleLogout}
+                  className="h-8 rounded-lg bg-white hover:bg-gray-100 border-2 border-black px-2.5 flex items-center justify-center gap-1 text-[10px] font-comic font-black uppercase text-black cursor-pointer active:scale-95 transition-all"
+                  title="Cerrar sesion"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Salir</span>
+                </button>
+              )}
+
               <button
                 id="audio-toggle-btn"
                 onClick={toggleMuted}
@@ -362,7 +637,7 @@ export default function Home() {
           </div>
 
           {/* View Container inside Smartphone Viewport */}
-          <div className="flex-grow overflow-y-auto p-4 flex flex-col justify-between relative z-20 scrollbar-thin">
+          <div className="flex-grow overflow-y-auto p-3 md:p-4 flex flex-col relative z-20 scrollbar-thin">
             <AnimatePresence mode="wait">
               
               {/* SCREEN 1: LANDING */}
@@ -372,9 +647,9 @@ export default function Home() {
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="flex flex-col items-center text-center justify-between h-full py-1"
+                  className="flex flex-col items-center text-center h-full py-1"
                 >
-                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                  <div className="w-full flex flex-col items-center pt-2">
                     {/* Mobile rotated badge */}
                     <div className="inline-block bg-black text-yellow-400 font-black px-3 py-1 text-xs transform -rotate-2 rounded border border-black mb-3 md:hidden">
                       1ER ANIVERSARIO
@@ -413,7 +688,7 @@ export default function Home() {
                     </div>
 
                     {/* Central Hatching Chick Graphics */}
-                    <div className="w-28 h-28 mx-auto relative mb-0.5 flex items-center justify-center shrink-0">
+                    <div className="w-28 h-28 mx-auto relative mb-1 flex items-center justify-center shrink-0">
                       <span className="text-7xl select-none">🐣</span>
                     </div>
 
@@ -440,22 +715,20 @@ export default function Home() {
                     </p>
 
                     {/* Dual Stats Badges for Mobile */}
-                    <div className="flex gap-3 w-full max-w-[290px] mt-4 mb-2.5">
+                    <div className="flex gap-3 w-full max-w-[290px] mt-3 mb-2">
                       <div className="bg-orange-50 border-4 border-black p-2.5 rounded-2xl flex-1 text-center brutalist-shadow-sm">
                         <p className="text-[10px] uppercase font-black text-gray-500 font-sans leading-none mb-1">Categorías</p>
-                        <p className="text-2xl font-black font-display text-black leading-none">{CATEGORIES.length}</p>
+                        <p className="text-2xl font-black font-display text-black leading-none">{categories.length}</p>
                       </div>
                       <div className="bg-orange-50 border-4 border-black p-2.5 rounded-2xl flex-1 text-center brutalist-shadow-sm border-orange-500">
-                        <p className="text-[10px] uppercase font-black text-orange-600 font-sans leading-none mb-1">Nominados</p>
-                        <p className="text-2xl font-black font-display text-orange-600 leading-none">
-                          {CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}
-                        </p>
+                        <p className="text-[10px] uppercase font-black text-orange-600 font-sans leading-none mb-1">Pollitos</p>
+                        <p className="text-2xl font-black font-display text-orange-600 leading-none">{totalNomineesCount}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Big Golden Action Button */}
-                  <div className="w-full mt-auto">
+                  <div className="w-full mt-auto pt-3">
                     <button
                       id="start-awards-btn"
                       onClick={handleStartVotingClick}
@@ -466,6 +739,51 @@ export default function Home() {
                     <div className="flex justify-center items-center gap-1.5 text-gray-500 font-comic font-black text-[10px] mt-2 uppercase tracking-wider">
                       🐣 ¡Es rápido y divertido!
                     </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* SCREEN 1.5: AUTH */}
+              {screen === 'auth' && (
+                <motion.div
+                  key="auth"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="h-full py-4 flex flex-col items-center justify-between text-center"
+                >
+                  <div className="w-full flex-grow flex flex-col items-center justify-center">
+                    <div className="w-24 h-24 rounded-full bg-yellow-100 border-4 border-black flex items-center justify-center mb-4">
+                      <span className="text-5xl">🔐</span>
+                    </div>
+
+                    <h2 className="font-display text-2xl text-black tracking-normal uppercase mb-1">
+                      Iniciá con Google
+                    </h2>
+                    <p className="font-comic text-xs font-bold text-gray-600 px-4 max-w-xs">
+                      Para votar y guardar tus premios, usá tu cuenta de Google.
+                    </p>
+
+                    {authError && (
+                      <div className="mt-4 bg-red-50 border-2 border-black p-3 rounded-xl text-xs font-bold text-red-600 font-comic w-full max-w-xs">
+                        ⚠️ {authError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-full space-y-2">
+                    <button
+                      onClick={handleGoogleSignIn}
+                      className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md focus:outline-none"
+                    >
+                      CONTINUAR CON GOOGLE
+                    </button>
+                    <button
+                      onClick={() => setScreen('landing')}
+                      className="w-full py-2.5 bg-white text-black font-comic text-xs uppercase tracking-wider rounded-xl border-2 border-black font-black"
+                    >
+                      Volver
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -495,14 +813,28 @@ export default function Home() {
                       transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
                       className="w-24 h-24 relative mb-4 flex items-center justify-center shrink-0"
                     >
-                      <span className="text-7xl select-none">🐣</span>
+                      {robloxProfile?.avatarUrl ? (
+                        <img
+                          src={robloxProfile.avatarUrl}
+                          alt={robloxProfile.displayName}
+                          className="w-24 h-24 rounded-full border-4 border-black object-cover bg-yellow-100"
+                        />
+                      ) : (
+                        <span className="text-7xl select-none">🐣</span>
+                      )}
                     </motion.div>
 
                     <h2 className="font-display text-2xl text-black uppercase tracking-normal mb-1">
-                      ¡Hola, Pollito!
+                      ¡Hola, {robloxProfile?.displayName || 'Pollito'}!
                     </h2>
                     <p className="font-comic text-xs font-bold text-gray-600 px-2 tracking-wide mb-5">
-                      Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span> de este año.
+                      {robloxProfile?.username ? (
+                        <>
+                          Tu usuario verificado es <span className="text-orange-600">@{robloxProfile.username}</span>. Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span>.
+                        </>
+                      ) : (
+                        <>Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span> de este año.</>
+                      )}
                     </p>
 
                     <div className="w-full bg-orange-50 border-4 border-black p-4 rounded-2xl mb-6 space-y-3.5 text-left">
@@ -511,7 +843,7 @@ export default function Home() {
                           🏆
                         </div>
                         <span className="font-comic text-xs uppercase font-black text-black">
-                          <span className="text-orange-600 text-sm">{CATEGORIES.length}</span> categorías exclusivas
+                          <span className="text-orange-600 text-sm">{categories.length}</span> categorías exclusivas
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -519,7 +851,7 @@ export default function Home() {
                           👥
                         </div>
                         <span className="font-comic text-xs uppercase font-black text-black">
-                          <span className="text-orange-600 text-sm">{CATEGORIES.reduce((acc, cat) => acc + cat.nominees.length, 0)}</span> pollitos nominados
+                          <span className="text-orange-600 text-sm">{nomineesLoading ? '...' : activeNominees.length}</span> pollitos nominados
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -537,6 +869,7 @@ export default function Home() {
                     id="empezar-votacion-btn"
                     onClick={() => {
                       soundManager.playPop();
+                      setSelectedNomineeId(votes[categories[currentIdx]?.id] || null);
                       setScreen('intro');
                     }}
                     className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md flex items-center justify-center gap-2 focus:outline-none"
@@ -558,22 +891,22 @@ export default function Home() {
                   <div className="w-full flex-grow flex flex-col items-center justify-center">
                     <div className="w-20 h-20 bg-yellow-100 rounded-full border-4 border-black flex items-center justify-center mb-4 shadow-md relative">
                       <span className="text-4xl animate-bounce" style={{ animationDuration: '3s' }}>
-                        {CATEGORIES[currentIdx].emoji || '🏆'}
+                        {categories[currentIdx].emoji || '🏆'}
                       </span>
                       <div className="absolute inset-0 border-2 border-dashed border-black/30 rounded-full animate-spin" style={{ animationDuration: '30s' }} />
                     </div>
 
                     <span className="font-comic text-xs uppercase tracking-widest text-orange-600 font-extrabold">
-                      Categoría {CATEGORIES[currentIdx].id} de {CATEGORIES.length}
+                      Categoría {categories[currentIdx].id} de {categories.length}
                     </span>
                     <h2 className="font-display text-2xl text-black tracking-normal mt-1 max-w-xs leading-none">
-                      {CATEGORIES[currentIdx].title}
+                      {categories[currentIdx].title}
                     </h2>
 
                     <div className="my-5 px-4 py-5 bg-orange-50 border-4 border-black rounded-[1.8rem] w-full max-w-xs transform hover:scale-101 transition-all">
                       <span className="text-xl text-orange-500 font-black block leading-none mb-1">“</span>
                       <p className="font-comic text-[13px] font-bold text-gray-700 leading-relaxed italic font-sans">
-                        {CATEGORIES[currentIdx].description}
+                        {categories[currentIdx].description}
                       </p>
                       <span className="text-xl text-orange-500 font-black block leading-none mt-1">”</span>
                     </div>
@@ -583,6 +916,7 @@ export default function Home() {
                     id="ver-nominados-btn"
                     onClick={() => {
                       soundManager.playPop();
+                      setSelectedNomineeId(votes[categories[currentIdx].id] || null);
                       setScreen('voting');
                     }}
                     className="w-full py-3.5 bg-black text-yellow-400 font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md focus:outline-none"
@@ -599,65 +933,106 @@ export default function Home() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex flex-col h-full justify-between"
+                  className="flex flex-col h-full justify-start gap-2.5 md:gap-3"
                 >
-                  <div className="w-full mb-2">
-                    <div className="flex justify-between items-center text-[10px] text-gray-500 font-comic uppercase tracking-wider mb-1 font-bold">
-                      <span>Categoría {CATEGORIES[currentIdx].id} de {CATEGORIES.length}</span>
-                      <span className="text-orange-600 font-bold">{Math.round((CATEGORIES[currentIdx].id / CATEGORIES.length) * 100)}%</span>
+                  <div className="w-full mb-1.5 md:mb-2">
+                    <div className="flex justify-between items-center text-xs md:text-[10px] text-gray-500 font-comic uppercase tracking-wider mb-0.5 md:mb-1 font-bold">
+                      <span>Categoría {categories[currentIdx].id} de {categories.length}</span>
+                      <span className="text-orange-600 font-bold">{Math.round((categories[currentIdx].id / categories.length) * 100)}%</span>
                     </div>
-                    <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden border-2 border-black">
+                    <div className="w-full bg-gray-100 h-2 md:h-3 rounded-full overflow-hidden border-2 border-black">
                       <div
                         className="bg-orange-500 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.round((CATEGORIES[currentIdx].id / CATEGORIES.length) * 100)}%` }}
+                        style={{ width: `${Math.round((categories[currentIdx].id / categories.length) * 100)}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="text-center mb-2 mt-1">
-                    <h3 className="font-display text-xl text-black tracking-normal leading-none uppercase">
-                      🏆 {CATEGORIES[currentIdx].title}
+                  <div className="text-center mb-1.5 md:mb-2 mt-0.5 md:mt-1">
+                    <h3 className="font-display text-lg md:text-xl text-black tracking-normal leading-none uppercase">
+                      🏆 {categories[currentIdx].title}
                     </h3>
-                    <p className="font-comic text-[11px] text-orange-600 uppercase font-bold tracking-wider mt-0.5">
+                    <p className="hidden md:block font-comic text-[11px] text-orange-600 uppercase font-bold tracking-wider mt-0.5">
                       ★ ¡VOTA POR TU FAVORITO! ★
                     </p>
                   </div>
 
-                  <div className="bg-yellow-50 border-2 border-black/80 rounded-xl py-1.5 px-3 flex items-center justify-center gap-2 mb-2 shadow-sm">
+                  <div className="hidden md:flex bg-yellow-50 border-2 border-black/80 rounded-xl py-1.5 px-3 items-center justify-center gap-2 mb-2 shadow-sm">
                     <span className="text-xs">💡</span>
                     <span className="font-comic text-[10px] uppercase font-extrabold text-slate-700">
                       Toca en el pollito que crees que <span className="underline text-orange-600 font-sans">merece ganar</span>
                     </span>
                   </div>
 
+                  <div className="mb-1.5 md:mb-2 rounded-xl border-2 border-black bg-white px-3 py-1.5 md:py-2 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <Search className="w-4 h-4 text-orange-600 shrink-0" />
+                      <input
+                        type="text"
+                        value={nomineeSearch}
+                        onChange={(event) => setNomineeSearch(event.target.value)}
+                        placeholder="Buscar nominado..."
+                        aria-label="Buscar nominado"
+                        className="w-full bg-transparent text-base md:text-sm font-bold text-black placeholder:text-gray-400 outline-none font-sans"
+                      />
+                      {nomineeSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setNomineeSearch('')}
+                          className="flex h-6 w-6 md:h-7 md:w-7 items-center justify-center rounded-full border-2 border-black bg-gray-50 text-gray-500 hover:bg-gray-100 active:scale-95 transition-all"
+                          aria-label="Limpiar búsqueda"
+                        >
+                          <X className="h-3.5 w-3.5 md:h-4 md:w-4 stroke-[3]" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Nominees list */}
-                  <div className="space-y-2 mb-2 max-h-[260px] overflow-y-auto pr-1 scrollbar-thin">
-                    {CATEGORIES[currentIdx].nominees.map((nominee, idx) => {
+                  {nomineesLoading ? (
+                    <div className="rounded-xl border-2 border-black bg-white px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-gray-500 mb-2">
+                      Cargando nominados reales...
+                    </div>
+                  ) : activeNominees.length === 0 ? (
+                    <div className="rounded-xl border-2 border-black bg-white px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-gray-500 mb-2">
+                      {nomineeSearch.trim() ? 'No encontramos ese nominado.' : 'No hay nominados visibles todavía.'}
+                    </div>
+                  ) : (
+                  <div className="space-y-1.5 md:space-y-2 mb-2 max-h-[calc(100dvh-270px)] md:max-h-[260px] overflow-y-auto pr-1 scrollbar-thin flex-grow">
+                    {activeNominees.map((nominee, idx) => {
                       const isSelected = selectedNomineeId === nominee.id;
 
                       return (
                         <button
                           key={nominee.id}
                           onClick={() => handleSelectNominee(nominee.id)}
-                          className={`w-full text-left p-2 rounded-xl flex items-center justify-between border-4 select-none cursor-pointer active:scale-98 transition-all relative focus:outline-none ${
+                          className={`w-full text-left p-2.5 md:p-2 rounded-xl flex items-center justify-between border-4 select-none cursor-pointer active:scale-98 transition-all relative focus:outline-none ${
                             isSelected
                               ? 'bg-orange-50 border-orange-500'
                               : 'bg-white border-gray-100 hover:border-yellow-400'
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full overflow-visible relative flex items-center justify-center bg-yellow-50 border border-black/10 shrink-0">
+                            <div className="w-11 h-11 md:w-10 md:h-10 rounded-full overflow-visible relative flex items-center justify-center bg-yellow-50 border border-black/10 shrink-0">
                               {isSelected && (
                                 <div className="absolute inset-0 bg-orange-400/20 rounded-full animate-ping pointer-events-none" />
                               )}
-                              <RobloxAvatar config={nominee.avatar} size={38} />
+                              {nominee.profileImageUrl ? (
+                                <img
+                                  src={nominee.profileImageUrl}
+                                  alt={nominee.name}
+                                  className="w-[42px] h-[42px] md:w-[38px] md:h-[38px] rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xl select-none">🐣</span>
+                              )}
                             </div>
 
                             <div>
-                              <p className={`font-black text-sm text-black ${isSelected ? 'text-orange-600 font-display' : 'text-slate-800 font-display'}`}>
+                              <p className={`font-black text-base md:text-sm leading-tight tracking-tight text-black ${isSelected ? 'text-orange-600 font-sans' : 'text-slate-800 font-sans'}`}>
                                 {nominee.name}
                               </p>
-                              <p className="text-[8px] font-extrabold uppercase tracking-wider text-gray-400 font-comic">
+                              <p className="text-[10px] md:text-[8px] font-extrabold uppercase tracking-wider text-gray-400 font-comic">
                                 NOMINADO {idx + 1}
                               </p>
                             </div>
@@ -676,12 +1051,13 @@ export default function Home() {
                       );
                     })}
                   </div>
+                  )}
 
-                  <div className="mb-2 shrink-0">
+                  <div className="mt-auto mb-1.5 md:mb-2 shrink-0">
                     <button
                       onClick={handleConfirmVote}
                       disabled={!selectedNomineeId}
-                      className={`w-full py-2.5 px-4 font-display font-black text-xs uppercase tracking-widest rounded-xl border-3 border-black brutalist-shadow-sm transition-all focus:outline-none flex items-center justify-center gap-2 ${
+                      className={`w-full py-3 md:py-2.5 px-4 font-display font-black text-sm md:text-xs uppercase tracking-widest rounded-xl border-3 border-black brutalist-shadow-sm transition-all focus:outline-none flex items-center justify-center gap-2 ${
                         selectedNomineeId
                           ? 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer active:translate-y-[2px]'
                           : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
@@ -692,13 +1068,13 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {CATEGORIES[currentIdx].funFact && (
-                    <div className="bg-yellow-100 border-4 border-black rounded-2xl py-2 px-3 flex items-center gap-2.5 shrink-0">
-                      <span className="text-lg">📢</span>
+                  {categories[currentIdx].funFact && (
+                    <div className="bg-yellow-100 border-4 border-black rounded-2xl py-1.5 px-2.5 md:py-2 md:px-3 flex items-center gap-2.5 shrink-0">
+                      <span className="text-base md:text-lg">📢</span>
                       <div className="text-left">
-                        <p className="font-comic font-black text-orange-600 uppercase text-[9px] tracking-wider">¿SABÍAS QUÉ?</p>
-                        <p className="text-slate-800 text-[10px] font-bold leading-tight font-sans">
-                          {CATEGORIES[currentIdx].funFact}
+                        <p className="font-comic font-black text-orange-600 uppercase text-[8px] md:text-[9px] tracking-wider">¿SABÍAS QUÉ?</p>
+                        <p className="text-slate-800 text-[9px] md:text-[10px] font-bold leading-tight font-sans">
+                          {categories[currentIdx].funFact}
                         </p>
                       </div>
                     </div>
@@ -811,21 +1187,21 @@ export default function Home() {
                   animate={{ opacity: 1, y: 0 }}
                   className="py-1 flex flex-col items-center justify-between h-full"
                 >
-                  <div className="text-center mb-3">
+                  <div className="text-center mb-3 mt-2">
                     <div className="w-14 h-14 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center text-3xl mx-auto shadow-md animate-bounce relative mb-2">
                       🎉
                       <div className="absolute inset-0 border-2 border-dashed border-black rounded-full animate-pulse" />
                     </div>
-                    <h2 className="font-display text-xl text-black tracking-normal uppercase leading-none">
-                      ¡Votos Enviados!
+                    <h2 className="font-display text-2xl text-black tracking-normal uppercase leading-none">
+                      🎉 ¡Tu ballot está listo!
                     </h2>
-                    <p className="font-comic text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                      ¡Hiciste un gran trabajo, pollito!
+                    <p className="font-comic text-xs font-bold text-gray-500 uppercase tracking-wider mt-1.5 leading-snug">
+                      Descargalo y compartilo con la comunidad 🐣
                     </p>
                   </div>
 
-                  <div className="w-full mb-2 shrink-0 scale-[0.95]">
-                    <ShareCard votes={votes} />
+                  <div className="w-full mb-2 shrink-0">
+                    <ShareCard votes={votes} robloxProfile={robloxProfile} categories={categories} nominees={nominees} />
                   </div>
 
                   <div className="w-full space-y-2 text-left mb-3">
@@ -1036,6 +1412,19 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ROBLOX ONBOARDING MODAL */}
+      <RobloxOnboarding
+        isOpen={robloxOnboardingOpen}
+        onClose={() => setRobloxOnboardingOpen(false)}
+        onConfirm={async () => {
+          if (session) {
+            await checkRobloxProfile(session);
+            fetchUserVotes(session.user.id);
+          }
+        }}
+        userSession={{ session }}
+      />
 
     </div>
   );
