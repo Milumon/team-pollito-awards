@@ -48,6 +48,7 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
             --build-arg SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }} \
+            --build-arg NEXT_PUBLIC_VOTING_PHASE=${{ secrets.NEXT_PUBLIC_VOTING_PHASE }} \
             -t $IMAGE:latest \
             -t $IMAGE:${{ github.sha }} \
             .
@@ -70,6 +71,7 @@ jobs:
             --set-env-vars "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
             --set-env-vars "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
             --set-env-vars "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            --set-env-vars "NEXT_PUBLIC_VOTING_PHASE=${{ secrets.NEXT_PUBLIC_VOTING_PHASE }}" \
             --set-env-vars "ADMIN_PANEL_TOKEN=${{ secrets.ADMIN_PANEL_TOKEN }}" \
             --set-env-vars "ROBLOSECURITY_COOKIE=${{ secrets.ROBLOSECURITY_COOKIE }}" \
             --set-env-vars "ROBLOX_CLOTHING_ID=${{ secrets.ROBLOX_CLOTHING_ID }}" \

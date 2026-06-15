@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES } from '@/src/data/categories';
-import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Lock, Check } from 'lucide-react';
+import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Lock, Check, LogOut } from 'lucide-react';
 
 type AdminNominee = {
   id: string;
@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [statsPhase, setStatsPhase] = useState(2);
 
   useEffect(() => {
     const storedToken = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
@@ -79,6 +80,8 @@ export default function AdminPage() {
     });
 
     if (response.status === 401) {
+      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      setAdminToken('');
       throw new Error('Token de admin inválido o faltante');
     }
 
@@ -134,7 +137,7 @@ export default function AdminPage() {
     }
   };
 
-  const loadStats = async () => {
+  const loadStats = async (phase = statsPhase) => {
     if (!adminToken) {
       return;
     }
@@ -143,7 +146,7 @@ export default function AdminPage() {
     setError(null);
 
     try {
-      const response = await apiFetch('/api/admin/stats');
+      const response = await apiFetch(`/api/admin/stats?phase=${phase}`);
       const data = await readApiPayload(response);
       if (!response.ok) {
         throw new Error(data.error || 'No se pudieron cargar las estadísticas');
@@ -162,9 +165,9 @@ export default function AdminPage() {
     }
 
     void loadNominees();
-    void loadStats();
+    void loadStats(statsPhase);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adminToken]);
+  }, [adminToken, statsPhase]);
 
   const filteredNominees = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -195,15 +198,42 @@ export default function AdminPage() {
     });
   }, [stats?.users, userSearchTerm]);
 
-  const handleSaveToken = () => {
+  const handleSaveToken = async () => {
     const nextToken = tokenInput.trim();
     if (!nextToken) {
+      setError('Por favor, ingresá el token.');
       return;
     }
 
-    window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken);
-    setAdminToken(nextToken);
-    setStatus('Token guardado. Cargando panel...');
+    setLoading(true);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await fetch('/api/admin/nominees', {
+        method: 'GET',
+        headers: {
+          'x-admin-token': nextToken,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Token de administrador inválido.');
+        }
+        throw new Error('Error al validar el token de administrador.');
+      }
+
+      // Token is valid!
+      window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken);
+      setAdminToken(nextToken);
+      setStatus('Token verificado. Cargando panel...');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido al validar el token.');
+      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSync = async () => {
@@ -405,20 +435,33 @@ export default function AdminPage() {
             Ingresá el token de admin para acceder a la gestión de nominados, votos y usuarios.
           </p>
 
+          {error && (
+            <div className="bg-red-50 border-4 border-black rounded-2xl p-3 mb-4 text-xs font-bold text-red-700">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {status && (
+            <div className="bg-emerald-50 border-4 border-black rounded-2xl p-3 mb-4 text-xs font-bold text-emerald-700">
+              {status}
+            </div>
+          )}
+
           <input
             type="password"
             value={tokenInput}
             onChange={(event) => setTokenInput(event.target.value)}
             placeholder="ADMIN_PANEL_TOKEN"
-            className="w-full bg-yellow-50 border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300"
+            className="w-full bg-yellow-50 border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 animate-pulse-once"
           />
 
           <button
             type="button"
             onClick={handleSaveToken}
-            className="mt-4 w-full py-3 bg-black text-yellow-400 font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-neutral-900 transition-all"
+            disabled={loading}
+            className="mt-4 w-full py-3 bg-black text-yellow-400 font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-neutral-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Entrar al panel
+            {loading ? 'Validando...' : 'Entrar al panel'}
           </button>
 
           <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
@@ -532,10 +575,26 @@ export default function AdminPage() {
                 setTimeout(() => setStatus(null), 3000);
               }}
               disabled={loading || loadingStats}
-              className="p-3 bg-white hover:bg-gray-100 border-4 border-black rounded-2xl flex items-center justify-center gap-2 shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+              className="p-3 bg-white hover:bg-gray-100 border-4 border-black rounded-2xl flex items-center justify-center gap-2 shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all cursor-pointer"
               title="Recargar todos los datos"
             >
               <RefreshCw className={`w-5 h-5 ${(loading || loadingStats) ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+                setAdminToken('');
+                setTokenInput('');
+                setStatus(null);
+                setError(null);
+              }}
+              className="p-3 bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-wider rounded-2xl border-4 border-black flex items-center justify-center gap-2 shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all px-4 cursor-pointer text-xs md:text-sm"
+              title="Cerrar sesión de administrador"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Cerrar Sesión</span>
             </button>
           </div>
         </div>
@@ -755,13 +814,37 @@ export default function AdminPage() {
 
         {activeTab === 'votes' && (
           <section className="space-y-6">
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)]">
+            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <BarChart3 className="w-8 h-8 text-black" />
                 <div>
                   <h2 className="font-black text-2xl uppercase leading-none">Resultados de la Votación</h2>
                   <p className="text-sm text-gray-600 mt-1 font-medium">Recuento de votos por categoría en tiempo real (excluye nominados ocultos).</p>
                 </div>
+              </div>
+              <div className="flex gap-2 shrink-0 bg-yellow-50 p-1.5 rounded-2xl border-4 border-black">
+                <button
+                  type="button"
+                  onClick={() => setStatsPhase(1)}
+                  className={`px-4 py-2 font-black uppercase text-xs rounded-xl border-2 border-black transition-all ${
+                    statsPhase === 1
+                      ? 'bg-black text-yellow-400'
+                      : 'bg-white text-black hover:bg-gray-100'
+                  }`}
+                >
+                  Fase 1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatsPhase(2)}
+                  className={`px-4 py-2 font-black uppercase text-xs rounded-xl border-2 border-black transition-all ${
+                    statsPhase === 2
+                      ? 'bg-black text-yellow-400'
+                      : 'bg-white text-black hover:bg-gray-100'
+                  }`}
+                >
+                  Fase 2
+                </button>
               </div>
             </div>
 

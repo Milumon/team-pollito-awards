@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { CATEGORY_FINALISTS } from '@/src/data/categories_phase2';
 
 function isAuthorized(request: NextRequest) {
   const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
@@ -13,6 +14,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const phaseParam = searchParams.get('phase');
+    const phase = phaseParam ? Number(phaseParam) : Number(process.env.NEXT_PUBLIC_VOTING_PHASE || 1);
+
     // 1. Fetch categories
     const { data: categories, error: catError } = await supabaseAdmin
       .from('categories')
@@ -28,10 +33,11 @@ export async function GET(request: NextRequest) {
 
     if (nomError) throw new Error(nomError.message);
 
-    // 3. Fetch votes
+    // 3. Fetch votes filtered by phase
     const { data: votes, error: votesError } = await supabaseAdmin
       .from('votes')
-      .select('user_id, category_id, nominee_id');
+      .select('user_id, category_id, nominee_id')
+      .eq('phase', phase);
 
     if (votesError) throw new Error(votesError.message);
 
@@ -62,8 +68,11 @@ export async function GET(request: NextRequest) {
     });
 
     const categoryStats = categories.map((cat: any) => {
+      const allowedNomineeIds = phase === 2 ? (CATEGORY_FINALISTS[cat.id] || []) : null;
+
       // Get vote counts for all nominees in this category
       const nomineesVotes = nominees
+        .filter((nom: any) => !allowedNomineeIds || allowedNomineeIds.includes(nom.id))
         .map((nom: any) => {
           const count = voteCounts[cat.id]?.[nom.id] || 0;
           return {

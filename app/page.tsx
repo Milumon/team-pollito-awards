@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { CATEGORIES as DEFAULT_CATEGORIES } from '../src/data/categories';
+import { CATEGORY_FINALISTS } from '../src/data/categories_phase2';
 import { VoteState } from '../src/types';
 import EggAnimation from '../components/EggAnimation';
 import ShareCard from '../components/ShareCard';
@@ -44,12 +45,23 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '');
 
 export default function LandingPage() {
+  const phase = Number(process.env.NEXT_PUBLIC_VOTING_PHASE || 1);
   const warnedVotesReadRef = useRef(false);
   const [session, setSession] = useState<any>(null);
   const [screen, setScreen] = useState<ScreenState>('landing');
   const [votes, setVotes] = useState<VoteState>({});
   const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const reorderMvpLast = (list: any[]) => {
+    const copy = [...list];
+    const mvpIndex = copy.findIndex((c: any) => c.id === 1);
+    if (mvpIndex >= 0) {
+      const [mvp] = copy.splice(mvpIndex, 1);
+      copy.push(mvp);
+    }
+    return copy;
+  };
+
+  const [categories, setCategories] = useState(() => reorderMvpLast(DEFAULT_CATEGORIES));
   const [selectedNomineeId, setSelectedNomineeId] = useState<string | null>(null);
   const [nominees, setNominees] = useState<PublicNominee[]>([]);
   const [nomineesLoading, setNomineesLoading] = useState<boolean>(false);
@@ -57,7 +69,7 @@ export default function LandingPage() {
   const [muted, setMuted] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [robloxProfile, setRobloxProfile] = useState<RobloxProfileState>(null);
-  
+
   const sessionRef = useRef<any>(null);
   const screenRef = useRef<ScreenState>('landing');
 
@@ -68,11 +80,11 @@ export default function LandingPage() {
   useEffect(() => {
     screenRef.current = screen;
   }, [screen]);
-  
+
   // Interactive triggers
   const [burstActive, setBurstActive] = useState<boolean>(false);
   const [continuousConfetti, setContinuousConfetti] = useState<boolean>(false);
-  
+
   // Modal states
   const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
   const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
@@ -125,15 +137,15 @@ export default function LandingPage() {
 
       if (nextSession) {
         setAuthError(null);
-        
+
         // Evitar que refrescos de token en segundo plano o enfoque de ventana reinicien la pantalla o interrumpan la votación
         if (event === 'TOKEN_REFRESHED' || wasAlreadyLoggedIn || isInsideVotingFlow) {
           return;
         }
-        
+
         // Check if user has completed their Roblox profile
         await checkRobloxProfile(nextSession);
-        
+
         const hasFinishedVoting = await fetchUserVotes(nextSession.user.id, true);
         if (!hasFinishedVoting) {
           setScreen((prev) => (prev === 'landing' || prev === 'auth' ? 'hatching' : prev));
@@ -156,19 +168,18 @@ export default function LandingPage() {
 
       if (error || !data || data.length === 0) {
         console.error('Error loading categories from Supabase:', error);
-        setCategories(DEFAULT_CATEGORIES);
+        setCategories(reorderMvpLast(DEFAULT_CATEGORIES));
         return;
       }
 
-      setCategories(
-        data.map((category: any) => ({
-          id: category.id,
-          title: category.title,
-          emoji: category.emoji,
-          description: category.description,
-          nominees: [],
-        }))
-      );
+      const mapped = data.map((category: any) => ({
+        id: category.id,
+        title: category.title,
+        emoji: category.emoji,
+        description: category.description,
+        nominees: [],
+      }));
+      setCategories(reorderMvpLast(mapped));
     };
 
     void loadCategories();
@@ -215,7 +226,8 @@ export default function LandingPage() {
       const { data, error } = await supabase
         .from('votes')
         .select('category_id, nominee_id')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('phase', phase);
 
       if (error) {
         const msg = (error.message || '').toLowerCase();
@@ -252,7 +264,7 @@ export default function LandingPage() {
           setCurrentIdx(firstMissingCategoryIndex);
           setSelectedNomineeId(loadedVotes[categories[firstMissingCategoryIndex].id] || null);
         }
-        
+
         // If they voted in everything, jump to final
         if (data.length >= categories.length) {
           if (shouldRedirect) {
@@ -276,24 +288,24 @@ export default function LandingPage() {
 
   useEffect(() => {
     const target = new Date("2026-06-16T19:30:00-05:00").getTime();
-    
+
     const updateCountdown = () => {
       const now = new Date().getTime();
       const diff = target - now;
-      
+
       if (diff <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isOver: true });
         return;
       }
-      
+
       const d = Math.floor(diff / (1000 * 60 * 60 * 24));
       const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const s = Math.floor((diff % (1000 * 60)) / 1000);
-      
+
       setTimeLeft({ days: d, hours: h, minutes: m, seconds: s, isOver: false });
     };
-    
+
     updateCountdown();
     const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
@@ -389,11 +401,70 @@ export default function LandingPage() {
     setScreen(session ? 'hatching' : 'landing');
   };
 
+  // Navigate back step-by-step
+  const handleBack = () => {
+    soundManager.playPop();
+
+    if (screen === 'welcome') {
+      setScreen('landing');
+      return;
+    }
+
+    if (screen === 'intro') {
+      if (currentIdx > 0) {
+        const prevIdx = currentIdx - 1;
+        setCurrentIdx(prevIdx);
+        setSelectedNomineeId(votes[categories[prevIdx].id] || null);
+        setNomineeSearch('');
+        setScreen('voting');
+      } else {
+        setScreen('welcome');
+      }
+      return;
+    }
+
+    if (screen === 'voting') {
+      setScreen('intro');
+      return;
+    }
+
+    if (screen === 'intermission') {
+      setSelectedNomineeId(votes[categories[currentIdx].id] || null);
+      setScreen('voting');
+      return;
+    }
+
+    // Fallback: reset all
+    handleRestart();
+  };
+
   const normalizedNomineeSearch = normalizeText(nomineeSearch.trim());
-  const activeNominees = normalizedNomineeSearch
-    ? nominees.filter((nominee) => normalizeText(nominee.name).includes(normalizedNomineeSearch))
+
+  // Filter nominees for Phase 2 based on categories_phase2.ts
+  const currentCategoryId = categories[currentIdx]?.id;
+  const allowedNomineeIds = phase === 2 && currentCategoryId ? (CATEGORY_FINALISTS[currentCategoryId] || []) : [];
+
+  const phaseFilteredNominees = phase === 2
+    ? nominees.filter((nominee) => allowedNomineeIds.includes(nominee.id))
     : nominees;
-  const totalNomineesCount = nominees.length;
+
+  const activeNominees = normalizedNomineeSearch
+    ? phaseFilteredNominees.filter((nominee) => normalizeText(nominee.name).includes(normalizedNomineeSearch))
+    : phaseFilteredNominees;
+
+  // Set of unique nominee IDs in the active phase
+  const activePhaseNomineeIds = React.useMemo(() => {
+    if (phase === 2) {
+      const ids = new Set<string>();
+      Object.values(CATEGORY_FINALISTS).forEach((list) => {
+        list.forEach((id) => ids.add(id));
+      });
+      return ids;
+    }
+    return new Set(nominees.map((n) => n.id));
+  }, [nominees, phase]);
+
+  const totalNomineesCount = activePhaseNomineeIds.size;
 
   // Vote nomination selection
   const handleSelectNominee = (nomineeId: string) => {
@@ -427,7 +498,8 @@ export default function LandingPage() {
       .from('votes')
       .delete()
       .eq('user_id', freshSession.user.id)
-      .eq('category_id', categoryId);
+      .eq('category_id', categoryId)
+      .eq('phase', phase);
 
     // Insertar el nuevo voto
     const { error } = await supabase
@@ -436,6 +508,7 @@ export default function LandingPage() {
         user_id: freshSession.user.id,
         nominee_id: selectedNomineeId,
         category_id: categoryId,
+        phase: phase,
       });
 
     if (error) {
@@ -452,7 +525,7 @@ export default function LandingPage() {
       const totalCategories = categories.length;
 
       // Check for emotional intermissions
-      if ((nextIdx === 3 || nextIdx === 6) && nextIdx < totalCategories) {
+      if ((nextIdx === 3 || nextIdx === 6 || nextIdx === 9) && nextIdx < totalCategories) {
         setSelectedNomineeId(newVotes[categories[nextIdx]?.id] || null);
         setScreen('intermission');
       } else if (nextIdx >= totalCategories) {
@@ -496,26 +569,30 @@ export default function LandingPage() {
 
   return (
     <div id="app-root-container" className="h-[100dvh] md:min-h-screen bg-white md:bg-[#FFD700] text-black flex flex-col justify-between relative selection:bg-black selection:text-yellow-400 md:pb-12 overflow-hidden md:pt-2 pt-0 pb-0 font-sans md:px-4 px-0">
-      
+
       {/* Dynamic Confetti triggers */}
       <Confetti active={continuousConfetti} type="continuous" />
       <Confetti active={burstActive} type="burst" />
 
       {/* Main Container with split desktop view and central mock device card */}
       <main className="flex-grow w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-center gap-0 md:gap-12 relative z-20 my-auto md:py-4 py-0 h-full md:h-auto">
-        
+
         {/* LEFT COLUMN: Modern Neobrutalist Title & Badges (Visible on Desktop) */}
         <div className="hidden md:flex flex-col justify-center space-y-6 w-1/2 text-left shrink-0">
-          <div className="inline-block bg-black text-yellow-400 font-extrabold px-4 py-2 text-2xl transform -rotate-2 border-2 border-black brutalist-shadow rounded-lg self-start">
-            1ER ANIVERSARIO
+          <div className={`inline-block font-extrabold px-4 py-2 text-2xl transform -rotate-2 border-3 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] rounded-xl self-start ${phase === 2 ? 'bg-red-600 text-white' : 'bg-black text-yellow-400'}`}>
+            {phase === 2 ? '🗳️ FASE 2: GRAN FINAL' : '1ER ANIVERSARIO'}
           </div>
           <h1 className="text-6xl font-black text-black leading-none uppercase tracking-tighter font-display">
-            The <br/>
-            <span className="text-orange-600 bg-white border-4 border-black px-4 inline-block rounded-md rotate-1 my-2">Pollitos</span> <br/>
+            The <br />
+            <span className="text-orange-600 bg-white border-4 border-black px-4 inline-block rounded-md rotate-1 my-2">Pollitos</span> <br />
             Awards
           </h1>
           <p className="text-xl font-bold text-black opacity-85 leading-tight font-comic">
-            ¡Es hora de celebrar un año de streams! <br/>Vota por tus amigos y compañeros de Roblox.
+            {phase === 2 ? (
+              <>¡Llegamos a la Gran Final! <br />Votá por los 5 más elegidos de cada categoría.</>
+            ) : (
+              <>¡Es hora de celebrar un año de streams! <br />Vota por tus amigos y compañeros de Roblox.</>
+            )}
           </p>
 
           {/* Desktop Live Countdown Banner */}
@@ -527,7 +604,7 @@ export default function LandingPage() {
               <p className="font-comic text-xs font-bold text-gray-700">
                 El gran live de premiación será el martes 16 de Junio a las 7:30 PM (GMT-5). ¡Te esperamos!
               </p>
-              
+
               <div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
                 <div className="flex flex-col items-center">
                   <span className="font-mono text-2xl font-black text-black leading-none">{timeLeft.days}</span>
@@ -550,7 +627,7 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-            
+
             <a
               href="https://www.tiktok.com/@milumon_gaming"
               target="_blank"
@@ -579,7 +656,7 @@ export default function LandingPage() {
 
         {/* RIGHT COLUMN: Smartphone Frame Mockup on Desktop, Native Fullscreen on Mobile */}
         <div className="w-full h-full md:max-w-[365px] md:h-[690px] bg-white rounded-none md:rounded-[2.8rem] border-none md:border-[8px] md:border-solid md:border-black shadow-none md:shadow-[16px_16px_0px_0px_rgba(0,0,0,0.15)] relative flex flex-col overflow-hidden text-black md:shrink-0">
-          
+
           {/* Top Speaker Notch Block */}
           <div className="hidden md:flex h-5 bg-black w-28 mx-auto rounded-b-2xl mb-2 items-center justify-center shrink-0">
             <div className="w-2.5 h-2.5 rounded-full bg-neutral-800" />
@@ -588,13 +665,14 @@ export default function LandingPage() {
           {/* Header Progress Tag & Audio Toggle inside phone frame */}
           <div className="px-4 py-1 md:px-5 md:py-1.5 flex items-center justify-between gap-2 bg-white md:bg-gray-50 border-b-2 border-black/5 md:border-gray-100 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
-              {screen !== 'landing' && screen !== 'hatching' && (
+              {screen !== 'landing' && screen !== 'hatching' && screen !== 'submitting' && (
                 <button
                   id="back-to-landing"
-                  onClick={handleRestart}
+                  onClick={handleBack}
                   className="flex items-center gap-1 bg-white hover:bg-gray-100 border-2 border-black rounded-lg px-2.5 py-1 text-xs font-comic font-black text-black cursor-pointer active:scale-95 transition-all"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" /> INICIO
+                  <ChevronLeft className="w-3.5 h-3.5 stroke-[3]" />
+                  {(screen === 'welcome' || (screen === 'intro' && currentIdx === 0)) ? 'INICIO' : 'ATRÁS'}
                 </button>
               )}
 
@@ -606,8 +684,12 @@ export default function LandingPage() {
 
               {/* Steps text inside phone */}
               {screen === 'voting' && (
-                <span className="ml-1 text-[11px] font-black bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full border border-yellow-200 whitespace-nowrap">
-                  PASO {categories[currentIdx].id < 10 ? `0${categories[currentIdx].id}` : categories[currentIdx].id}/{categories.length}
+                <span className={`ml-1 text-[10px] md:text-[11px] font-black px-2.5 py-0.5 rounded-full border whitespace-nowrap ${phase === 2
+                  ? 'bg-red-50 text-red-800 border-red-200'
+                  : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                  }`}>
+                  PASO {currentIdx + 1 < 10 ? `0${currentIdx + 1}` : currentIdx + 1}/{categories.length}
+                  {phase === 2 && ' • F2'}
                 </span>
               )}
             </div>
@@ -639,7 +721,7 @@ export default function LandingPage() {
           {/* View Container inside Smartphone Viewport */}
           <div className="flex-grow overflow-y-auto p-3 md:p-4 flex flex-col relative z-20 scrollbar-thin">
             <AnimatePresence mode="wait">
-              
+
               {/* SCREEN 1: LANDING */}
               {screen === 'landing' && (
                 <motion.div
@@ -651,8 +733,8 @@ export default function LandingPage() {
                 >
                   <div className="w-full flex flex-col items-center pt-2">
                     {/* Mobile rotated badge */}
-                    <div className="inline-block bg-black text-yellow-400 font-black px-3 py-1 text-xs transform -rotate-2 rounded border border-black mb-3 md:hidden">
-                      1ER ANIVERSARIO
+                    <div className={`inline-block font-black px-3.5 py-1.5 text-xs transform -rotate-2 border-3 border-black mb-3 md:hidden rounded-xl shadow-[3px_3px_0_0_rgba(0,0,0,1)] ${phase === 2 ? 'bg-red-600 text-white' : 'bg-black text-yellow-400'}`}>
+                      {phase === 2 ? '🗳️ FASE 2: GRAN FINAL' : '1ER ANIVERSARIO'}
                     </div>
 
                     {/* Live countdown header */}
@@ -703,15 +785,24 @@ export default function LandingPage() {
                       <h1 className="font-display text-4xl text-[#ea580c] tracking-normal uppercase leading-none mt-1">
                         AWARDS
                       </h1>
-                      <div className="inline-block bg-black text-[#FFD700] font-display text-[10px] px-3.5 py-0.5 rounded-xl uppercase tracking-widest font-black mt-2 transform rotate-1 border border-black">
-                        1ER ANIVERSARIO
+                      <div className={`inline-block font-display text-[11px] px-4 py-1.5 rounded-xl uppercase tracking-widest font-black mt-2 transform rotate-1 border-3 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] ${phase === 2 ? 'bg-red-600 text-white' : 'bg-black text-[#FFD700]'}`}>
+                        {phase === 2 ? '🗳️ FASE 2: GRAN FINAL' : '1ER ANIVERSARIO'}
                       </div>
                     </div>
 
                     {/* Updated Exact Narrative Hook */}
                     <p className="font-comic text-[13px] text-gray-700 max-w-xs mt-2.5 px-4 leading-normal font-bold">
-                      ¡Es hora de celebrar un año de streams! <br />
-                      <span className="text-orange-600">Vota por tus amigos y compañeros de Roblox.</span>
+                      {phase === 2 ? (
+                        <>
+                          ¡Llegamos a la Gran Final! <br />
+                          <span className="text-orange-600">Votá por los 5 más elegidos de cada categoría.</span>
+                        </>
+                      ) : (
+                        <>
+                          ¡Es hora de celebrar un año de streams! <br />
+                          <span className="text-orange-600">Vota por tus amigos y compañeros de Roblox.</span>
+                        </>
+                      )}
                     </p>
 
                     {/* Dual Stats Badges for Mobile */}
@@ -830,10 +921,10 @@ export default function LandingPage() {
                     <p className="font-comic text-xs font-bold text-gray-600 px-2 tracking-wide mb-5">
                       {robloxProfile?.username ? (
                         <>
-                          Tu usuario verificado es <span className="text-orange-600">@{robloxProfile.username}</span>. Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span>.
+                          Tu usuario verificado es <span className="text-orange-600">@{robloxProfile.username}</span>. Hoy ayudarás a votar en la <span className="text-orange-600">{phase === 2 ? 'Gran Final (Fase 2)' : 'Fase Inicial'}</span> de los <span className="text-orange-600">Pollitos Awards 2026</span>.
                         </>
                       ) : (
-                        <>Hoy ayudarás a elegir a los ganadores de los <span className="text-orange-600">Pollitos Awards 2026</span> de este año.</>
+                        <>Hoy ayudarás a votar en la <span className="text-orange-600">{phase === 2 ? 'Gran Final (Fase 2)' : 'Fase Inicial'}</span> de los <span className="text-orange-600">Pollitos Awards 2026</span>.</>
                       )}
                     </p>
 
@@ -851,7 +942,7 @@ export default function LandingPage() {
                           👥
                         </div>
                         <span className="font-comic text-xs uppercase font-black text-black">
-                          <span className="text-orange-600 text-sm">{nomineesLoading ? '...' : activeNominees.length}</span> pollitos nominados
+                          <span className="text-orange-600 text-sm">{nomineesLoading ? '...' : totalNomineesCount}</span> pollitos nominados
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
@@ -897,7 +988,7 @@ export default function LandingPage() {
                     </div>
 
                     <span className="font-comic text-xs uppercase tracking-widest text-orange-600 font-extrabold">
-                      Categoría {categories[currentIdx].id} de {categories.length}
+                      Categoría {currentIdx + 1} de {categories.length}
                     </span>
                     <h2 className="font-display text-2xl text-black tracking-normal mt-1 max-w-xs leading-none">
                       {categories[currentIdx].title}
@@ -905,7 +996,7 @@ export default function LandingPage() {
 
                     <div className="my-5 px-4 py-5 bg-orange-50 border-4 border-black rounded-[1.8rem] w-full max-w-xs transform hover:scale-101 transition-all">
                       <span className="text-xl text-orange-500 font-black block leading-none mb-1">“</span>
-                      <p className="font-comic text-[13px] font-bold text-gray-700 leading-relaxed italic font-sans">
+                      <p className="font-comic text-[15px] md:text-base font-bold text-gray-700 leading-relaxed italic font-sans">
                         {categories[currentIdx].description}
                       </p>
                       <span className="text-xl text-orange-500 font-black block leading-none mt-1">”</span>
@@ -937,13 +1028,13 @@ export default function LandingPage() {
                 >
                   <div className="w-full mb-1.5 md:mb-2">
                     <div className="flex justify-between items-center text-xs md:text-[10px] text-gray-500 font-comic uppercase tracking-wider mb-0.5 md:mb-1 font-bold">
-                      <span>Categoría {categories[currentIdx].id} de {categories.length}</span>
-                      <span className="text-orange-600 font-bold">{Math.round((categories[currentIdx].id / categories.length) * 100)}%</span>
+                      <span>Categoría {currentIdx + 1} de {categories.length}</span>
+                      <span className="text-orange-600 font-bold">{Math.round(((currentIdx + 1) / categories.length) * 100)}%</span>
                     </div>
                     <div className="w-full bg-gray-100 h-2 md:h-3 rounded-full overflow-hidden border-2 border-black">
                       <div
                         className="bg-orange-500 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${Math.round((categories[currentIdx].id / categories.length) * 100)}%` }}
+                        style={{ width: `${Math.round(((currentIdx + 1) / categories.length) * 100)}%` }}
                       />
                     </div>
                   </div>
@@ -952,8 +1043,13 @@ export default function LandingPage() {
                     <h3 className="font-display text-lg md:text-xl text-black tracking-normal leading-none uppercase">
                       🏆 {categories[currentIdx].title}
                     </h3>
-                    <p className="hidden md:block font-comic text-[11px] text-orange-600 uppercase font-bold tracking-wider mt-0.5">
-                      ★ ¡VOTA POR TU FAVORITO! ★
+                    {phase === 2 && (
+                      <span className="inline-block bg-orange-600 text-white font-black text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1.5 border border-black shadow-[1px_1px_0_0_rgba(0,0,0,1)]">
+                        Fase 2: Gran Final
+                      </span>
+                    )}
+                    <p className="hidden md:block font-comic text-[11px] text-orange-600 uppercase font-bold tracking-wider mt-1.5">
+                      {phase === 2 ? '★ ¡VOTA EN LA GRAN FINAL! ★' : '★ ¡VOTA POR TU FAVORITO! ★'}
                     </p>
                   </div>
 
@@ -998,70 +1094,67 @@ export default function LandingPage() {
                       {nomineeSearch.trim() ? 'No encontramos ese nominado.' : 'No hay nominados visibles todavía.'}
                     </div>
                   ) : (
-                  <div className="space-y-1.5 md:space-y-2 mb-2 max-h-[calc(100dvh-270px)] md:max-h-[260px] overflow-y-auto pr-1 scrollbar-thin flex-grow">
-                    {activeNominees.map((nominee, idx) => {
-                      const isSelected = selectedNomineeId === nominee.id;
+                    <div className="space-y-1.5 md:space-y-2 mb-2 max-h-[calc(100dvh-270px)] md:max-h-[260px] overflow-y-auto pr-1 scrollbar-thin flex-grow">
+                      {activeNominees.map((nominee, idx) => {
+                        const isSelected = selectedNomineeId === nominee.id;
 
-                      return (
-                        <button
-                          key={nominee.id}
-                          onClick={() => handleSelectNominee(nominee.id)}
-                          className={`w-full text-left p-2.5 md:p-2 rounded-xl flex items-center justify-between border-4 select-none cursor-pointer active:scale-98 transition-all relative focus:outline-none ${
-                            isSelected
+                        return (
+                          <button
+                            key={nominee.id}
+                            onClick={() => handleSelectNominee(nominee.id)}
+                            className={`w-full text-left p-2.5 md:p-2 rounded-xl flex items-center justify-between border-4 select-none cursor-pointer active:scale-98 transition-all relative focus:outline-none ${isSelected
                               ? 'bg-orange-50 border-orange-500'
                               : 'bg-white border-gray-100 hover:border-yellow-400'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 md:w-10 md:h-10 rounded-full overflow-visible relative flex items-center justify-center bg-yellow-50 border border-black/10 shrink-0">
-                              {isSelected && (
-                                <div className="absolute inset-0 bg-orange-400/20 rounded-full animate-ping pointer-events-none" />
-                              )}
-                              {nominee.profileImageUrl ? (
-                                <img
-                                  src={nominee.profileImageUrl}
-                                  alt={nominee.name}
-                                  className="w-[42px] h-[42px] md:w-[38px] md:h-[38px] rounded-full object-cover"
-                                />
+                              }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-11 h-11 md:w-10 md:h-10 rounded-full overflow-visible relative flex items-center justify-center bg-yellow-50 border border-black/10 shrink-0">
+                                {isSelected && (
+                                  <div className="absolute inset-0 bg-orange-400/20 rounded-full animate-ping pointer-events-none" />
+                                )}
+                                {nominee.profileImageUrl ? (
+                                  <img
+                                    src={nominee.profileImageUrl}
+                                    alt={nominee.name}
+                                    className="w-[42px] h-[42px] md:w-[38px] md:h-[38px] rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-xl select-none">🐣</span>
+                                )}
+                              </div>
+
+                              <div>
+                                <p className={`font-black text-base md:text-sm leading-tight tracking-tight text-black ${isSelected ? 'text-orange-600 font-sans' : 'text-slate-800 font-sans'}`}>
+                                  {nominee.name}
+                                </p>
+                                <p className="text-[10px] md:text-[8px] font-extrabold uppercase tracking-wider text-gray-400 font-comic">
+                                  NOMINADO {idx + 1}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className={`w-8 h-8 rounded-full border-2 border-black flex items-center justify-center shrink-0 ${isSelected ? 'bg-orange-500 text-white' : 'bg-gray-50 text-slate-400'
+                              }`}>
+                              {isSelected ? (
+                                <span className="text-xs font-black">✓</span>
                               ) : (
-                                <span className="text-xl select-none">🐣</span>
+                                <span className="text-[10px] font-black">{idx + 1}</span>
                               )}
                             </div>
-
-                            <div>
-                              <p className={`font-black text-base md:text-sm leading-tight tracking-tight text-black ${isSelected ? 'text-orange-600 font-sans' : 'text-slate-800 font-sans'}`}>
-                                {nominee.name}
-                              </p>
-                              <p className="text-[10px] md:text-[8px] font-extrabold uppercase tracking-wider text-gray-400 font-comic">
-                                NOMINADO {idx + 1}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className={`w-8 h-8 rounded-full border-2 border-black flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-orange-500 text-white' : 'bg-gray-50 text-slate-400'
-                          }`}>
-                            {isSelected ? (
-                              <span className="text-xs font-black">✓</span>
-                            ) : (
-                              <span className="text-[10px] font-black">{idx + 1}</span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
 
                   <div className="mt-auto mb-1.5 md:mb-2 shrink-0">
                     <button
                       onClick={handleConfirmVote}
                       disabled={!selectedNomineeId}
-                      className={`w-full py-3 md:py-2.5 px-4 font-display font-black text-sm md:text-xs uppercase tracking-widest rounded-xl border-3 border-black brutalist-shadow-sm transition-all focus:outline-none flex items-center justify-center gap-2 ${
-                        selectedNomineeId
-                          ? 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer active:translate-y-[2px]'
-                          : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
-                      }`}
+                      className={`w-full py-3 md:py-2.5 px-4 font-display font-black text-sm md:text-xs uppercase tracking-widest rounded-xl border-3 border-black brutalist-shadow-sm transition-all focus:outline-none flex items-center justify-center gap-2 ${selectedNomineeId
+                        ? 'bg-orange-500 text-white hover:bg-orange-600 cursor-pointer active:translate-y-[2px]'
+                        : 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+                        }`}
                     >
                       <span>{selectedNomineeId ? 'Confirmar y Siguiente' : 'Selecciona un Favorito'}</span>
                       <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
@@ -1106,17 +1199,17 @@ export default function LandingPage() {
                       {currentIdx === 2
                         ? '¡SÚPER CHÉVERE!'
                         : currentIdx === 5
-                        ? '¡MUCHAS GRACIAS!'
-                        : '¡YA CASI ESTAMOS!'}
+                          ? '¡MUCHAS GRACIAS!'
+                          : '¡YA CASI ESTAMOS!'}
                     </h4>
 
                     <div className="bg-orange-50 border-4 border-black rounded-2xl p-4 my-4 max-w-xs relative overflow-hidden text-left font-sans">
-                      <p className="font-comic text-xs font-bold text-gray-700 leading-relaxed italic">
+                      <p className="font-comic text-s text-gray-700 leading-relaxed italic">
                         {currentIdx === 2
                           ? '¡Levas 3 categorías! El Team Pollito realizó más de 150 directos llenos de parkour y risas.'
                           : currentIdx === 5
-                          ? 'Gracias por formar parte del Team Pollito. ¡Eres el corazón de toda esta linda aventura en Roblox!'
-                          : 'Solo queda una categoría... ¡el premio más legendario e importante de todos los Pollitos Awards!'}
+                            ? 'Gracias por formar parte del Team Pollito. ¡Eres el corazón de toda esta linda aventura en Roblox!'
+                            : 'Solo queda una categoría... ¡el premio más legendario e importante de todos los Pollitos Awards!'}
                       </p>
                     </div>
                   </div>
@@ -1149,7 +1242,7 @@ export default function LandingPage() {
                         <rect x="30" y="50" width="40" height="35" rx="5" fill="#facc15" stroke="#000000" strokeWidth="3" />
                         <circle cx="50" cy="65" r="8" fill="#ffffff" stroke="#000000" strokeWidth="2" />
                         <circle cx="50" cy="65" r="4" fill="#000000" />
-                        
+
                         <g>
                           <motion.g
                             initial={{ y: -30, opacity: 1, scale: 0.9 }}
@@ -1161,7 +1254,7 @@ export default function LandingPage() {
                             <line x1="62" y1="0" x2="50" y2="8" stroke="#000000" strokeWidth="2" />
                           </motion.g>
                         </g>
-                        
+
                         <path d="M15,30 L85,30 C87,30 88,32 88,34 L88,40 L12,40 L12,34 C12,32 13,30 15,30 Z" fill="#e2e8f0" stroke="#000000" strokeWidth="4" />
                         <rect x="34" y="33" width="32" height="3" rx="1.5" fill="#000000" />
                       </svg>
@@ -1185,7 +1278,7 @@ export default function LandingPage() {
                   key="final"
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="py-1 flex flex-col items-center justify-between h-full"
+                  className="py-1 flex flex-col items-center justify-between min-h-full w-full pb-4"
                 >
                   <div className="text-center mb-3 mt-2">
                     <div className="w-14 h-14 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center text-3xl mx-auto shadow-md animate-bounce relative mb-2">
@@ -1204,11 +1297,19 @@ export default function LandingPage() {
                     <ShareCard votes={votes} robloxProfile={robloxProfile} categories={categories} nominees={nominees} />
                   </div>
 
+                  <button
+                    id="back-home-btn"
+                    onClick={handleRestart}
+                    className="w-full py-3.5 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-sm tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-5 focus:outline-none shrink-0"
+                  >
+                    🔄 Cambiar Votos / Volver a Votar
+                  </button>
+
                   <div className="w-full space-y-2 text-left mb-3">
                     <p className="font-comic text-[10px] uppercase tracking-widest text-[#ea580c] font-black mb-1 flex items-center gap-1.5 justify-center">
                       <Award className="w-4 h-4 text-orange-600" /> MÁS CONTENIDO COMUNITARIO
                     </p>
-                    
+
                     <button
                       id="view-milo-message-btn"
                       onClick={() => {
@@ -1246,13 +1347,7 @@ export default function LandingPage() {
                     </button>
                   </div>
 
-                  <button
-                    id="back-home-btn"
-                    onClick={handleRestart}
-                    className="py-2.5 px-6 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-xs tracking-wider rounded-xl border-x-2 border-b-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center gap-1.5 uppercase font-medium focus:outline-none"
-                  >
-                    <Home className="w-3.5 h-3.5 text-yellow-400" /> Volver al Inicio
-                  </button>
+                  <div className="h-10 w-full shrink-0" />
                 </motion.div>
               )}
 
@@ -1301,34 +1396,34 @@ export default function LandingPage() {
               <h4 className="font-display text-xl text-black tracking-normal uppercase mb-2">
                 ¡Gracias de corazón!
               </h4>
- 
-<div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold">
-  <p className="mb-2">“¡Hola, mi pollit@ hermos@! 🐣💛”</p>
 
-  <p className="mb-2">
-    No puedo creer que ya haya pasado{" "}
-    <span className="text-orange-600 font-extrabold">1 añito</span>{" "}
-    desde que empezó esta hermosa aventura del Team Pollito. Parece que fue ayer cuando todo comenzó donde la meta apenas era 200 seguidores y ahora ya tenemos un montón de recuerdos, risas y momentos inolvidables juntos. ✨
-  </p>
+              <div className="bg-orange-50 p-4 rounded-2xl text-left border-4 border-black text-xs leading-relaxed max-h-[180px] overflow-y-auto font-comic text-black font-bold">
+                <p className="mb-2">“¡Hola, mi pollit@ hermos@! 🐣💛”</p>
 
-  <p className="mb-2">
-    Gracias por acompañarme en cada stream, por estar siempre ahí, por apoyar cada locura que hacemos y por formar parte de esta comunidad tan especial. 🥹💛
-  </p>
+                <p className="mb-2">
+                  No puedo creer que ya haya pasado{" "}
+                  <span className="text-orange-600 font-extrabold">1 añito</span>{" "}
+                  desde que empezó esta hermosa aventura del Team Pollito. Parece que fue ayer cuando todo comenzó donde la meta apenas era 200 seguidores y ahora ya tenemos un montón de recuerdos, risas y momentos inolvidables juntos. ✨
+                </p>
 
-  <p className="mb-2">
-    Cada mensaje, cada conversación y cada momento compartido significa muchísimo para mí. Ustedes son el corazón del{" "}
-    <span className="text-orange-600 font-extrabold">Team Pollito</span>{" "}
-    y hacen que todo esto valga la pena. 🐣
-  </p>
+                <p className="mb-2">
+                  Gracias por acompañarme en cada stream, por estar siempre ahí, por apoyar cada locura que hacemos y por formar parte de esta comunidad tan especial. 🥹💛
+                </p>
 
-  <p>
-    Gracias por este primer añito juntos. Espero que sigamos compartiendo muchas aventuras, muchas risas y muchísimos momentos más. !PORQUE A PARTIR DE HOY...! TU Y YO... POLLITOS POR SIEMPRE 🐣💛✨
-  </p>
-</div>
+                <p className="mb-2">
+                  Cada mensaje, cada conversación y cada momento compartido significa muchísimo para mí. Ustedes son el corazón del{" "}
+                  <span className="text-orange-600 font-extrabold">Team Pollito</span>{" "}
+                  y hacen que todo esto valga la pena. 🐣
+                </p>
 
-<p className="font-display text-base text-orange-600 mt-3 font-black">
-  🐣 Milumon • Streamer Oficial
-</p> 
+                <p>
+                  Gracias por este primer añito juntos. Espero que sigamos compartiendo muchas aventuras, muchas risas y muchísimos momentos más. !PORQUE A PARTIR DE HOY...! TU Y YO... POLLITOS POR SIEMPRE 🐣💛✨
+                </p>
+              </div>
+
+              <p className="font-display text-base text-orange-600 mt-3 font-black">
+                🐣 Milumon • Streamer Oficial
+              </p>
 
 
               <button
@@ -1389,7 +1484,7 @@ export default function LandingPage() {
                     <p className="font-bold text-black">Martes, 16 de Junio de 2026</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-2.5">
                   <span className="text-xl">🕕</span>
                   <div>
@@ -1397,7 +1492,7 @@ export default function LandingPage() {
                     <p className="font-bold text-black">19:30 Hs (GMT-5 / Horario Estelar)</p>
                   </div>
                 </div>
-  
+
                 <div className="flex items-start gap-2.5">
                   <span className="text-xl">🎥</span>
                   <div>

@@ -205,7 +205,7 @@ async function generateStoryCanvas(
   ctx.textBaseline = 'middle';
   const mvpLines = wrapText(ctx, mvpName, BALLOT_LAYOUT.mvpName.maxWidth);
   let mvpTextY = BALLOT_LAYOUT.mvpName.y;
-  
+
   // Mostrar máximo 2 líneas
   const linesToShow = mvpLines.slice(0, 2);
   const mvpFontSize = BALLOT_LAYOUT.mvpName.fontSize || 56;
@@ -363,7 +363,7 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
     <div className="w-full md:max-w-sm mx-auto bg-white md:border-4 md:border-black md:rounded-[2rem] overflow-hidden relative p-0 md:p-6 md:brutalist-shadow flex flex-col items-center text-black">
 
       {/* Previsualización real de la imagen */}
-      <div 
+      <div
         onClick={() => {
           if (previewUrl) {
             soundManager.playPop();
@@ -379,9 +379,9 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
             <p className="font-comic text-xs font-black uppercase text-orange-600">Generando preview...</p>
           </div>
         ) : previewUrl ? (
-          <img 
-            src={previewUrl} 
-            alt="Tu Ballot Oficial" 
+          <img
+            src={previewUrl}
+            alt="Tu Ballot Oficial"
             className="w-full h-full object-cover select-none pointer-events-none"
           />
         ) : (
@@ -396,8 +396,8 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
         onClick={handleDownloadImage}
         disabled={downloading}
         className={`w-[85%] py-4 px-6 rounded-2xl font-display text-base flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer active:scale-95 border-4 border-black brutalist-shadow mt-4 ${downloading
-            ? 'bg-orange-300 text-black cursor-wait font-bold'
-            : 'bg-orange-500 hover:bg-orange-600 text-white font-extrabold border-b-6 hover:border-b-4'
+          ? 'bg-orange-300 text-black cursor-wait font-bold'
+          : 'bg-orange-500 hover:bg-orange-600 text-white font-extrabold border-b-6 hover:border-b-4'
           }`}
       >
         <Download className={`w-5 h-5 ${downloading ? 'animate-spin' : 'animate-bounce'}`} />
@@ -409,26 +409,26 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
         id="share-button"
         onClick={handleShare}
         className={`w-[85%] py-4 px-6 rounded-2xl font-display text-base flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer active:scale-95 border-4 border-black brutalist-shadow mt-3 ${copied
-            ? 'bg-emerald-400 text-black font-extrabold'
-            : 'bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold border-b-6 hover:border-b-4'
+          ? 'bg-emerald-400 text-black font-extrabold'
+          : 'bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold border-b-6 hover:border-b-4'
           }`}
       >
         {copied ? (
           <>
             <Check className="w-5 h-5 animate-pulse" />
-            ¡COPIADO PARA DISCORD!
+            ¡COPIADO PARA COMPARTIR!
           </>
         ) : (
           <>
             <Share2 className="w-5 h-5 animate-bounce" />
-            COMPARTIR EN DISCORD
+            COMPARTIR LINK
           </>
         )}
       </button>
 
       {copied && (
         <span className="font-comic text-xs text-emerald-600 font-bold mt-2 text-center animate-fade-in mb-2">
-          ¡Listo! Pégalo en tu grupo de Roblox o Canal de Discord 💬
+          ¡Listo! Pégalo en el grupo de chat o en tu historia 💬
         </span>
       )}
 
@@ -438,22 +438,22 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
 
       {/* Fullscreen Preview Modal */}
       {isModalOpen && previewUrl && (
-        <div 
+        <div
           className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-md animate-fade-in cursor-zoom-out"
           onClick={() => setIsModalOpen(false)}
         >
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2.5 font-bold transition-all border border-white/20 active:scale-95 text-xs uppercase"
             onClick={() => setIsModalOpen(false)}
           >
             Cerrar ✕
           </button>
-          
+
           <div className="w-full max-w-[450px] aspect-[1080/1920] rounded-3xl overflow-hidden shadow-2xl relative">
-            <img 
-              src={previewUrl} 
-              alt="Ballot Fullscreen Preview" 
+            <img
+              src={previewUrl}
+              alt="Ballot Fullscreen Preview"
               className="w-full h-full object-contain pointer-events-auto cursor-zoom-out select-none"
             />
           </div>
