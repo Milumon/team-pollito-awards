@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { CATEGORIES } from '@/src/data/categories';
-import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Lock, Check, LogOut } from 'lucide-react';
+import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Lock, Check, LogOut, X } from 'lucide-react';
 
 type AdminNominee = {
   id: string;
@@ -53,6 +54,7 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [inspectingUser, setInspectingUser] = useState<any | null>(null);
 
   // New Dashboard Tab & Stats States
   const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users'>('nominees');
@@ -1096,31 +1098,16 @@ export default function AdminPage() {
                             {u.votedPercentage}%
                           </span>
                         </div>
-                        {u.votes && u.votes.length > 0 && (
-                          <details className="mt-3 group">
-                            <summary className={`w-full py-2 px-3 border-4 border-black rounded-xl text-center font-black uppercase text-xs tracking-wider cursor-pointer select-none list-none outline-none flex items-center justify-center gap-2 shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all ${
-                              isCompleted ? 'bg-emerald-200 text-emerald-900 hover:bg-emerald-300' : 'bg-yellow-100 text-black hover:bg-yellow-200'
-                            }`}>
-                              <span>{isCompleted ? '👑 Planilla Completada' : `📋 Votando (${u.votes.length}/${u.totalCategories})`}</span>
-                              <span className="transition-transform group-open:rotate-90">▶</span>
-                            </summary>
-                            <div className="mt-3 space-y-2 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin border-2 border-black rounded-2xl p-2 bg-[#fffdf0] shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
-                              {u.votes.map((v: any) => (
-                                <div key={v.categoryId} className="bg-white border-2 border-black rounded-xl p-2 text-[11px] font-semibold flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="shrink-0">{v.categoryEmoji}</span>
-                                    <span className="font-bold truncate text-gray-700" title={v.categoryTitle}>
-                                      {v.categoryTitle}
-                                    </span>
-                                  </div>
-                                  <span className="font-black text-black shrink-0 bg-yellow-100 border-2 border-black px-2 py-0.5 rounded-lg max-w-[120px] truncate">
-                                    {v.nomineeName}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setInspectingUser(u)}
+                          className={`w-full mt-3 py-2.5 px-3 border-4 border-black rounded-xl text-center font-black uppercase text-xs tracking-wider cursor-pointer select-none outline-none flex items-center justify-center gap-2 shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all ${
+                            isCompleted ? 'bg-emerald-200 text-emerald-900 hover:bg-emerald-300' : 'bg-yellow-100 text-black hover:bg-yellow-200'
+                          }`}
+                        >
+                          {isCompleted ? '👑 Ver Planilla Completada' : `📋 Ver Planilla (${u.votedCount}/${u.totalCategories})`}
+                        </button>
                       </div>
                     </article>
                   );
@@ -1130,6 +1117,95 @@ export default function AdminPage() {
           </section>
         )}
       </div>
+
+      {/* USER VOTES INSPECTOR MODAL */}
+      <AnimatePresence>
+        {inspectingUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 font-sans animate-fade-in"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white border-4 border-black rounded-[2rem] p-6 w-full max-w-md relative brutalist-shadow text-black flex flex-col max-h-[85vh] md:max-h-[80vh]"
+            >
+              <button
+                onClick={() => setInspectingUser(null)}
+                className="absolute top-4 right-4 text-black hover:scale-105 active:scale-95 transition-all w-8 h-8 flex items-center justify-center border-2 border-black rounded-lg bg-white cursor-pointer z-10"
+              >
+                <X className="w-5 h-5 stroke-[3]" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 border-b-4 border-black pb-3 shrink-0">
+                <div className="w-12 h-12 rounded-xl border-2 border-black bg-yellow-100 overflow-hidden flex items-center justify-center shrink-0">
+                  {inspectingUser.robloxAvatarUrl ? (
+                    <img src={inspectingUser.robloxAvatarUrl} alt={inspectingUser.robloxUser || 'User'} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl">🐣</span>
+                  )}
+                </div>
+                <div className="min-w-0 pr-8">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Planilla de Votación</p>
+                  <h3 className="font-black text-xl uppercase leading-none truncate" title={inspectingUser.robloxDisplayName || inspectingUser.email}>
+                    {inspectingUser.robloxDisplayName || inspectingUser.email}
+                  </h3>
+                  {inspectingUser.robloxUser && (
+                    <p className="text-xs font-semibold text-gray-400 mt-1 truncate">@{inspectingUser.robloxUser}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-yellow-50 border-4 border-black p-3 rounded-2xl mb-4 font-black uppercase text-xs shrink-0">
+                <span>Progreso General</span>
+                <span className={inspectingUser.votedCount >= inspectingUser.totalCategories ? 'text-emerald-700 font-black' : 'text-orange-600 font-black'}>
+                  {inspectingUser.votedCount}/{inspectingUser.totalCategories} Categorías
+                </span>
+              </div>
+
+              <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-2 mb-4">
+                {CATEGORIES.map((cat: any) => {
+                  const vote = inspectingUser.votes?.find((v: any) => v.categoryId === cat.id);
+
+                  return (
+                    <div key={cat.id} className={`border-2 border-black rounded-xl p-3 flex items-center justify-between gap-3 text-xs ${
+                      vote ? 'bg-white' : 'bg-red-50/70 border-dashed'
+                    }`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg shrink-0">{cat.emoji || '🏆'}</span>
+                        <span className="font-bold text-gray-700 truncate" title={cat.title}>
+                          {cat.title}
+                        </span>
+                      </div>
+                      
+                      {vote ? (
+                        <span className="font-black text-black shrink-0 bg-yellow-100 border-2 border-black px-2.5 py-1 rounded-xl truncate max-w-[140px]" title={vote.nomineeName}>
+                          {vote.nomineeName}
+                        </span>
+                      ) : (
+                        <span className="font-black text-red-700 shrink-0 bg-red-100 border-2 border-red-400 px-2.5 py-1 rounded-xl uppercase text-[9px] tracking-wider animate-pulse">
+                          ❌ Sin Votar
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setInspectingUser(null)}
+                className="w-full py-3 bg-black hover:bg-neutral-900 text-yellow-400 font-display font-black text-sm tracking-wider rounded-xl border-4 border-black active:translate-y-1 transition-all uppercase cursor-pointer focus:outline-none shrink-0"
+              >
+                Cerrar Planilla
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
