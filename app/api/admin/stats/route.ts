@@ -115,6 +115,18 @@ export async function GET(request: NextRequest) {
       const userVotes = votes?.filter((v: any) => v.user_id === authUser.id) || [];
       const votedCategoriesCount = userVotes.length;
 
+      const userVotesDetail = userVotes.map((v: any) => {
+        const category = categories.find((c: any) => c.id === v.category_id);
+        const nominee = nominees.find((n: any) => n.id === v.nominee_id);
+        return {
+          categoryId: v.category_id,
+          categoryTitle: category?.title || `Categoría ${v.category_id}`,
+          categoryEmoji: category?.emoji || '🏆',
+          nomineeId: v.nominee_id,
+          nomineeName: nominee?.nickname || nominee?.display_name || nominee?.roblox_user || 'Desconocido',
+        };
+      }).sort((a: any, b: any) => a.categoryId - b.categoryId);
+
       return {
         id: authUser.id,
         email: authUser.email || 'N/A',
@@ -128,6 +140,7 @@ export async function GET(request: NextRequest) {
         votedCount: votedCategoriesCount,
         totalCategories: categories.length,
         votedPercentage: Math.round((votedCategoriesCount / categories.length) * 100),
+        votes: userVotesDetail,
       };
     }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 

@@ -1096,10 +1096,30 @@ export default function AdminPage() {
                             {u.votedPercentage}%
                           </span>
                         </div>
-                        {isCompleted && (
-                          <div className="bg-emerald-100 text-emerald-800 border-2 border-emerald-400 rounded-xl py-1 text-center font-black uppercase text-[10px] tracking-wider">
-                            Planilla completada 👑
-                          </div>
+                        {u.votes && u.votes.length > 0 && (
+                          <details className="mt-3 group">
+                            <summary className={`w-full py-2 px-3 border-4 border-black rounded-xl text-center font-black uppercase text-xs tracking-wider cursor-pointer select-none list-none outline-none flex items-center justify-center gap-2 shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all ${
+                              isCompleted ? 'bg-emerald-200 text-emerald-900 hover:bg-emerald-300' : 'bg-yellow-100 text-black hover:bg-yellow-200'
+                            }`}>
+                              <span>{isCompleted ? '👑 Planilla Completada' : `📋 Votando (${u.votes.length}/${u.totalCategories})`}</span>
+                              <span className="transition-transform group-open:rotate-90">▶</span>
+                            </summary>
+                            <div className="mt-3 space-y-2 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin border-2 border-black rounded-2xl p-2 bg-[#fffdf0] shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+                              {u.votes.map((v: any) => (
+                                <div key={v.categoryId} className="bg-white border-2 border-black rounded-xl p-2 text-[11px] font-semibold flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="shrink-0">{v.categoryEmoji}</span>
+                                    <span className="font-bold truncate text-gray-700" title={v.categoryTitle}>
+                                      {v.categoryTitle}
+                                    </span>
+                                  </div>
+                                  <span className="font-black text-black shrink-0 bg-yellow-100 border-2 border-black px-2 py-0.5 rounded-lg max-w-[120px] truncate">
+                                    {v.nomineeName}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
                         )}
                       </div>
                     </article>
