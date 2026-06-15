@@ -565,7 +565,32 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1.5 bg-yellow-50 p-1.5 rounded-2xl border-4 border-black h-[52px] items-center shrink-0 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+              <button
+                type="button"
+                onClick={() => setStatsPhase(1)}
+                className={`px-3 py-1.5 font-black uppercase text-[10px] md:text-xs rounded-xl border-2 border-black transition-all cursor-pointer ${
+                  statsPhase === 1
+                    ? 'bg-black text-yellow-400'
+                    : 'bg-white text-black hover:bg-gray-100'
+                }`}
+              >
+                Fase 1
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatsPhase(2)}
+                className={`px-3 py-1.5 font-black uppercase text-[10px] md:text-xs rounded-xl border-2 border-black transition-all cursor-pointer ${
+                  statsPhase === 2
+                    ? 'bg-black text-yellow-400'
+                    : 'bg-white text-black hover:bg-gray-100'
+                }`}
+              >
+                Fase 2
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={async () => {
@@ -814,37 +839,13 @@ export default function AdminPage() {
 
         {activeTab === 'votes' && (
           <section className="space-y-6">
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <BarChart3 className="w-8 h-8 text-black" />
                 <div>
                   <h2 className="font-black text-2xl uppercase leading-none">Resultados de la Votación</h2>
                   <p className="text-sm text-gray-600 mt-1 font-medium">Recuento de votos por categoría en tiempo real (excluye nominados ocultos).</p>
                 </div>
-              </div>
-              <div className="flex gap-2 shrink-0 bg-yellow-50 p-1.5 rounded-2xl border-4 border-black">
-                <button
-                  type="button"
-                  onClick={() => setStatsPhase(1)}
-                  className={`px-4 py-2 font-black uppercase text-xs rounded-xl border-2 border-black transition-all ${
-                    statsPhase === 1
-                      ? 'bg-black text-yellow-400'
-                      : 'bg-white text-black hover:bg-gray-100'
-                  }`}
-                >
-                  Fase 1
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatsPhase(2)}
-                  className={`px-4 py-2 font-black uppercase text-xs rounded-xl border-2 border-black transition-all ${
-                    statsPhase === 2
-                      ? 'bg-black text-yellow-400'
-                      : 'bg-white text-black hover:bg-gray-100'
-                  }`}
-                >
-                  Fase 2
-                </button>
               </div>
             </div>
 
