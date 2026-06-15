@@ -69,6 +69,36 @@ export default function LandingPage() {
   const [muted, setMuted] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [robloxProfile, setRobloxProfile] = useState<RobloxProfileState>(null);
+  const [isWebView, setIsWebView] = useState<boolean>(false);
+  const [webViewBrand, setWebViewBrand] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isInstagram = ua.includes('instagram');
+    const isTikTok = ua.includes('tiktok') || ua.includes('musical_ly');
+    const isFacebook = ua.includes('fban') || ua.includes('fbav') || ua.includes('fb_iab');
+    const isWhatsApp = ua.includes('whatsapp');
+    const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
+    const isIosWebView = (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) && !ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios');
+    
+    if (isInstagram) {
+      setIsWebView(true);
+      setWebViewBrand('Instagram');
+    } else if (isTikTok) {
+      setIsWebView(true);
+      setWebViewBrand('TikTok');
+    } else if (isFacebook) {
+      setIsWebView(true);
+      setWebViewBrand('Facebook');
+    } else if (isWhatsApp) {
+      setIsWebView(true);
+      setWebViewBrand('WhatsApp');
+    } else if (isAndroidWebView || isIosWebView) {
+      setIsWebView(true);
+      setWebViewBrand('Navegador Interno');
+    }
+  }, []);
 
   const sessionRef = useRef<any>(null);
   const screenRef = useRef<ScreenState>('landing');
@@ -845,15 +875,31 @@ export default function LandingPage() {
                 >
                   <div className="w-full flex-grow flex flex-col items-center justify-center">
                     <div className="w-24 h-24 rounded-full bg-yellow-100 border-4 border-black flex items-center justify-center mb-4">
-                      <span className="text-5xl">🔐</span>
+                      <span className="text-5xl">{isWebView ? '⚠️' : '🔐'}</span>
                     </div>
 
                     <h2 className="font-display text-2xl text-black tracking-normal uppercase mb-1">
-                      Iniciá con Google
+                      {isWebView ? 'Acceso Bloqueado' : 'Iniciá con Google'}
                     </h2>
-                    <p className="font-comic text-xs font-bold text-gray-600 px-4 max-w-xs">
-                      Para votar y guardar tus premios, usá tu cuenta de Google.
-                    </p>
+                    
+                    {isWebView ? (
+                      <div className="mt-2 bg-orange-50 border-4 border-black p-4 rounded-2xl text-left brutalist-shadow w-full max-w-xs">
+                        <p className="font-comic text-xs font-bold text-black leading-relaxed">
+                          Estás usando el navegador de <span className="text-orange-600 font-black">{webViewBrand}</span>. Google bloquea el inicio de sesión acá por seguridad.
+                        </p>
+                        <div className="mt-3 bg-white border-2 border-black p-2.5 rounded-xl text-[11px] font-comic font-black text-gray-700">
+                          <p className="mb-1 text-black font-black">👉 Para poder votar:</p>
+                          <ol className="list-decimal list-inside space-y-1 font-bold">
+                            <li>Tocá los 3 puntitos <span className="text-black font-black">(⋮ o ...)</span> arriba a la derecha.</li>
+                            <li>Elegí <span className="text-black font-black">"Abrir en el navegador"</span> (Chrome o Safari).</li>
+                          </ol>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="font-comic text-xs font-bold text-gray-600 px-4 max-w-xs">
+                        Para votar y guardar tus premios, usá tu cuenta de Google.
+                      </p>
+                    )}
 
                     {authError && (
                       <div className="mt-4 bg-red-50 border-2 border-black p-3 rounded-xl text-xs font-bold text-red-600 font-comic w-full max-w-xs">
@@ -863,12 +909,18 @@ export default function LandingPage() {
                   </div>
 
                   <div className="w-full space-y-2">
-                    <button
-                      onClick={handleGoogleSignIn}
-                      className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md focus:outline-none"
-                    >
-                      CONTINUAR CON GOOGLE
-                    </button>
+                    {isWebView ? (
+                      <div className="w-full py-3.5 bg-gray-200 text-gray-500 font-display text-base tracking-wider rounded-2xl border-4 border-gray-400 select-none text-center font-black cursor-not-allowed">
+                        ABRIR EN NAVEGADOR EXTERNO
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGoogleSignIn}
+                        className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-base tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 cursor-pointer font-black active:translate-y-1 transition-all shadow-md focus:outline-none"
+                      >
+                        CONTINUAR CON GOOGLE
+                      </button>
+                    )}
                     <button
                       onClick={() => setScreen('landing')}
                       className="w-full py-2.5 bg-white text-black font-comic text-xs uppercase tracking-wider rounded-xl border-2 border-black font-black"
