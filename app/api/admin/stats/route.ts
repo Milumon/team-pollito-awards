@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
           categoryTitle: category?.title || `Categoría ${v.category_id}`,
           categoryEmoji: category?.emoji || '🏆',
           nomineeId: v.nominee_id,
-          nomineeName: nominee?.nickname || nominee?.display_name || nominee?.roblox_user || 'Desconocido',
+          nomineeName: nominee?.nickname || nominee?.roblox_user || 'Desconocido',
         };
       }).sort((a: any, b: any) => a.categoryId - b.categoryId);
 
