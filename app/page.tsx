@@ -71,6 +71,7 @@ export default function LandingPage() {
   const [robloxProfile, setRobloxProfile] = useState<RobloxProfileState>(null);
   const [isWebView, setIsWebView] = useState<boolean>(false);
   const [webViewBrand, setWebViewBrand] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -405,6 +406,19 @@ export default function LandingPage() {
     if (error) {
       setAuthError(error.message);
     }
+  };
+
+  const handleCopyLink = () => {
+    if (typeof window === 'undefined') return;
+    soundManager.playPop();
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Error al copiar el enlace:', err);
+      });
   };
 
   const handleLogout = async () => {
@@ -887,12 +901,32 @@ export default function LandingPage() {
                         <p className="font-comic text-xs font-bold text-black leading-relaxed">
                           Estás usando el navegador de <span className="text-orange-600 font-black">{webViewBrand}</span>. Google bloquea el inicio de sesión acá por seguridad.
                         </p>
-                        <div className="mt-3 bg-white border-2 border-black p-2.5 rounded-xl text-[11px] font-comic font-black text-gray-700">
-                          <p className="mb-1 text-black font-black">👉 Para poder votar:</p>
-                          <ol className="list-decimal list-inside space-y-1 font-bold">
-                            <li>Tocá los 3 puntitos <span className="text-black font-black">(⋮ o ...)</span> arriba a la derecha.</li>
-                            <li>Elegí <span className="text-black font-black">"Abrir en el navegador"</span> (Chrome o Safari).</li>
-                          </ol>
+                        
+                        <div className="mt-3 space-y-2">
+                          <button
+                            onClick={handleCopyLink}
+                            className={`w-full py-2.5 rounded-xl border-2 border-black font-display text-xs font-black transition-all flex items-center justify-center gap-1.5 active:translate-y-0.5 brutalist-shadow-sm cursor-pointer ${
+                              copied 
+                                ? 'bg-green-400 text-black border-green-500' 
+                                : 'bg-yellow-400 hover:bg-yellow-300 text-black'
+                            }`}
+                          >
+                            {copied ? '✅ ¡ENLACE COPIADO!' : '📋 COPIAR ENLACE'}
+                          </button>
+
+                          <div className="bg-white border-2 border-black p-2.5 rounded-xl text-[11px] font-comic font-black text-gray-700">
+                            <p className="mb-1 text-black font-black">👉 Para poder votar:</p>
+                            <ol className="list-decimal list-inside space-y-1 font-bold">
+                              <li>Copiá el enlace arriba.</li>
+                              <li>Abrí Chrome o Safari en tu celu.</li>
+                              <li>Pegá el enlace y listo.</li>
+                            </ol>
+                            {webViewBrand !== 'TikTok' && (
+                              <p className="mt-2 text-[10px] text-gray-500 font-bold border-t border-dashed border-gray-300 pt-1.5">
+                                Alternativa: Tocá los 3 puntitos <span className="text-black font-black">(⋮ o ...)</span> y elegí <span className="text-black font-black">"Abrir en el navegador"</span>.
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ) : (
