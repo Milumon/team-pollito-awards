@@ -24,7 +24,7 @@ import RobloxOnboarding from '../components/RobloxOnboarding';
 import { soundManager } from '../lib/sound';
 import { supabase } from '../lib/supabaseClient';
 
-type ScreenState = 'landing' | 'auth' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final';
+type ScreenState = 'landing' | 'auth' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final' | 'results';
 
 type PublicNominee = {
   id: string;
@@ -44,11 +44,17 @@ const normalizeText = (value: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+const VOTING_DEADLINE = new Date("2026-06-16T19:30:00-05:00").getTime();
+
 export default function LandingPage() {
   const phase = Number(process.env.NEXT_PUBLIC_VOTING_PHASE || 1);
   const warnedVotesReadRef = useRef(false);
   const [session, setSession] = useState<any>(null);
-  const [screen, setScreen] = useState<ScreenState>('landing');
+  const [screen, setScreen] = useState<ScreenState>('results');
+  const [results, setResults] = useState<any[]>([]);
+  const [resultsLoading, setResultsLoading] = useState<boolean>(true);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const [votes, setVotes] = useState<VoteState>({});
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const reorderMvpLast = (list: any[]) => {
@@ -147,8 +153,9 @@ export default function LandingPage() {
       // Check if user has completed their Roblox profile
       await checkRobloxProfile(session);
 
-      const hasFinishedVoting = await fetchUserVotes(session.user.id, true);
-      if (!hasFinishedVoting) {
+      const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+      const hasFinishedVoting = await fetchUserVotes(session.user.id, !isCurrentlyClosed);
+      if (!hasFinishedVoting && !isCurrentlyClosed) {
         setScreen('hatching');
       }
     };
@@ -177,17 +184,39 @@ export default function LandingPage() {
         // Check if user has completed their Roblox profile
         await checkRobloxProfile(nextSession);
 
-        const hasFinishedVoting = await fetchUserVotes(nextSession.user.id, true);
-        if (!hasFinishedVoting) {
+        const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+        const hasFinishedVoting = await fetchUserVotes(nextSession.user.id, !isCurrentlyClosed);
+        if (!hasFinishedVoting && !isCurrentlyClosed) {
           setScreen((prev) => (prev === 'landing' || prev === 'auth' ? 'hatching' : prev));
         }
       } else {
         setVotes({});
-        setScreen('landing');
+        const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+        setScreen(isCurrentlyClosed ? 'results' : 'landing');
       }
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const fetchResults = async () => {
+      try {
+        const res = await fetch('/api/results');
+        const data = await res.json();
+        if (data.results) {
+          setResults(data.results);
+        } else if (data.error) {
+          setResultsError(data.error);
+        }
+      } catch (err: any) {
+        setResultsError(err.message || 'Error al cargar resultados');
+      } finally {
+        setResultsLoading(false);
+      }
+    };
+
+    fetchResults();
   }, []);
 
   useEffect(() => {
@@ -318,7 +347,7 @@ export default function LandingPage() {
   };
 
   useEffect(() => {
-    const target = new Date("2026-06-16T19:30:00-05:00").getTime();
+    const target = VOTING_DEADLINE;
 
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -440,17 +469,29 @@ export default function LandingPage() {
     setNomineeSearch('');
     setContinuousConfetti(false);
     setAuthError(null);
-    // Si el usuario tiene sesión activa, volver al flujo de votación
-    // en vez de la pantalla de landing (que es para usuarios no autenticados)
-    setScreen(session ? 'hatching' : 'landing');
+    const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+    if (isCurrentlyClosed) {
+      setScreen('results');
+    } else {
+      // Si el usuario tiene sesión activa, volver al flujo de votación
+      // en vez de la pantalla de landing (que es para usuarios no autenticados)
+      setScreen(session ? 'hatching' : 'landing');
+    }
   };
 
   // Navigate back step-by-step
   const handleBack = () => {
     soundManager.playPop();
 
+    if (screen === 'final') {
+      const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+      setScreen(isCurrentlyClosed ? 'results' : 'landing');
+      return;
+    }
+
     if (screen === 'welcome') {
-      setScreen('landing');
+      const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
+      setScreen(isCurrentlyClosed ? 'results' : 'landing');
       return;
     }
 
@@ -519,6 +560,12 @@ export default function LandingPage() {
   // Confirm selected vote and advance
   const handleConfirmVote = async () => {
     if (!selectedNomineeId || !session) return;
+
+    if (new Date().getTime() >= VOTING_DEADLINE) {
+      setAuthError('Las votaciones ya han cerrado. ¡Gracias por participar!');
+      setScreen('landing');
+      return;
+    }
 
     soundManager.playPop();
     setBurstActive(true);
@@ -650,25 +697,31 @@ export default function LandingPage() {
               </p>
 
               <div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
-                <div className="flex flex-col items-center">
-                  <span className="font-mono text-2xl font-black text-black leading-none">{timeLeft.days}</span>
-                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Días</span>
-                </div>
-                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.hours).padStart(2, '0')}</span>
-                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Horas</span>
-                </div>
-                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Mins</span>
-                </div>
-                <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                  <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Segs</span>
-                </div>
+                {timeLeft.isOver ? (
+                  <span className="animate-pulse text-lg text-orange-600 font-black">🔴 ¡ESTAMOS EN VIVO EN TIKTOK!</span>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center">
+                      <span className="font-mono text-2xl font-black text-black leading-none">{timeLeft.days}</span>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Días</span>
+                    </div>
+                    <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.hours).padStart(2, '0')}</span>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Horas</span>
+                    </div>
+                    <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Mins</span>
+                    </div>
+                    <span className="font-mono text-xl font-black text-[#ea580c] leading-none">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="font-mono text-2xl font-black text-black leading-none">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                      <span className="text-[9px] uppercase font-bold text-gray-400 font-comic">Segs</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -709,7 +762,7 @@ export default function LandingPage() {
           {/* Header Progress Tag & Audio Toggle inside phone frame */}
           <div className="px-4 py-1 md:px-5 md:py-1.5 flex items-center justify-between gap-2 bg-white md:bg-gray-50 border-b-2 border-black/5 md:border-gray-100 shrink-0">
             <div className="flex items-center gap-2 min-w-0">
-              {screen !== 'landing' && screen !== 'hatching' && screen !== 'submitting' && (
+              {screen !== 'landing' && screen !== 'results' && screen !== 'hatching' && screen !== 'submitting' && (
                 <button
                   id="back-to-landing"
                   onClick={handleBack}
@@ -765,6 +818,225 @@ export default function LandingPage() {
           {/* View Container inside Smartphone Viewport */}
           <div className="flex-grow overflow-y-auto p-3 md:p-4 flex flex-col relative z-20 scrollbar-thin">
             <AnimatePresence mode="wait">
+
+              {/* SCREEN 0: RESULTS */}
+              {screen === 'results' && (
+                (() => {
+                  // Calculate user hits
+                  let userHits = 0;
+                  let hasVotedAny = false;
+                  if (results && results.length > 0 && votes && Object.keys(votes).length > 0) {
+                    results.forEach((category) => {
+                      const winner = category.nominees?.[0];
+                      const userVote = votes[category.id];
+                      if (userVote) {
+                        hasVotedAny = true;
+                        if (winner && userVote === winner.id) {
+                          userHits++;
+                        }
+                      }
+                    });
+                  }
+
+                  return (
+                    <motion.div
+                      key="results"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="flex flex-col min-h-full py-1 text-black"
+                    >
+                      <div className="text-center mb-4 mt-2">
+                        <div className="w-14 h-14 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center text-3xl mx-auto shadow-md animate-bounce relative mb-2">
+                          🏆
+                          <div className="absolute inset-0 border-2 border-dashed border-black rounded-full animate-pulse" />
+                        </div>
+                        <h2 className="font-display text-2xl text-black tracking-normal uppercase leading-none">
+                          🏆 GANADORES 🏆
+                        </h2>
+                        <p className="font-comic text-[10px] text-orange-600 uppercase tracking-widest font-black mt-1.5 leading-snug">
+                          ¡Resultados Oficiales 2026!
+                        </p>
+                      </div>
+
+                      {/* Summary of Hits Banner */}
+                      {session && hasVotedAny && (
+                        <div className="bg-[#e0f2fe] border-4 border-black rounded-2xl p-3.5 mb-3.5 brutalist-shadow-sm text-center">
+                          <span className="text-2xl">🎯</span>
+                          <p className="font-display text-base font-black uppercase text-sky-800 leading-none mt-1.5">
+                            ¡Conseguiste acertar {userHits} de {results.length} ganadores!
+                          </p>
+                          <p className="font-comic text-[10px] text-sky-600 font-black mt-1.5 uppercase leading-tight">
+                            {userHits === results.length 
+                              ? '🏆 ¡INCREÍBLE! ¡SOS UN ADIVINO EXPERTO! 🐣' 
+                              : userHits >= 8 
+                              ? '🔥 ¡Excelente puntería, pollito! 💛' 
+                              : userHits >= 6 
+                              ? '✨ ¡Muy buena puntería! ¡Más de la mitad! 👍' 
+                              : userHits === 5 
+                              ? '✨ ¡Le pegaste justo a la mitad! 👍' 
+                              : userHits >= 3 
+                              ? '✨ ¡Bastante bien! ¡Casi la mitad! 👍' 
+                              : '🐣 ¡A la próxima le pegás a más! ¡Gracias por participar!'}
+                          </p>
+                        </div>
+                      )}
+
+                      {resultsLoading ? (
+                        <div className="flex-grow flex flex-col items-center justify-center py-12">
+                          <div className="w-8 h-8 border-4 border-black border-t-yellow-400 rounded-full animate-spin mb-3" />
+                          <p className="font-comic text-xs font-black uppercase text-gray-500">Cargando ganadores...</p>
+                        </div>
+                      ) : resultsError ? (
+                        <div className="bg-red-50 border-4 border-black p-4 rounded-2xl text-center brutalist-shadow my-4">
+                          <p className="font-comic text-xs font-black text-red-600 uppercase mb-2">⚠️ Error al cargar</p>
+                          <p className="text-xs font-bold text-gray-700">{resultsError}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 mb-4 flex-grow">
+                          {results.map((category) => {
+                            const isExpanded = expandedCategory === category.id;
+                            const winner = category.nominees?.[0];
+                            const userVoteId = votes[category.id];
+                            const hasVotedThis = !!userVoteId;
+                            const isHit = winner && userVoteId === winner.id;
+                            const votedNominee = category.nominees?.find((n: any) => n.id === userVoteId);
+                            const votedName = votedNominee ? votedNominee.nickname : 'Tu elección';
+
+                            return (
+                              <div key={category.id} className="bg-white border-4 border-black rounded-2xl p-3 brutalist-shadow-sm transition-all hover:scale-[1.01]">
+                                <div 
+                                  onClick={() => {
+                                    soundManager.playPop();
+                                    setExpandedCategory(isExpanded ? null : category.id);
+                                  }}
+                                  className="flex items-center justify-between cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="text-2xl shrink-0">{category.emoji}</span>
+                                    <div className="min-w-0">
+                                      <p className="font-display text-xs font-black uppercase tracking-wide truncate text-black">{category.title}</p>
+                                      <p className="text-[10px] text-gray-500 font-bold font-comic uppercase">
+                                        {category.totalVotes} votos totales
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="text-orange-600 text-sm font-black font-sans ml-2">
+                                    {isExpanded ? '▲' : '▼'}
+                                  </span>
+                                </div>
+
+                                {/* Winner summary */}
+                                {winner && (
+                                  <div className="mt-2.5 bg-yellow-50/70 border-2 border-black rounded-xl p-2.5 flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                      <div className="w-10 h-10 rounded-full overflow-hidden relative flex items-center justify-center bg-yellow-100 border border-black/10 shrink-0">
+                                        {winner.profile_image_url ? (
+                                          <img
+                                            src={winner.profile_image_url}
+                                            alt={winner.nickname}
+                                            className="w-[38px] h-[38px] rounded-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-lg select-none">🐣</span>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="font-black text-sm text-black font-sans flex items-center gap-1">
+                                          👑 {winner.nickname}
+                                        </p>
+                                        <p className="text-[8px] font-black uppercase tracking-wider text-orange-600 font-comic">
+                                          Ganador/a
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="bg-orange-500 border-2 border-black text-white px-2 py-0.5 rounded-lg text-xs font-mono font-black shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+                                      {winner.votes} {winner.votes === 1 ? 'voto' : 'votos'}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Match comparison badge */}
+                                {session && hasVotedThis && (
+                                  <div className={`mt-2 border-2 border-dashed p-2 rounded-xl flex items-center justify-between text-[11px] font-bold font-sans ${
+                                    isHit 
+                                      ? 'bg-green-50 border-green-400 text-green-700' 
+                                      : 'bg-slate-50 border-slate-300 text-slate-600'
+                                  }`}>
+                                    <span className="truncate pr-1">
+                                      {isHit ? '🎯 ¡Le atinaste!' : `🗳️ Votaste por:`} <span className="font-black underline">{votedName}</span>
+                                    </span>
+                                    <span className="font-comic text-[9px] uppercase font-black shrink-0">
+                                      {isHit ? '¡ACERTASTE! 🎉' : 'VOTO REGISTRADO'}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Expanded positions list */}
+                                {isExpanded && (
+                                  <div className="mt-3 border-t-2 border-black/10 pt-3 space-y-2">
+                                    <p className="font-comic text-[9px] uppercase font-black text-gray-500 tracking-wider mb-1">Posiciones completas:</p>
+                                    {category.nominees.map((nominee: any, idx: number) => {
+                                      const isWinner = idx === 0;
+                                      return (
+                                        <div key={nominee.id} className={`flex items-center justify-between p-1.5 rounded-lg border-2 ${isWinner ? 'bg-yellow-50/50 border-black' : 'bg-white border-gray-100'}`}>
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <span className="font-mono text-xs font-black text-gray-400 w-4 text-center">
+                                              {isWinner ? '👑' : `${idx + 1}`}
+                                            </span>
+                                            <div className="w-6 h-6 rounded-full overflow-hidden relative flex items-center justify-center bg-gray-50 border border-black/5 shrink-0">
+                                              {nominee.profile_image_url ? (
+                                                <img
+                                                  src={nominee.profile_image_url}
+                                                  alt={nominee.nickname}
+                                                  className="w-6 h-6 rounded-full object-cover"
+                                                />
+                                              ) : (
+                                                <span className="text-xs select-none">🐣</span>
+                                              )}
+                                            </div>
+                                            <span className={`text-xs font-bold truncate text-slate-800 ${isWinner ? 'font-black text-orange-600' : 'font-medium'}`}>
+                                              {nominee.nickname}
+                                            </span>
+                                          </div>
+                                          <span className="text-xs font-mono font-black text-slate-700 bg-gray-50 border border-black/5 px-1.5 py-0.5 rounded">
+                                            {nominee.votes} {nominee.votes === 1 ? 'voto' : 'votos'}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {!session ? (
+                        <button
+                          id="results-login-btn"
+                          onClick={() => setScreen('auth')}
+                          className="w-full py-3 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-xs tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-2 focus:outline-none shrink-0"
+                        >
+                          🔐 Iniciá sesión para ver si acertaste
+                        </button>
+                      ) : (
+                        <button
+                          id="view-my-card-btn"
+                          onClick={() => setScreen('final')}
+                          className="w-full py-3 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-xs tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-2 focus:outline-none shrink-0"
+                        >
+                          📋 Ver Mi Tarjeta de Votación
+                        </button>
+                      )}
+                      
+                      {/* Spacing at the bottom to avoid being flush with the floor */}
+                      <div className="h-10 w-full shrink-0" />
+                    </motion.div>
+                  );
+                })()
+              )}
 
               {/* SCREEN 1: LANDING */}
               {screen === 'landing' && (
@@ -864,15 +1136,27 @@ export default function LandingPage() {
 
                   {/* Big Golden Action Button */}
                   <div className="w-full mt-auto pt-3">
-                    <button
-                      id="start-awards-btn"
-                      onClick={handleStartVotingClick}
-                      className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-lg tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 transition-all cursor-pointer font-black brutalist-shadow text-center active:translate-y-1 block focus:outline-none"
-                    >
-                      🗳️ COMENZAR VOTACIÓN
-                    </button>
+                    {timeLeft.isOver ? (
+                      <button
+                        onClick={() => {
+                          soundManager.playPop();
+                          setScreen('results');
+                        }}
+                        className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-lg tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 transition-all cursor-pointer font-black brutalist-shadow text-center active:translate-y-1 block focus:outline-none"
+                      >
+                        🏆 VER SI GANARON TUS FAVORITOS
+                      </button>
+                    ) : (
+                      <button
+                        id="start-awards-btn"
+                        onClick={handleStartVotingClick}
+                        className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-lg tracking-wider rounded-2xl border-4 border-black border-b-8 hover:border-b-6 transition-all cursor-pointer font-black brutalist-shadow text-center active:translate-y-1 block focus:outline-none"
+                      >
+                        🗳️ COMENZAR VOTACIÓN
+                      </button>
+                    )}
                     <div className="flex justify-center items-center gap-1.5 text-gray-500 font-comic font-black text-[10px] mt-2 uppercase tracking-wider">
-                      🐣 ¡Es rápido y divertido!
+                      {timeLeft.isOver ? '👉 ¡Entrá a ver si les atinaste!' : '🐣 ¡Es rápido y divertido!'}
                     </div>
                   </div>
                 </motion.div>
@@ -1383,13 +1667,26 @@ export default function LandingPage() {
                     <ShareCard votes={votes} robloxProfile={robloxProfile} categories={categories} nominees={nominees} />
                   </div>
 
-                  <button
-                    id="back-home-btn"
-                    onClick={handleRestart}
-                    className="w-full py-3.5 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-sm tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-5 focus:outline-none shrink-0"
-                  >
-                    🔄 Cambiar Votos / Volver a Votar
-                  </button>
+                  {!timeLeft.isOver ? (
+                    <button
+                      id="back-home-btn"
+                      onClick={handleRestart}
+                      className="w-full py-3.5 bg-black hover:bg-neutral-900 text-yellow-400 font-display text-sm tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-5 focus:outline-none shrink-0"
+                    >
+                      🔄 Cambiar Votos / Volver a Votar
+                    </button>
+                  ) : (
+                    <button
+                      id="back-results-btn"
+                      onClick={() => {
+                        soundManager.playPop();
+                        setScreen('results');
+                      }}
+                      className="w-full py-3.5 bg-yellow-400 hover:bg-yellow-300 text-black font-display text-sm tracking-wider rounded-xl border-4 border-black select-none cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-2 uppercase font-black brutalist-shadow-sm mb-5 focus:outline-none shrink-0"
+                    >
+                      🏆 Ver Resultados Globales
+                    </button>
+                  )}
 
                   <div className="w-full space-y-2 text-left mb-3">
                     <p className="font-comic text-[10px] uppercase tracking-widest text-[#ea580c] font-black mb-1 flex items-center gap-1.5 justify-center">
