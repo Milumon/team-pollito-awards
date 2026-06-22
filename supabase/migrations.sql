@@ -153,3 +153,77 @@ drop policy if exists "allow_update_own_profile" on public.profiles;
 create policy "allow_update_own_profile" on public.profiles for update to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+-- ============================================================
+-- Community Database Tables
+-- ============================================================
+
+-- Table to store historical and new interviews
+create table if not exists public.interview_history (
+  id bigserial primary key,
+  roblox_user text not null,
+  tiktok_user text not null,
+  status text not null check (status in ('pending', 'official', 'rejected')),
+  interview_date date,
+  interview_time time,
+  moderator text,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS
+alter table public.interview_history enable row level security;
+
+-- Policies
+drop policy if exists "public_read_interviews" on public.interview_history;
+create policy "public_read_interviews" on public.interview_history for select using (true);
+
+-- Unique index to prevent duplicate entries of roblox_user and tiktok_user
+create unique index if not exists interview_history_roblox_tiktok_unique_idx
+  on public.interview_history (roblox_user, tiktok_user);
+
+-- Stream settings table (Panic button and cooldowns)
+create table if not exists public.stream_settings (
+  id integer primary key default 1,
+  is_muted boolean not null default false,
+  global_cooldown_seconds integer not null default 30,
+  personal_cooldown_seconds integer not null default 300,
+  updated_at timestamp with time zone default now()
+);
+
+-- Seed default setting
+insert into public.stream_settings (id, is_muted, global_cooldown_seconds, personal_cooldown_seconds)
+values (1, false, 30, 300)
+on conflict (id) do nothing;
+
+-- Enable RLS
+alter table public.stream_settings enable row level security;
+
+-- Policies
+drop policy if exists "public_read_settings" on public.stream_settings;
+create policy "public_read_settings" on public.stream_settings for select using (true);
+
+-- Stream events table (FIFO Queue source)
+create table if not exists public.stream_events (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users on delete set null,
+  type text not null check (type in ('sound', 'tts', 'animation')),
+  content text not null, -- MP3 filename, TTS text, or animation ID
+  sender_roblox_user text,
+  sender_tiktok_user text,
+  played boolean default false,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS
+alter table public.stream_events enable row level security;
+
+-- Policies
+drop policy if exists "public_read_stream_events" on public.stream_events;
+create policy "public_read_stream_events" on public.stream_events for select using (true);
+
+-- Profiles table extension
+alter table public.profiles
+  add column if not exists tiktok_user text,
+  add column if not exists link_status text default 'none' check (link_status in ('none', 'pending', 'approved', 'rejected')),
+  add column if not exists rejection_reason text;
+
