@@ -36,6 +36,9 @@ type RobloxProfileState = {
   displayName: string;
   avatarUrl: string | null;
   username: string | null;
+  tiktokUser: string | null;
+  linkStatus: string;
+  rejectionReason: string | null;
 } | null;
 
 const normalizeText = (value: string) =>
@@ -263,12 +266,18 @@ export default function LandingPage() {
           displayName: data.profile.roblox_display_name || data.profile.roblox_user || data.displayName || 'Pollito',
           avatarUrl: data.profile.roblox_avatar_url || data.avatarUrl || null,
           username: data.profile.roblox_user || null,
+          tiktokUser: data.profile.tiktok_user || null,
+          linkStatus: data.profile.link_status || 'none',
+          rejectionReason: data.profile.rejection_reason || null,
         });
       } else if (data.displayName) {
         setRobloxProfile({
           displayName: data.displayName,
           avatarUrl: data.avatarUrl || null,
           username: null,
+          tiktokUser: null,
+          linkStatus: 'none',
+          rejectionReason: null,
         });
       }
 
@@ -412,6 +421,8 @@ export default function LandingPage() {
     if (!session) {
       setAuthError(null);
       setScreen('auth');
+    } else if (robloxProfile?.linkStatus !== 'approved') {
+      setRobloxOnboardingOpen(true);
     } else {
       const firstMissingCategoryIndex = categories.findIndex((category) => !votes[category.id]);
       if (firstMissingCategoryIndex >= 0) {
@@ -1207,7 +1218,7 @@ export default function LandingPage() {
                             </ol>
                             {webViewBrand !== 'TikTok' && (
                               <p className="mt-2 text-[10px] text-gray-500 font-bold border-t border-dashed border-gray-300 pt-1.5">
-                                Alternativa: Tocá los 3 puntitos <span className="text-black font-black">(⋮ o ...)</span> y elegí <span className="text-black font-black">"Abrir en el navegador"</span>.
+                                Alternativa: Tocá los 3 puntitos <span className="text-black font-black">(⋮ o ...)</span> y elegí <span className="text-black font-black">&quot;Abrir en el navegador&quot;</span>.
                               </p>
                             )}
                           </div>
@@ -1914,6 +1925,7 @@ export default function LandingPage() {
           }
         }}
         userSession={{ session }}
+        currentProfile={robloxProfile}
       />
 
     </div>

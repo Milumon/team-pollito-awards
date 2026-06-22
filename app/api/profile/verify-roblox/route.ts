@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
     // Get user's profile
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at')
+      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -237,16 +237,19 @@ export async function GET(request: NextRequest) {
               roblox_display_name: metadataProfile.roblox_display_name,
               roblox_avatar_url: metadataProfile.roblox_avatar_url,
               roblox_verified_at: metadataProfile.roblox_verified_at,
+              tiktok_user: (metadataProfile as any).tiktok_user || null,
+              link_status: (metadataProfile as any).link_status || 'none',
+              rejection_reason: (metadataProfile as any).rejection_reason || null,
             }
           : null,
-        isComplete: Boolean(metadataProfile?.roblox_verified_at),
+        isComplete: (metadataProfile as any)?.link_status === 'approved',
         fallback: metadataProfile ? 'user_metadata' : null,
       });
     }
 
     return NextResponse.json({
       profile: data,
-      isComplete: Boolean(data?.roblox_verified_at),
+      isComplete: data?.link_status === 'approved',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
