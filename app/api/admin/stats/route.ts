@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const phase = phaseParam ? Number(phaseParam) : Number(process.env.NEXT_PUBLIC_VOTING_PHASE || 1);
 
     // 1. Fetch categories
-    const { data: categories, error: catError } = await supabaseAdmin
+    const { data: catData, error: catError } = await supabaseAdmin
       .from('categories')
       .select('id, title, emoji, description')
       .order('id', { ascending: true });
@@ -27,27 +27,64 @@ export async function GET(request: NextRequest) {
     if (catError) throw new Error(catError.message);
 
     // 2. Fetch nominees
-    const { data: nominees, error: nomError } = await supabaseAdmin
+    const { data: nomData, error: nomError } = await supabaseAdmin
       .from('nominees')
       .select('id, nickname, profile_image_url, is_visible, roblox_user, roblox_user_id');
 
     if (nomError) throw new Error(nomError.message);
 
     // 3. Fetch votes filtered by phase
-    const { data: votes, error: votesError } = await supabaseAdmin
+    const { data: votesData, error: votesError } = await supabaseAdmin
       .from('votes')
       .select('user_id, category_id, nominee_id')
       .eq('phase', phase);
 
     if (votesError) throw new Error(votesError.message);
 
-    // 4. Fetch profiles (might fail if the table profiles doesn't exist yet, so handle gracefully)
-    const { data: profiles, error: profError } = await supabaseAdmin
+    // 4. Fetch profiles
+    const { data: profData, error: profError } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at');
+      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason');
 
     const hasProfilesTable = !profError;
-    const profilesList = hasProfilesTable ? (profiles || []) : [];
+    
+    interface DbCategory {
+      id: number;
+      title: string;
+      emoji: string;
+      description: string;
+    }
+
+    interface DbNominee {
+      id: string;
+      nickname: string | null;
+      profile_image_url: string | null;
+      is_visible: boolean;
+      roblox_user: string | null;
+      roblox_user_id: number | string | null;
+    }
+
+    interface DbVote {
+      user_id: string;
+      category_id: number;
+      nominee_id: string;
+    }
+
+    interface DbProfile {
+      id: string;
+      roblox_user: string | null;
+      roblox_display_name: string | null;
+      roblox_avatar_url: string | null;
+      roblox_verified_at: string | null;
+      tiktok_user: string | null;
+      link_status: 'none' | 'pending' | 'approved' | 'rejected';
+      rejection_reason: string | null;
+    }
+
+    const categories = (catData || []) as DbCategory[];
+    const nominees = (nomData || []) as DbNominee[];
+    const votes = (votesData || []) as DbVote[];
+    const profilesList = hasProfilesTable ? ((profData || []) as DbProfile[]) : [];
 
     // 5. Fetch auth users
     const { data: { users: authUsers }, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
@@ -55,11 +92,11 @@ export async function GET(request: NextRequest) {
 
     // --- PROCESS VOTE STATS ---
     const voteCounts: Record<number, Record<string, number>> = {};
-    categories.forEach((cat: any) => {
+    categories.forEach((cat: DbCategory) => {
       voteCounts[cat.id] = {};
     });
 
-    votes?.forEach((vote: any) => {
+    votes?.forEach((vote: DbVote) => {
       const catId = Number(vote.category_id);
       const nomId = String(vote.nominee_id);
       if (voteCounts[catId]) {
@@ -67,25 +104,25 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const categoryStats = categories.map((cat: any) => {
+    const categoryStats = categories.map((cat: DbCategory) => {
       const allowedNomineeIds = phase === 2 ? (CATEGORY_FINALISTS[cat.id] || []) : null;
 
       // Get vote counts for all nominees in this category
       const nomineesVotes = nominees
-        .filter((nom: any) => !allowedNomineeIds || allowedNomineeIds.includes(nom.id))
-        .map((nom: any) => {
+        .filter((nom: DbNominee) => !allowedNomineeIds || allowedNomineeIds.includes(nom.id))
+        .map((nom: DbNominee) => {
           const count = voteCounts[cat.id]?.[nom.id] || 0;
           return {
             id: nom.id,
-            nickname: nom.nickname || nom.display_name || nom.roblox_user || 'Pollito',
+            nickname: nom.nickname || nom.roblox_user || 'Pollito',
             profile_image_url: nom.profile_image_url,
             roblox_user: nom.roblox_user,
             votes: count,
           };
         })
-        .sort((a: any, b: any) => b.votes - a.votes);
+        .sort((a, b) => b.votes - a.votes);
 
-      const totalCategoryVotes = nomineesVotes.reduce((sum: number, n: any) => sum + n.votes, 0);
+      const totalCategoryVotes = nomineesVotes.reduce((sum: number, n) => sum + n.votes, 0);
 
       return {
         id: cat.id,
@@ -97,27 +134,30 @@ export async function GET(request: NextRequest) {
     });
 
     // --- PROCESS USER LIST ---
-    const processedUsers = authUsers.map((authUser: any) => {
-      let robloxProfile = profilesList.find((p: any) => p.id === authUser.id);
+    const processedUsers = authUsers.map((authUser) => {
+      let robloxProfile = profilesList.find((p) => p.id === authUser.id);
       
       // Fallback to auth metadata
       if (!robloxProfile && authUser.user_metadata?.roblox_profile) {
         const metaProfile = authUser.user_metadata.roblox_profile;
         robloxProfile = {
-  id: metaProfile.id ?? authUser.id,   // ← agregar esta línea
-  roblox_user: metaProfile.roblox_user,
-  roblox_display_name: metaProfile.roblox_display_name,
-  roblox_avatar_url: metaProfile.roblox_avatar_url,
-  roblox_verified_at: metaProfile.roblox_verified_at,
-};
+          id: metaProfile.id ?? authUser.id,
+          roblox_user: metaProfile.roblox_user,
+          roblox_display_name: metaProfile.roblox_display_name,
+          roblox_avatar_url: metaProfile.roblox_avatar_url,
+          roblox_verified_at: metaProfile.roblox_verified_at,
+          tiktok_user: null,
+          link_status: 'none',
+          rejection_reason: null,
+        };
       }
 
-      const userVotes = votes?.filter((v: any) => v.user_id === authUser.id) || [];
+      const userVotes = votes?.filter((v) => v.user_id === authUser.id) || [];
       const votedCategoriesCount = userVotes.length;
 
-      const userVotesDetail = userVotes.map((v: any) => {
-        const category = categories.find((c: any) => c.id === v.category_id);
-        const nominee = nominees.find((n: any) => n.id === v.nominee_id);
+      const userVotesDetail = userVotes.map((v) => {
+        const category = categories.find((c) => c.id === v.category_id);
+        const nominee = nominees.find((n) => n.id === v.nominee_id);
         return {
           categoryId: v.category_id,
           categoryTitle: category?.title || `Categoría ${v.category_id}`,
@@ -125,30 +165,33 @@ export async function GET(request: NextRequest) {
           nomineeId: v.nominee_id,
           nomineeName: nominee?.nickname || nominee?.roblox_user || 'Desconocido',
         };
-      }).sort((a: any, b: any) => a.categoryId - b.categoryId);
+      }).sort((a, b) => a.categoryId - b.categoryId);
 
       return {
         id: authUser.id,
         email: authUser.email || 'N/A',
         createdAt: authUser.created_at,
-        lastSignInAt: authUser.last_sign_in_at,
+        lastSignInAt: authUser.last_sign_in_at || '',
         hasVerifiedRoblox: !!robloxProfile,
         robloxUser: robloxProfile?.roblox_user || null,
         robloxDisplayName: robloxProfile?.roblox_display_name || null,
         robloxAvatarUrl: robloxProfile?.roblox_avatar_url || null,
         robloxVerifiedAt: robloxProfile?.roblox_verified_at || null,
+        tiktokUser: robloxProfile?.tiktok_user || null,
+        linkStatus: robloxProfile?.link_status || 'none',
+        rejectionReason: robloxProfile?.rejection_reason || null,
         votedCount: votedCategoriesCount,
         totalCategories: categories.length,
         votedPercentage: Math.round((votedCategoriesCount / categories.length) * 100),
         votes: userVotesDetail,
       };
-    }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // Summary
     const totalUsersCount = authUsers.length;
-    const verifiedUsersCount = processedUsers.filter((u: any) => u.hasVerifiedRoblox).length;
+    const verifiedUsersCount = processedUsers.filter((u) => u.hasVerifiedRoblox).length;
     const totalVotesCount = votes?.length || 0;
-    const completedVotersCount = processedUsers.filter((u: any) => u.votedCount >= categories.length).length;
+    const completedVotersCount = processedUsers.filter((u) => u.votedCount >= categories.length).length;
 
     return NextResponse.json({
       summary: {
@@ -161,8 +204,9 @@ export async function GET(request: NextRequest) {
       users: processedUsers,
     });
 
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Error desconocido';
     console.error('Stats endpoint failed:', err);
-    return NextResponse.json({ error: err.message || 'Error desconocido' }, { status: 500 });
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

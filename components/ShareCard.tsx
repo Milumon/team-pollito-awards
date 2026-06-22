@@ -204,7 +204,7 @@ async function generateStoryCanvas(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const mvpLines = wrapText(ctx, mvpName, BALLOT_LAYOUT.mvpName.maxWidth);
-  let mvpTextY = BALLOT_LAYOUT.mvpName.y;
+  const mvpTextY = BALLOT_LAYOUT.mvpName.y;
 
   // Mostrar máximo 2 líneas
   const linesToShow = mvpLines.slice(0, 2);

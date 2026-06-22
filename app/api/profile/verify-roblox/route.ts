@@ -22,6 +22,9 @@ type StoredRobloxProfile = {
   roblox_display_name: string | null;
   roblox_avatar_url: string | null;
   roblox_verified_at: string | null;
+  tiktok_user?: string | null;
+  link_status?: 'none' | 'pending' | 'approved' | 'rejected' | null;
+  rejection_reason?: string | null;
 };
 
 function isMissingProfilesTable(error: { code?: string; message?: string } | null | undefined) {
@@ -66,9 +69,9 @@ async function fetchRobloxUserIdFromUsername(username: string): Promise<number |
       body: JSON.stringify({ usernames: [username.trim()] }),
     });
     if (!response.ok) return null;
-    const data: any = await response.json();
+    const data = (await response.json()) as { data?: { id?: number }[] };
     const userRecord = data.data?.[0];
-    return Number.isFinite(userRecord?.id) ? userRecord.id : null;
+    return Number.isFinite(userRecord?.id) ? (userRecord?.id as number) : null;
   } catch {
     return null;
   }
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
     const storedProfile = buildStoredProfile(robloxUserId, robloxUser, displayName, avatarUrl);
 
     // Upsert profile
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('profiles')
       .upsert(
         {
@@ -237,12 +240,12 @@ export async function GET(request: NextRequest) {
               roblox_display_name: metadataProfile.roblox_display_name,
               roblox_avatar_url: metadataProfile.roblox_avatar_url,
               roblox_verified_at: metadataProfile.roblox_verified_at,
-              tiktok_user: (metadataProfile as any).tiktok_user || null,
-              link_status: (metadataProfile as any).link_status || 'none',
-              rejection_reason: (metadataProfile as any).rejection_reason || null,
+              tiktok_user: metadataProfile.tiktok_user || null,
+              link_status: metadataProfile.link_status || 'none',
+              rejection_reason: metadataProfile.rejection_reason || null,
             }
           : null,
-        isComplete: (metadataProfile as any)?.link_status === 'approved',
+        isComplete: metadataProfile?.link_status === 'approved',
         fallback: metadataProfile ? 'user_metadata' : null,
       });
     }

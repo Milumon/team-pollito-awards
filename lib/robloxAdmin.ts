@@ -185,3 +185,57 @@ export async function loadEligibleRobloxFriends(): Promise<{
     friends: eligibleFriends,
   };
 }
+
+async function getCsrfToken(): Promise<string> {
+  const response = await fetch('https://auth.roblox.com/v2/logout', {
+    method: 'POST',
+    headers: {
+      'Cookie': `.ROBLOSECURITY=${ROBLOSECURITY_COOKIE}`
+    }
+  });
+  return response.headers.get('x-csrf-token') || '';
+}
+
+export async function tagRobloxUser(targetUserId: number, action: 'add' | 'remove') {
+  console.log(`[RobloxAdmin] tagRobloxUser: targetUserId=${targetUserId}, action=${action}`);
+  let csrfToken = await getCsrfToken();
+  let userTag = '';
+
+  if (action === 'add') {
+    const profile = await getRobloxProfile(targetUserId);
+    if (!profile) {
+      throw new Error(`No se pudo obtener el perfil de Roblox para el usuario ${targetUserId}`);
+    }
+    const displayName = profile.displayName || profile.name || `Usuario_${targetUserId}`;
+    userTag = `🐣 ${displayName} 🐣`;
+  }
+
+  let response = await robloxFetch('https://contacts.roblox.com/v1/user/tag', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-csrf-token': csrfToken,
+    },
+    body: JSON.stringify({ targetUserId, userTag })
+  });
+
+  if (response.status === 403) {
+    csrfToken = await getCsrfToken();
+    response = await robloxFetch('https://contacts.roblox.com/v1/user/tag', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+      },
+      body: JSON.stringify({ targetUserId, userTag })
+    });
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error de Roblox al cambiar tag (${response.status}): ${errorText}`);
+  }
+
+  console.log(`[RobloxAdmin] tagRobloxUser éxito: targetUserId=${targetUserId}, tag="${userTag}"`);
+  return { success: true, targetUserId, userTag, action };
+}

@@ -52,6 +52,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (history) {
+      let rejection_reason = null;
+      if (history.status === 'rejected') {
+        if (profile?.link_status === 'pending') {
+          rejection_reason = 'Tu entrevista fue reprogramada. Por favor, seleccioná otra fecha y horario.';
+        } else if (profile?.link_status === 'rejected') {
+          rejection_reason = profile.rejection_reason;
+        }
+      }
+
       return NextResponse.json({
         status: history.status, // 'pending', 'official' (same as approved), 'rejected'
         interview_date: history.interview_date,
@@ -60,7 +69,7 @@ export async function GET(request: NextRequest) {
         tiktok_user: history.tiktok_user,
         ban_reason: history.ban_reason,
         return_reason: history.return_reason,
-        rejection_reason: profile?.link_status === 'rejected' ? profile.rejection_reason : null,
+        rejection_reason,
       });
     }
 

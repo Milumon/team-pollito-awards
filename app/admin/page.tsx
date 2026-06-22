@@ -1,9 +1,8 @@
-"use client";
-
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CATEGORIES } from '@/src/data/categories';
-import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Lock, Check, LogOut, X } from 'lucide-react';
+import { Category } from '@/src/types';
+import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Check, LogOut, X } from 'lucide-react';
 
 type AdminNominee = {
   id: string;
@@ -17,7 +16,95 @@ type AdminNominee = {
   created_at: string;
 };
 
+type InterviewSlotEnriched = {
+  id: string;
+  slot_date: string;
+  slot_time: string;
+  is_booked: boolean;
+  booked_by_user_id: string | null;
+  user?: {
+    email: string;
+    roblox_user: string;
+    roblox_display_name: string;
+    roblox_avatar_url: string | null;
+    tiktok_user: string;
+    ban_reason: string | null;
+    return_reason: string | null;
+  } | null;
+};
+
+type AdminUser = {
+  id: string;
+  email: string;
+  createdAt: string;
+  lastSignInAt: string;
+  hasVerifiedRoblox: boolean;
+  robloxUser: string | null;
+  robloxDisplayName: string | null;
+  robloxAvatarUrl: string | null;
+  robloxVerifiedAt: string | null;
+  tiktokUser: string | null;
+  linkStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  rejectionReason: string | null;
+  votedCount: number;
+  totalCategories: number;
+  votedPercentage: number;
+  votes: { categoryId: number; nomineeName: string }[];
+};
+
+type AdminStatsCategory = {
+  id: number;
+  title: string;
+  emoji: string;
+  totalVotes: number;
+  nominees: {
+    id: string;
+    nickname: string;
+    profile_image_url: string | null;
+    roblox_user: string | null;
+    votes: number;
+  }[];
+};
+
+type AdminStats = {
+  summary: {
+    totalUsers: number;
+    verifiedUsers: number;
+    totalVotes: number;
+    completedVoters: number;
+  };
+  users: AdminUser[];
+  categoryStats: AdminStatsCategory[];
+};
+
+type CategoryStatNominee = {
+  id: string;
+  nickname: string;
+  profile_image_url: string | null;
+  roblox_user: string | null;
+  votes: number;
+};
+
 const ADMIN_TOKEN_STORAGE_KEY = 'pollitos-admin-token';
+
+const readApiPayload = async (response: Response) => {
+  const contentType = response.headers.get('content-type') || '';
+  const rawText = await response.text();
+
+  if (contentType.includes('application/json')) {
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return { error: rawText || 'Respuesta JSON inválida' };
+    }
+  }
+
+  return {
+    error: rawText
+      ? `Respuesta no JSON recibida: ${rawText.slice(0, 180)}`
+      : `Respuesta no JSON recibida con estado ${response.status}`,
+  };
+};
 
 function categoryLabel(categoryId: number) {
   return CATEGORIES.find((category) => category.id === categoryId)?.title || `Categoría ${categoryId}`;
@@ -42,7 +129,6 @@ function formatDate(dateStr: string) {
 export default function AdminPage() {
   const [adminToken, setAdminToken] = useState('');
   const [tokenInput, setTokenInput] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState(CATEGORIES[0]?.id ?? 1);
   const [nominees, setNominees] = useState<AdminNominee[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -54,11 +140,18 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [inspectingUser, setInspectingUser] = useState<any | null>(null);
+  const [inspectingUser, setInspectingUser] = useState<AdminUser | null>(null);
 
   // New Dashboard Tab & Stats States
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users'>('nominees');
-  const [stats, setStats] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda'>('nominees');
+  const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [newSlotDate, setNewSlotDate] = useState('');
+  const [newSlotTime, setNewSlotTime] = useState('');
+  const [creatingSlot, setCreatingSlot] = useState(false);
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
+  const [now] = useState(() => Date.now());
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [statsPhase, setStatsPhase] = useState(2);
@@ -66,12 +159,14 @@ export default function AdminPage() {
   useEffect(() => {
     const storedToken = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
     if (storedToken) {
-      setAdminToken(storedToken);
-      setTokenInput(storedToken);
+      Promise.resolve().then(() => {
+        setAdminToken(storedToken);
+        setTokenInput(storedToken);
+      });
     }
   }, []);
 
-  const apiFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const apiFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const response = await fetch(input, {
       ...init,
       headers: {
@@ -88,28 +183,9 @@ export default function AdminPage() {
     }
 
     return response;
-  };
+  }, [adminToken]);
 
-  const readApiPayload = async (response: Response) => {
-    const contentType = response.headers.get('content-type') || '';
-    const rawText = await response.text();
-
-    if (contentType.includes('application/json')) {
-      try {
-        return JSON.parse(rawText);
-      } catch {
-        return { error: rawText || 'Respuesta JSON inválida' };
-      }
-    }
-
-    return {
-      error: rawText
-        ? `Respuesta no JSON recibida: ${rawText.slice(0, 180)}`
-        : `Respuesta no JSON recibida con estado ${response.status}`,
-    };
-  };
-
-  const loadNominees = async () => {
+  const loadNominees = useCallback(async () => {
     if (!adminToken) {
       return;
     }
@@ -137,9 +213,9 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminToken, apiFetch]);
 
-  const loadStats = async (phase = statsPhase) => {
+  const loadStats = useCallback(async (phase = statsPhase) => {
     if (!adminToken) {
       return;
     }
@@ -159,6 +235,154 @@ export default function AdminPage() {
     } finally {
       setLoadingStats(false);
     }
+  }, [adminToken, apiFetch, statsPhase]);
+
+  const loadInterviewSlots = useCallback(async () => {
+    if (!adminToken) {
+      return;
+    }
+
+    setLoadingSlots(true);
+    setError(null);
+
+    try {
+      const response = await apiFetch('/api/admin/interviews');
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudieron cargar los slots');
+      }
+      setSlots(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar slots');
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [adminToken, apiFetch]);
+
+  useEffect(() => {
+    if (activeTab === 'agenda') {
+      Promise.resolve().then(() => {
+        void loadInterviewSlots();
+      });
+    }
+  }, [activeTab, loadInterviewSlots]);
+
+  const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
+    setVerifyingUserId(userId);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await apiFetch('/api/admin/verify', {
+        method: 'POST',
+        body: JSON.stringify({ userId, action, rejectionReason })
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al procesar la vinculación');
+      }
+      setStatus(`Vinculación procesada con éxito (${action === 'approve' ? 'aprobada' : action === 'reject' ? 'rechazada' : 'revocada'}).`);
+      await loadStats();
+      await loadNominees();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al verificar vinculación');
+    } finally {
+      setVerifyingUserId(null);
+    }
+  };
+
+  const handleCreateSlot = async () => {
+    if (!newSlotDate || !newSlotTime) {
+      setError('Ingresá una fecha y hora para el slot.');
+      return;
+    }
+
+    setCreatingSlot(true);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await apiFetch('/api/admin/interviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'create',
+          slot_date: newSlotDate,
+          slot_time: newSlotTime
+        })
+      });
+
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo crear el slot');
+      }
+
+      setStatus('Nuevo slot de entrevista para viernes creado.');
+      setNewSlotDate('');
+      setNewSlotTime('');
+      await loadInterviewSlots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear el slot');
+    } finally {
+      setCreatingSlot(false);
+    }
+  };
+
+  const handleRescheduleSlot = async (slotId: string) => {
+    const confirmed = window.confirm('¿Reprogramar esta entrevista? El slot se liberará y se le notificará al candidato para volver a elegir.');
+    if (!confirmed) return;
+
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await apiFetch('/api/admin/interviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'reschedule',
+          slotId
+        })
+      });
+
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo reprogramar la entrevista');
+      }
+
+      setStatus('Entrevista reprogramada. Se liberó el horario.');
+      await loadInterviewSlots();
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al reprogramar');
+    }
+  };
+
+  const handleDeleteSlot = async (slotId: string) => {
+    const confirmed = window.confirm('¿Borrar este slot? Si tiene reserva, se cancelará la entrevista del candidato.');
+    if (!confirmed) return;
+
+    setError(null);
+    setStatus(null);
+
+    try {
+      const response = await apiFetch('/api/admin/interviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'delete',
+          slotId
+        })
+      });
+
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo borrar el slot');
+      }
+
+      setStatus('Slot de entrevista eliminado.');
+      await loadInterviewSlots();
+      await loadStats();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar slot');
+    }
   };
 
   useEffect(() => {
@@ -166,10 +390,11 @@ export default function AdminPage() {
       return;
     }
 
-    void loadNominees();
-    void loadStats(statsPhase);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adminToken, statsPhase]);
+    Promise.resolve().then(() => {
+      void loadNominees();
+      void loadStats(statsPhase);
+    });
+  }, [adminToken, loadNominees, loadStats, statsPhase]);
 
   const filteredNominees = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -190,7 +415,7 @@ export default function AdminPage() {
     if (!stats?.users) return [];
     const needle = userSearchTerm.trim().toLowerCase();
     if (!needle) return stats.users;
-    return stats.users.filter((u: any) => {
+    return stats.users.filter((u: AdminUser) => {
       return [
         u.email || '',
         u.robloxUser || '',
@@ -198,7 +423,7 @@ export default function AdminPage() {
         u.id || ''
       ].some(val => val.toLowerCase().includes(needle));
     });
-  }, [stats?.users, userSearchTerm]);
+  }, [stats, userSearchTerm]);
 
   const handleSaveToken = async () => {
     const nextToken = tokenInput.trim();
@@ -416,8 +641,6 @@ export default function AdminPage() {
 
   const totalWithNickname = nominees.filter((nominee) => Boolean((nominee.nickname || '').trim())).length;
   const visibleNominees = nominees.filter((nominee) => nominee.is_visible).length;
-  const hiddenNominees = nominees.length - visibleNominees;
-  const nicknameCoverage = nominees.length > 0 ? Math.round((totalWithNickname / nominees.length) * 100) : 0;
 
   if (!adminToken) {
     return (
@@ -563,7 +786,29 @@ export default function AdminPage() {
                   : 'bg-white text-black hover:bg-yellow-50'
               }`}
             >
-              👑 Usuarios Registrados
+              👑 Usuarios
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('applications')}
+              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
+                activeTab === 'applications'
+                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
+                  : 'bg-white text-black hover:bg-yellow-50'
+              }`}
+            >
+              📝 Postulaciones
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('agenda')}
+              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
+                activeTab === 'agenda'
+                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
+                  : 'bg-white text-black hover:bg-yellow-50'
+              }`}
+            >
+              📅 Agenda Viernes
             </button>
           </div>
 
@@ -862,7 +1107,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2">
-                {stats.categoryStats.map((cat: any) => (
+                {stats.categoryStats.map((cat: AdminStatsCategory) => (
                   <article key={cat.id} className="bg-white border-4 border-black rounded-[2rem] p-5 shadow-[8px_8px_0_0_rgba(0,0,0,1)] flex flex-col justify-between">
                     <div>
                       <div className="flex items-start justify-between gap-4 mb-4 border-b-4 border-black pb-3">
@@ -879,7 +1124,7 @@ export default function AdminPage() {
                       </div>
 
                       <div className="space-y-4">
-                        {cat.nominees.slice(0, 5).map((nom: any, index: number) => {
+                        {cat.nominees.slice(0, 5).map((nom: CategoryStatNominee, index: number) => {
                           const percentage = cat.totalVotes > 0 ? Math.round((nom.votes / cat.totalVotes) * 100) : 0;
                           
                           // Custom rank medal/emoji
@@ -915,6 +1160,7 @@ export default function AdminPage() {
                                   {rankBadge}
                                   <div className="w-7 h-7 rounded-lg border-2 border-black bg-white overflow-hidden shrink-0">
                                     {nom.profile_image_url ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
                                       <img src={nom.profile_image_url} alt={nom.nickname} className="w-full h-full object-cover" />
                                     ) : (
                                       <span className="text-xs flex items-center justify-center w-full h-full">🐣</span>
@@ -954,7 +1200,7 @@ export default function AdminPage() {
                               <span>▶ Ver otros {cat.nominees.length - 5} nominados</span>
                             </summary>
                             <div className="mt-3 space-y-4 pt-3 border-t-2 border-dashed border-black">
-                              {cat.nominees.slice(5).map((nom: any, index: number) => {
+                              {cat.nominees.slice(5).map((nom: CategoryStatNominee, index: number) => {
                                 const percentage = cat.totalVotes > 0 ? Math.round((nom.votes / cat.totalVotes) * 100) : 0;
                                 return (
                                   <div key={nom.id} className="space-y-1">
@@ -1026,7 +1272,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredUsers.map((u: any) => {
+                {filteredUsers.map((u: AdminUser) => {
                   const isCompleted = u.votedCount >= u.totalCategories;
                   
                   return (
@@ -1041,7 +1287,7 @@ export default function AdminPage() {
                         <div className="flex items-start gap-3">
                           <div className="w-14 h-14 rounded-2xl border-4 border-black bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
                             {u.robloxAvatarUrl ? (
-                              <img src={u.robloxAvatarUrl} alt={u.robloxUser} className="w-full h-full object-cover" />
+                              <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'Roblox Avatar'} className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-2xl">🐣</span>
                             )}
@@ -1049,7 +1295,7 @@ export default function AdminPage() {
                           <div className="min-w-0">
                             {u.hasVerifiedRoblox ? (
                               <>
-                                <h3 className="font-black text-lg truncate leading-tight flex items-center gap-1" title={u.robloxDisplayName}>
+                                <h3 className="font-black text-lg truncate leading-tight flex items-center gap-1" title={u.robloxDisplayName || undefined}>
                                   {u.robloxDisplayName}
                                   <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 rounded px-1 py-0.2 shrink-0">✓</span>
                                 </h3>
@@ -1116,6 +1362,318 @@ export default function AdminPage() {
             )}
           </section>
         )}
+
+        {activeTab === 'applications' && (
+          <section className="grid gap-6 lg:grid-cols-2 items-start animate-fade-in">
+            {/* COLUMN 1: PENDING LINK REQUESTS */}
+            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Revisión de cuentas</p>
+                <h2 className="font-black text-2xl uppercase leading-none mt-1">Postulaciones Pendientes</h2>
+                <p className="text-sm text-gray-600 mt-2 font-medium">
+                  Solicitudes de vinculación en espera de aprobación.
+                </p>
+              </div>
+
+              {loadingStats ? (
+                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando postulaciones...</div>
+              ) : filteredUsers.filter((u: AdminUser) => u.linkStatus === 'pending').length === 0 ? (
+                <div className="py-12 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
+                  <p className="font-black text-lg uppercase">Sin solicitudes pendientes</p>
+                  <p className="text-xs text-gray-500 mt-1">No hay postulaciones de vinculación esperando revisión.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredUsers.filter((u: AdminUser) => u.linkStatus === 'pending').map((u: AdminUser) => (
+                    <article key={u.id} className="border-4 border-black rounded-[1.5rem] p-4 bg-[#fffdf0] flex flex-col justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-xl border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
+                          {u.robloxAvatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xl flex items-center justify-center h-full">🐣</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-black text-base leading-tight truncate">{u.robloxDisplayName || 'Usuario'}</h3>
+                          <p className="text-xs font-semibold text-emerald-700 truncate">Roblox: @{u.robloxUser}</p>
+                          {u.tiktokUser && (
+                            <a 
+                              href={`https://www.tiktok.com/@${u.tiktokUser}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center text-xs font-black text-black underline hover:text-neutral-700 mt-1"
+                            >
+                              TikTok: @{u.tiktokUser} ↗
+                            </a>
+                          )}
+                          <p className="text-[10px] text-gray-400 truncate mt-1">Email: {u.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 border-t-2 border-dashed border-black pt-3">
+                        <button
+                          type="button"
+                          onClick={() => handleVerifyLink(u.id, 'approve')}
+                          disabled={verifyingUserId === u.id}
+                          className="flex-1 py-2 bg-emerald-200 text-black font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-emerald-300 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
+                        >
+                          Aprobar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Motivo del rechazo:', 'Los datos brindados no coinciden en Roblox/TikTok.');
+                            if (reason !== null) {
+                              void handleVerifyLink(u.id, 'reject', reason);
+                            }
+                          }}
+                          disabled={verifyingUserId === u.id}
+                          className="flex-1 py-2 bg-red-200 text-black font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-red-300 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* COLUMN 2: APPROVED OFFICIAL MEMBERS */}
+            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Miembros activos</p>
+                <h2 className="font-black text-2xl uppercase leading-none mt-1">Miembros Oficiales</h2>
+                <p className="text-sm text-gray-600 mt-2 font-medium">
+                  Comunidad oficial con permisos VIP en la Consola en Vivo.
+                </p>
+              </div>
+
+              {loadingStats ? (
+                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando miembros...</div>
+              ) : filteredUsers.filter((u: AdminUser) => u.linkStatus === 'approved').length === 0 ? (
+                <div className="py-12 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
+                  <p className="font-black text-lg uppercase">Sin miembros oficiales</p>
+                  <p className="text-xs text-gray-500 mt-1">Aún no se han verificado miembros oficiales.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredUsers.filter((u: AdminUser) => u.linkStatus === 'approved').map((u: AdminUser) => (
+                    <article key={u.id} className="border-4 border-black rounded-[1.5rem] p-4 bg-[#f8fff8] flex flex-col justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-xl border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
+                          {u.robloxAvatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xl flex items-center justify-center h-full">🐣</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-black text-base leading-tight truncate flex items-center gap-1">
+                            {u.robloxDisplayName || 'Usuario'}
+                            <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 rounded px-1 shrink-0">✓</span>
+                          </h3>
+                          <p className="text-xs font-semibold text-gray-600 truncate">Roblox: @{u.robloxUser}</p>
+                          {u.tiktokUser && (
+                            <a 
+                              href={`https://www.tiktok.com/@${u.tiktokUser}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center text-xs font-semibold text-black underline hover:text-neutral-700 mt-1"
+                            >
+                              TikTok: @{u.tiktokUser} ↗
+                            </a>
+                          )}
+                          <p className="text-[10px] text-gray-400 truncate mt-1">Email: {u.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex border-t-2 border-dashed border-black pt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const reason = window.prompt('Motivo de revocación:', 'Membresía revocada por el administrador.');
+                            if (reason !== null) {
+                              void handleVerifyLink(u.id, 'revoke', reason);
+                            }
+                          }}
+                          disabled={verifyingUserId === u.id}
+                          className="w-full py-2 bg-red-600 text-white font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-red-700 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
+                        >
+                          Revocar Membresía
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'agenda' && (
+          <section className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start animate-fade-in">
+            {/* SIDEBAR: CREATE SLOTS */}
+            <aside className="bg-white rounded-[2rem] border-4 border-black p-5 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4 lg:sticky lg:top-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Gestión de Turnos</p>
+                <h2 className="font-black text-2xl uppercase leading-none mt-1">Alta de Slots</h2>
+                <p className="text-sm text-gray-600 mt-2 leading-relaxed font-medium">
+                  Creá nuevos horarios disponibles para los viernes. Los candidatos los verán en tiempo real.
+                </p>
+              </div>
+
+              <div className="border-4 border-black rounded-2xl p-4 bg-[#fffdf0] space-y-4">
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Fecha (Solo Viernes)</span>
+                  <input
+                    type="date"
+                    value={newSlotDate}
+                    onChange={(e) => setNewSlotDate(e.target.value)}
+                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-2.5 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Hora</span>
+                  <input
+                    type="time"
+                    value={newSlotTime}
+                    onChange={(e) => setNewSlotTime(e.target.value)}
+                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-2.5 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleCreateSlot}
+                  disabled={creatingSlot}
+                  className="w-full py-3 bg-yellow-400 text-black font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-yellow-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {creatingSlot ? 'Creando...' : 'Crear Slot Viernes'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Total Slots</p>
+                  <p className="text-lg font-black">{slots.length}</p>
+                </div>
+                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Reservados</p>
+                  <p className="text-lg font-black">{slots.filter((s) => s.is_booked).length}</p>
+                </div>
+              </div>
+            </aside>
+
+            {/* MAIN LIST OF SLOTS */}
+            <main className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)]">
+              <div className="flex items-center justify-between gap-3 mb-5 border-b-4 border-black pb-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Calendario</p>
+                  <h2 className="font-black text-2xl uppercase leading-none mt-1">Horarios Agendados</h2>
+                </div>
+                <div className="bg-yellow-100 border-4 border-black rounded-full px-4 py-1.5 font-black text-xs">
+                  {slots.length} Slots Totales
+                </div>
+              </div>
+
+              {loadingSlots ? (
+                <div className="py-16 text-center text-gray-500 font-bold uppercase">Cargando turnos de agenda...</div>
+              ) : slots.length === 0 ? (
+                <div className="py-16 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
+                  <p className="font-black text-xl uppercase">No hay slots creados</p>
+                  <p className="text-sm text-gray-600 mt-2">Definí un horario los viernes en el panel lateral para iniciar.</p>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {slots.map((slot) => {
+                    const slotDateTime = new Date(`${slot.slot_date}T${slot.slot_time}`);
+                    const isPast = slotDateTime.getTime() < now;
+                    
+                    return (
+                      <article key={slot.id} className={`border-4 border-black rounded-[1.5rem] p-4 flex flex-col justify-between gap-4 ${
+                        slot.is_booked ? 'bg-[#fffcf0]' : 'bg-white'
+                      } ${isPast ? 'opacity-75' : ''}`}>
+                        <div>
+                          {/* Slot Header */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-black text-lg bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl">
+                              {slot.slot_time.substring(0, 5)} hs
+                            </span>
+                            <span className={`text-[10px] font-black uppercase tracking-wider border-2 border-black rounded-full px-2.5 py-0.5 ${
+                              slot.is_booked ? 'bg-orange-400' : 'bg-emerald-200'
+                            }`}>
+                              {slot.is_booked ? 'Reservado' : 'Libre'}
+                            </span>
+                          </div>
+
+                          <p className="font-bold text-xs text-gray-600 mt-2">
+                            📅 {slot.slot_date}
+                          </p>
+
+                          {/* Candidate details if booked */}
+                          {slot.is_booked && slot.user && (
+                            <div className="mt-4 border-t-2 border-dashed border-black pt-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
+                                  {slot.user.roblox_avatar_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={slot.user.roblox_avatar_url} alt={slot.user.roblox_user} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-sm flex items-center justify-center h-full">🐣</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-black truncate">{slot.user.roblox_display_name}</p>
+                                  <p className="text-[10px] font-semibold text-gray-500 truncate">@{slot.user.roblox_user}</p>
+                                </div>
+                              </div>
+                              <p className="text-[10px] font-semibold text-gray-700">TikTok: @{slot.user.tiktok_user}</p>
+                              <p className="text-[10px] font-semibold text-gray-500 truncate">Email: {slot.user.email}</p>
+
+                              {/* Ban/Return reason details */}
+                              {(slot.user.ban_reason || slot.user.return_reason) && (
+                                <div className="bg-red-50 border-2 border-black rounded-xl p-2.5 text-[10px] space-y-1.5 mt-2 shadow-[2px_2px_0_0_rgba(0,0,0,0.05)]">
+                                  <p className="font-black text-red-700 uppercase tracking-wide">⚠️ Re-ingreso (Baneado)</p>
+                                  <p className="text-gray-800"><span className="font-bold text-black">Motivo Baneo:</span> {slot.user.ban_reason}</p>
+                                  <p className="text-gray-800"><span className="font-bold text-black">Explicación Retorno:</span> {slot.user.return_reason}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 border-t-2 border-black pt-3">
+                          {slot.is_booked ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRescheduleSlot(slot.id)}
+                              className="flex-1 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-black font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none"
+                            >
+                              Reprogramar
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSlot(slot.id)}
+                            className="py-1.5 px-3 bg-red-100 hover:bg-red-200 text-black font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </main>
+          </section>
+        )}
       </div>
 
       {/* USER VOTES INSPECTOR MODAL */}
@@ -1143,6 +1701,7 @@ export default function AdminPage() {
               <div className="flex items-center gap-3 mb-4 border-b-4 border-black pb-3 shrink-0">
                 <div className="w-12 h-12 rounded-xl border-2 border-black bg-yellow-100 overflow-hidden flex items-center justify-center shrink-0">
                   {inspectingUser.robloxAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={inspectingUser.robloxAvatarUrl} alt={inspectingUser.robloxUser || 'User'} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-2xl">🐣</span>
@@ -1167,8 +1726,8 @@ export default function AdminPage() {
               </div>
 
               <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-2 mb-4">
-                {CATEGORIES.map((cat: any) => {
-                  const vote = inspectingUser.votes?.find((v: any) => v.categoryId === cat.id);
+                {CATEGORIES.map((cat: Category) => {
+                  const vote = inspectingUser.votes?.find((v: { categoryId: number; nomineeName: string }) => v.categoryId === cat.id);
 
                   return (
                     <div key={cat.id} className={`border-2 border-black rounded-xl p-3 flex items-center justify-between gap-3 text-xs ${

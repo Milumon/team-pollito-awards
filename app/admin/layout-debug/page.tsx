@@ -57,7 +57,7 @@ export default function LayoutDebugPage() {
           .from("nominees")
           .select("id, roblox_user, nickname, profile_image_url");
         if (!error && data) {
-          const mapped: Nominee[] = data.map((item: any) => ({
+          const mapped: Nominee[] = (data as { id: string; roblox_user: string | null; nickname: string | null; profile_image_url: string | null }[]).map((item) => ({
             id: item.id,
             name: String(item.nickname || item.roblox_user || ""),
             profileImageUrl: item.profile_image_url || null,
@@ -177,6 +177,7 @@ export default function LayoutDebugPage() {
             className="relative w-[360px] h-[640px] border-4 border-black rounded-[2rem] overflow-hidden bg-yellow-100 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] select-none"
           >
             {/* Template Image */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img 
               src="/story-templates/Plantilla.png" 
               alt="Ballot Template" 
@@ -196,6 +197,7 @@ export default function LayoutDebugPage() {
               title="Arrastrá para mover el avatar del usuario"
             >
               {selectedUserNominee?.profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={selectedUserNominee.profileImageUrl} 
                   alt="Avatar User" 
@@ -240,6 +242,7 @@ export default function LayoutDebugPage() {
               title="Arrastrá para mover el avatar de MVP"
             >
               {selectedMvpNominee?.profileImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img 
                   src={selectedMvpNominee.profileImageUrl} 
                   alt="Avatar MVP" 

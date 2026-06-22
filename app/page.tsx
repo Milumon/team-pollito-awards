@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Volume2,
@@ -9,20 +9,20 @@ import {
   ChevronLeft,
   LogOut,
   X,
-  Home,
   ArrowRight,
   Search
 } from 'lucide-react';
 
 import { CATEGORIES as DEFAULT_CATEGORIES } from '../src/data/categories';
 import { CATEGORY_FINALISTS } from '../src/data/categories_phase2';
-import { VoteState } from '../src/types';
+import { VoteState, Category } from '../src/types';
 import EggAnimation from '../components/EggAnimation';
 import ShareCard from '../components/ShareCard';
 import Confetti from '../components/Confetti';
 import RobloxOnboarding from '../components/RobloxOnboarding';
 import { soundManager } from '../lib/sound';
 import { supabase } from '../lib/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 type ScreenState = 'landing' | 'auth' | 'hatching' | 'welcome' | 'intro' | 'voting' | 'intermission' | 'submitting' | 'final' | 'results';
 
@@ -30,6 +30,21 @@ type PublicNominee = {
   id: string;
   name: string;
   profileImageUrl: string | null;
+};
+
+type ResultCategory = {
+  id: number;
+  title: string;
+  emoji: string;
+  description: string;
+  totalVotes: number;
+  nominees: {
+    id: string;
+    nickname: string;
+    profile_image_url: string | null;
+    roblox_user: string | null;
+    votes: number;
+  }[];
 };
 
 type RobloxProfileState = {
@@ -52,17 +67,18 @@ const VOTING_DEADLINE = new Date("2026-06-16T19:30:00-05:00").getTime();
 export default function LandingPage() {
   const phase = Number(process.env.NEXT_PUBLIC_VOTING_PHASE || 1);
   const warnedVotesReadRef = useRef(false);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [screen, setScreen] = useState<ScreenState>('results');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<ResultCategory[]>([]);
   const [resultsLoading, setResultsLoading] = useState<boolean>(true);
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   const [votes, setVotes] = useState<VoteState>({});
   const [currentIdx, setCurrentIdx] = useState<number>(0);
-  const reorderMvpLast = (list: any[]) => {
+  
+  const reorderMvpLast = (list: Category[]) => {
     const copy = [...list];
-    const mvpIndex = copy.findIndex((c: any) => c.id === 1);
+    const mvpIndex = copy.findIndex((c) => c.id === 1);
     if (mvpIndex >= 0) {
       const [mvp] = copy.splice(mvpIndex, 1);
       copy.push(mvp);
@@ -82,35 +98,114 @@ export default function LandingPage() {
   const [webViewBrand, setWebViewBrand] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const ua = window.navigator.userAgent.toLowerCase();
-    const isInstagram = ua.includes('instagram');
-    const isTikTok = ua.includes('tiktok') || ua.includes('musical_ly');
-    const isFacebook = ua.includes('fban') || ua.includes('fbav') || ua.includes('fb_iab');
-    const isWhatsApp = ua.includes('whatsapp');
-    const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
-    const isIosWebView = (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) && !ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios');
-    
-    if (isInstagram) {
-      setIsWebView(true);
-      setWebViewBrand('Instagram');
-    } else if (isTikTok) {
-      setIsWebView(true);
-      setWebViewBrand('TikTok');
-    } else if (isFacebook) {
-      setIsWebView(true);
-      setWebViewBrand('Facebook');
-    } else if (isWhatsApp) {
-      setIsWebView(true);
-      setWebViewBrand('WhatsApp');
-    } else if (isAndroidWebView || isIosWebView) {
-      setIsWebView(true);
-      setWebViewBrand('Navegador Interno');
+  // Modal states
+  const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
+  const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
+  const [robloxOnboardingOpen, setRobloxOnboardingOpen] = useState<boolean>(false);
+
+  const checkRobloxProfile = useCallback(async (session: Session | null) => {
+    if (!session?.access_token) return;
+
+    try {
+      const response = await fetch('/api/profile/verify-roblox', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.profile) {
+        setRobloxProfile({
+          displayName: data.profile.roblox_display_name || data.profile.roblox_user || data.displayName || 'Pollito',
+          avatarUrl: data.profile.roblox_avatar_url || data.avatarUrl || null,
+          username: data.profile.roblox_user || null,
+          tiktokUser: data.profile.tiktok_user || null,
+          linkStatus: data.profile.link_status || 'none',
+          rejectionReason: data.profile.rejection_reason || null,
+        });
+      } else if (data.displayName) {
+        setRobloxProfile({
+          displayName: data.displayName,
+          avatarUrl: data.avatarUrl || null,
+          username: null,
+          tiktokUser: null,
+          linkStatus: 'none',
+          rejectionReason: null,
+        });
+      }
+
+      // If profile is not complete, show onboarding modal
+      if (!data.isComplete) {
+        setRobloxOnboardingOpen(true);
+      }
+    } catch (err) {
+      console.error('Error checking Roblox profile:', err);
     }
   }, []);
 
-  const sessionRef = useRef<any>(null);
+  const fetchUserVotes = useCallback(async (userId: string, shouldRedirect: boolean = false): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('votes')
+        .select('category_id, nominee_id')
+        .eq('user_id', userId)
+        .eq('phase', phase);
+
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        const isRlsReadError =
+          error.code === '42501' ||
+          msg.includes('permission denied') ||
+          msg.includes('row-level security');
+
+        if (isRlsReadError) {
+          // Avoid spamming in dev StrictMode; this is configuration, not app flow failure.
+          if (!warnedVotesReadRef.current) {
+            console.warn(
+              'No se pudieron leer los votos por politicas RLS. Agrega policy SELECT para votes.',
+              { code: error.code, message: error.message }
+            );
+            warnedVotesReadRef.current = true;
+          }
+          setVotes({});
+          return false;
+        }
+
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        const loadedVotes: VoteState = {};
+        (data as { category_id: number; nominee_id: string }[]).forEach((v) => {
+          loadedVotes[v.category_id] = v.nominee_id;
+        });
+        setVotes(loadedVotes);
+
+        const firstMissingCategoryIndex = categories.findIndex((category) => !loadedVotes[category.id]);
+        if (firstMissingCategoryIndex >= 0) {
+          setCurrentIdx(firstMissingCategoryIndex);
+          setSelectedNomineeId(loadedVotes[categories[firstMissingCategoryIndex].id] || null);
+        }
+
+        // If they voted in everything, jump to final
+        if (data.length >= categories.length) {
+          if (shouldRedirect) {
+            setScreen('final');
+          }
+          return true;
+        }
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Error fetching user votes:', err);
+      return false;
+    }
+  }, [phase, categories]);
+
+  const sessionRef = useRef<Session | null>(null);
   const screenRef = useRef<ScreenState>('landing');
 
   useEffect(() => {
@@ -123,12 +218,9 @@ export default function LandingPage() {
 
   // Interactive triggers
   const [burstActive, setBurstActive] = useState<boolean>(false);
-  const [continuousConfetti, setContinuousConfetti] = useState<boolean>(false);
+  const continuousConfetti = screen === 'final';
 
-  // Modal states
-  const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
-  const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
-  const [robloxOnboardingOpen, setRobloxOnboardingOpen] = useState<boolean>(false);
+
 
   // Countdown Timer state for June 16, 2026, 7:30 PM (19:30:00) GMT-5
   const [timeLeft, setTimeLeft] = useState({
@@ -138,6 +230,36 @@ export default function LandingPage() {
     seconds: 0,
     isOver: false
   });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isInstagram = ua.includes('instagram');
+    const isTikTok = ua.includes('tiktok') || ua.includes('musical_ly');
+    const isFacebook = ua.includes('fban') || ua.includes('fbav') || ua.includes('fb_iab');
+    const isWhatsApp = ua.includes('whatsapp');
+    const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
+    const isIosWebView = (ua.includes('iphone') || ua.includes('ipad') || ua.includes('ipod')) && !ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios');
+    
+    Promise.resolve().then(() => {
+      if (isInstagram) {
+        setIsWebView(true);
+        setWebViewBrand('Instagram');
+      } else if (isTikTok) {
+        setIsWebView(true);
+        setWebViewBrand('TikTok');
+      } else if (isFacebook) {
+        setIsWebView(true);
+        setWebViewBrand('Facebook');
+      } else if (isWhatsApp) {
+        setIsWebView(true);
+        setWebViewBrand('WhatsApp');
+      } else if (isAndroidWebView || isIosWebView) {
+        setIsWebView(true);
+        setWebViewBrand('Navegador Interno');
+      }
+    });
+  }, []);
 
   // Check user session and fetch existing votes on mount
   useEffect(() => {
@@ -200,7 +322,7 @@ export default function LandingPage() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkRobloxProfile, fetchUserVotes]);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -212,8 +334,8 @@ export default function LandingPage() {
         } else if (data.error) {
           setResultsError(data.error);
         }
-      } catch (err: any) {
-        setResultsError(err.message || 'Error al cargar resultados');
+      } catch (err) {
+        setResultsError(err instanceof Error ? err.message : 'Error al cargar resultados');
       } finally {
         setResultsLoading(false);
       }
@@ -235,7 +357,7 @@ export default function LandingPage() {
         return;
       }
 
-      const mapped = data.map((category: any) => ({
+      const mapped = (data as { id: number; title: string; emoji: string; description: string }[]).map((category) => ({
         id: category.id,
         title: category.title,
         emoji: category.emoji,
@@ -247,113 +369,6 @@ export default function LandingPage() {
 
     void loadCategories();
   }, []);
-
-  const checkRobloxProfile = async (session: any) => {
-    if (!session?.access_token) return;
-
-    try {
-      const response = await fetch('/api/profile/verify-roblox', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.profile) {
-        setRobloxProfile({
-          displayName: data.profile.roblox_display_name || data.profile.roblox_user || data.displayName || 'Pollito',
-          avatarUrl: data.profile.roblox_avatar_url || data.avatarUrl || null,
-          username: data.profile.roblox_user || null,
-          tiktokUser: data.profile.tiktok_user || null,
-          linkStatus: data.profile.link_status || 'none',
-          rejectionReason: data.profile.rejection_reason || null,
-        });
-      } else if (data.displayName) {
-        setRobloxProfile({
-          displayName: data.displayName,
-          avatarUrl: data.avatarUrl || null,
-          username: null,
-          tiktokUser: null,
-          linkStatus: 'none',
-          rejectionReason: null,
-        });
-      }
-
-      // If profile is not complete, show onboarding modal
-      if (!data.isComplete) {
-        setRobloxOnboardingOpen(true);
-      }
-    } catch (err) {
-      console.error('Error checking Roblox profile:', err);
-    }
-  };
-
-  const fetchUserVotes = async (userId: string, shouldRedirect: boolean = false): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('votes')
-        .select('category_id, nominee_id')
-        .eq('user_id', userId)
-        .eq('phase', phase);
-
-      if (error) {
-        const msg = (error.message || '').toLowerCase();
-        const isRlsReadError =
-          error.code === '42501' ||
-          msg.includes('permission denied') ||
-          msg.includes('row-level security');
-
-        if (isRlsReadError) {
-          // Avoid spamming in dev StrictMode; this is configuration, not app flow failure.
-          if (!warnedVotesReadRef.current) {
-            console.warn(
-              'No se pudieron leer los votos por politicas RLS. Agrega policy SELECT para votes.',
-              { code: error.code, message: error.message }
-            );
-            warnedVotesReadRef.current = true;
-          }
-          setVotes({});
-          return false;
-        }
-
-        throw error;
-      }
-
-      if (data && data.length > 0) {
-        const loadedVotes: VoteState = {};
-        data.forEach((v: any) => {
-          loadedVotes[v.category_id] = v.nominee_id;
-        });
-        setVotes(loadedVotes);
-
-        const firstMissingCategoryIndex = categories.findIndex((category) => !loadedVotes[category.id]);
-        if (firstMissingCategoryIndex >= 0) {
-          setCurrentIdx(firstMissingCategoryIndex);
-          setSelectedNomineeId(loadedVotes[categories[firstMissingCategoryIndex].id] || null);
-        }
-
-        // If they voted in everything, jump to final
-        if (data.length >= categories.length) {
-          if (shouldRedirect) {
-            setScreen('final');
-          }
-          return true;
-        }
-      }
-
-      return false;
-    } catch (err: any) {
-      console.error('Error fetching user votes:', {
-        message: err?.message,
-        code: err?.code,
-        details: err?.details,
-        hint: err?.hint,
-      });
-      return false;
-    }
-  };
 
   useEffect(() => {
     const target = VOTING_DEADLINE;
@@ -398,7 +413,7 @@ export default function LandingPage() {
       }
 
       setNominees(
-        (data || []).map((nominee: any) => ({
+        ((data || []) as { id: string; roblox_user: string; nickname: string | null; profile_image_url: string | null }[]).map((nominee) => ({
           id: nominee.id,
           name: String(nominee.nickname || nominee.roblox_user || ''),
           profileImageUrl: nominee.profile_image_url || null,
@@ -478,7 +493,6 @@ export default function LandingPage() {
     setCurrentIdx(0);
     setSelectedNomineeId(votes[categories[0]?.id] || null);
     setNomineeSearch('');
-    setContinuousConfetti(false);
     setAuthError(null);
     const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
     if (isCurrentlyClosed) {
@@ -653,9 +667,6 @@ export default function LandingPage() {
   useEffect(() => {
     if (screen === 'final') {
       soundManager.playSuccess();
-      setContinuousConfetti(true);
-    } else {
-      setContinuousConfetti(false);
     }
   }, [screen]);
 
@@ -911,7 +922,7 @@ export default function LandingPage() {
                             const userVoteId = votes[category.id];
                             const hasVotedThis = !!userVoteId;
                             const isHit = winner && userVoteId === winner.id;
-                            const votedNominee = category.nominees?.find((n: any) => n.id === userVoteId);
+                            const votedNominee = category.nominees?.find((n) => n.id === userVoteId);
                             const votedName = votedNominee ? votedNominee.nickname : 'Tu elección';
 
                             return (
@@ -987,7 +998,7 @@ export default function LandingPage() {
                                 {isExpanded && (
                                   <div className="mt-3 border-t-2 border-black/10 pt-3 space-y-2">
                                     <p className="font-comic text-[9px] uppercase font-black text-gray-500 tracking-wider mb-1">Posiciones completas:</p>
-                                    {category.nominees.map((nominee: any, idx: number) => {
+                                    {category.nominees.map((nominee, idx: number) => {
                                       const isWinner = idx === 0;
                                       return (
                                         <div key={nominee.id} className={`flex items-center justify-between p-1.5 rounded-lg border-2 ${isWinner ? 'bg-yellow-50/50 border-black' : 'bg-white border-gray-100'}`}>
