@@ -85,6 +85,13 @@ type CategoryStatNominee = {
   votes: number;
 };
 
+type StreamSettings = {
+  id: number;
+  is_muted: boolean;
+  global_cooldown_seconds: number;
+  personal_cooldown_seconds: number;
+};
+
 const ADMIN_TOKEN_STORAGE_KEY = 'pollitos-admin-token';
 
 const readApiPayload = async (response: Response) => {
@@ -143,7 +150,7 @@ export default function AdminPage() {
   const [inspectingUser, setInspectingUser] = useState<AdminUser | null>(null);
 
   // New Dashboard Tab & Stats States
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda'>('nominees');
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream'>('nominees');
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [newSlotDate, setNewSlotDate] = useState('');
@@ -155,6 +162,11 @@ export default function AdminPage() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [statsPhase, setStatsPhase] = useState(2);
+
+  // Stream Settings States
+  const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
+  const [loadingStreamSettings, setLoadingStreamSettings] = useState(false);
+  const [updatingStreamSettings, setUpdatingStreamSettings] = useState(false);
 
   useEffect(() => {
     const storedToken = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
@@ -259,6 +271,52 @@ export default function AdminPage() {
     }
   }, [adminToken, apiFetch]);
 
+  const loadStreamSettings = useCallback(async () => {
+    if (!adminToken) return;
+    setLoadingStreamSettings(true);
+    setError(null);
+    try {
+      const response = await apiFetch('/api/stream/settings');
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudieron cargar los ajustes de stream');
+      }
+      setStreamSettings(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar ajustes de stream');
+    } finally {
+      setLoadingStreamSettings(false);
+    }
+  }, [adminToken, apiFetch]);
+
+  const handleUpdateStreamSettings = async (updates: {
+    isMuted?: boolean;
+    globalCooldown?: number;
+    personalCooldown?: number;
+  }) => {
+    if (!adminToken) return;
+    setUpdatingStreamSettings(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const response = await apiFetch('/api/stream/settings', {
+        method: 'POST',
+        body: JSON.stringify(updates),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudieron guardar los ajustes');
+      }
+      setStreamSettings(data.settings);
+      setStatus('Ajustes de stream actualizados con éxito.');
+      setTimeout(() => setStatus(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar ajustes');
+    } finally {
+      setUpdatingStreamSettings(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'agenda') {
       Promise.resolve().then(() => {
@@ -266,6 +324,14 @@ export default function AdminPage() {
       });
     }
   }, [activeTab, loadInterviewSlots]);
+
+  useEffect(() => {
+    if (activeTab === 'stream') {
+      Promise.resolve().then(() => {
+        void loadStreamSettings();
+      });
+    }
+  }, [activeTab, loadStreamSettings]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
     setVerifyingUserId(userId);
@@ -393,8 +459,9 @@ export default function AdminPage() {
     Promise.resolve().then(() => {
       void loadNominees();
       void loadStats(statsPhase);
+      void loadStreamSettings();
     });
-  }, [adminToken, loadNominees, loadStats, statsPhase]);
+  }, [adminToken, loadNominees, loadStats, statsPhase, loadStreamSettings]);
 
   const filteredNominees = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -809,6 +876,17 @@ export default function AdminPage() {
               }`}
             >
               📅 Agenda Viernes
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('stream')}
+              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
+                activeTab === 'stream'
+                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
+                  : 'bg-white text-black hover:bg-yellow-50'
+              }`}
+            >
+              📺 Interacción Stream
             </button>
           </div>
 
@@ -1670,6 +1748,209 @@ export default function AdminPage() {
                     );
                   })}
                 </div>
+              )}
+            </main>
+          </section>
+        )}
+
+        {activeTab === 'stream' && (
+          <section className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)] items-start animate-fade-in">
+            {/* PANEL LATERAL: ESTADO Y PANEL DE PÁNICO */}
+            <aside className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-6 lg:sticky lg:top-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Mute General</p>
+                <h2 className="font-black text-2xl uppercase leading-none mt-1">Panic Button</h2>
+                <p className="text-sm text-gray-600 mt-2 leading-relaxed font-medium">
+                  Silenciá instantáneamente todas las interacciones de sonido y TTS del stream. Limpiará la cola de reproducción en OBS de forma inmediata.
+                </p>
+              </div>
+
+              {loadingStreamSettings ? (
+                <div className="py-6 text-center text-gray-500 font-bold uppercase">Cargando estado...</div>
+              ) : streamSettings ? (
+                <div className="space-y-4">
+                  <div className={`border-4 border-black rounded-2xl p-5 text-center transition-all ${
+                    streamSettings.is_muted ? 'bg-red-100' : 'bg-emerald-100'
+                  }`}>
+                    <span className="text-4xl block mb-2">{streamSettings.is_muted ? '🚫' : '🔊'}</span>
+                    <h3 className="font-black text-xl uppercase">
+                      {streamSettings.is_muted ? 'Stream Silenciado' : 'Consola Activa'}
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1 font-semibold">
+                      {streamSettings.is_muted 
+                        ? 'Ningún VIP puede reproducir sonidos o TTS.' 
+                        : 'Los VIPs pueden enviar sonidos y mensajes.'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={updatingStreamSettings}
+                    onClick={() => handleUpdateStreamSettings({ isMuted: !streamSettings.is_muted })}
+                    className={`w-full py-4 rounded-2xl border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0_0_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_0_rgba(0,0,0,1)] cursor-pointer text-center ${
+                      streamSettings.is_muted 
+                        ? 'bg-emerald-400 hover:bg-emerald-500 text-black' 
+                        : 'bg-red-600 hover:bg-red-700 text-white'
+                    }`}
+                  >
+                    {updatingStreamSettings 
+                      ? 'Procesando...' 
+                      : streamSettings.is_muted 
+                      ? '🔊 Reactivar Consola' 
+                      : '🚨 BOTÓN DE PÁNICO: MUTEAR'}
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center font-bold text-gray-500 py-4">Sin datos de configuración</div>
+              )}
+
+              <div className="border-4 border-black rounded-2xl p-4 bg-yellow-50 space-y-2">
+                <h4 className="font-black text-xs uppercase">Enlaces Rápidos del Stream</h4>
+                <p className="text-[10px] text-gray-500 font-bold leading-tight">
+                  Usá estos links para el Overlay en OBS y para testear la consola.
+                </p>
+                <div className="space-y-2 pt-2">
+                  <a
+                    href={`/overlay?token=${encodeURIComponent(adminToken)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2 bg-black hover:bg-neutral-900 text-[#FFD700] text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                  >
+                    Abrir Overlay en OBS ↗
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/overlay?token=${encodeURIComponent(adminToken)}`;
+                      navigator.clipboard.writeText(url);
+                      alert('¡URL del Overlay copiada al portapapeles!');
+                    }}
+                    className="block w-full py-2 bg-white hover:bg-gray-100 text-black text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                  >
+                    Copiar URL del Overlay
+                  </button>
+                  <a
+                    href="/console"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2 bg-[#ea580c] hover:bg-orange-600 text-white text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                  >
+                    Probar Consola VIP (Miembros) ↗
+                  </a>
+                </div>
+              </div>
+            </aside>
+
+            {/* SECCIÓN PRINCIPAL: CONFIGURACIÓN DE COOLDOWNS */}
+            <main className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-6">
+              <div className="flex items-center justify-between border-b-4 border-black pb-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Temporizadores</p>
+                  <h2 className="font-black text-2xl uppercase leading-none mt-1">Límites de Cooldown</h2>
+                </div>
+                <span className="bg-yellow-100 border-2 border-black rounded-full px-3 py-1 font-black text-xs">
+                  Ajustes en vivo
+                </span>
+              </div>
+
+              {loadingStreamSettings ? (
+                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando configuraciones...</div>
+              ) : streamSettings ? (
+                <div className="space-y-6">
+                  {/* COOLDOWN GLOBAL */}
+                  <div className="border-4 border-black rounded-2xl p-5 bg-[#fffdf0] space-y-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h3 className="font-black text-lg uppercase flex items-center gap-1.5">
+                          ⏳ Cooldown Global
+                        </h3>
+                        <p className="text-xs text-gray-500 font-semibold mt-1">
+                          Tiempo mínimo que debe pasar entre CUALQUIER sonido/TTS en el stream. Evita el spam masivo consecutivo.
+                        </p>
+                      </div>
+                      <span className="font-mono font-black text-xl bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl shrink-0">
+                        {streamSettings.global_cooldown_seconds}s
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="5"
+                        max="180"
+                        step="5"
+                        value={streamSettings.global_cooldown_seconds}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev: StreamSettings | null) => prev ? { ...prev, global_cooldown_seconds: val } : null);
+                        }}
+                        className="w-full accent-black cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-gray-400 font-bold">
+                        <span>5 segundos</span>
+                        <span>3 minutos</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={updatingStreamSettings}
+                      onClick={() => handleUpdateStreamSettings({ globalCooldown: streamSettings.global_cooldown_seconds })}
+                      className="py-2.5 px-4 bg-black hover:bg-neutral-900 text-yellow-400 font-black uppercase text-xs rounded-xl border-2 border-black transition-all cursor-pointer"
+                    >
+                      Guardar Cooldown Global
+                    </button>
+                  </div>
+
+                  {/* COOLDOWN PERSONAL */}
+                  <div className="border-4 border-black rounded-2xl p-5 bg-[#fffdf0] space-y-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <h3 className="font-black text-lg uppercase flex items-center gap-1.5">
+                          👤 Cooldown Personal (TTS)
+                        </h3>
+                        <p className="text-xs text-gray-500 font-semibold mt-1">
+                          Tiempo de espera para un mismo usuario antes de poder enviar otro mensaje de voz (TTS).
+                        </p>
+                      </div>
+                      <span className="font-mono font-black text-xl bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl shrink-0">
+                        {Math.floor(streamSettings.personal_cooldown_seconds / 60)} min
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="60"
+                        max="1200"
+                        step="60"
+                        value={streamSettings.personal_cooldown_seconds}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev: StreamSettings | null) => prev ? { ...prev, personal_cooldown_seconds: val } : null);
+                        }}
+                        className="w-full accent-black cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[10px] text-gray-400 font-bold">
+                        <span>1 minuto</span>
+                        <span>20 minutos</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={updatingStreamSettings}
+                      onClick={() => handleUpdateStreamSettings({ personalCooldown: streamSettings.personal_cooldown_seconds })}
+                      className="py-2.5 px-4 bg-black hover:bg-neutral-900 text-yellow-400 font-black uppercase text-xs rounded-xl border-2 border-black transition-all cursor-pointer"
+                    >
+                      Guardar Cooldown Personal
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center font-bold text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
               )}
             </main>
           </section>
