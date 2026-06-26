@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Luckiest+Guy&family=Space+Grotesk:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300..800&family=Plus+Jakarta+Sans:wght@300..800&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Luckiest Guy", cursive;
-  --font-comic: "Fredoka", sans-serif;
-  --font-sans: "Space Grotesk", sans-serif;
+  --font-display: "Sora", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
 }
 
 @layer utilities {
@@ -29,10 +28,17 @@
   }
 }
 
-/* Base modifications for the Roblox comic gamer feel */
+:root {
+  --color-primary: #FFD700; /* gold */
+  --color-bg: #FAFAFA; /* Off-white page background */
+  --color-text: #000000;
+  --font-display: "Sora", sans-serif;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+}
+
 body {
-  background-color: #FFD700; /* Sleek Interface signature yellow */
-  color: #000000;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-sans);
   overflow-x: hidden;
 }
@@ -42,32 +48,10 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #FFD700;
+  background: #FAFAFA;
 }
 ::-webkit-scrollbar-thumb {
   background: #000000;
-  border: 2px solid #FFD700;
+  border: 2px solid #FAFAFA;
   border-radius: 4px;
-}
-
-:root {
-  --color-primary: #ffd700; /* gold */
-  --color-bg: #ffd700;
-  --color-text: #000000;
-  --font-display: "Luckiest Guy", cursive;
-  --font-sans: "Space Grotesk", sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-primary: #ffcc00;
-    --color-bg: #1a1a1a;
-    --color-text: #ffffff;
-  }
-}
-
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
 }
