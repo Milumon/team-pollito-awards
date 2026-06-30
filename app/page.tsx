@@ -12,10 +12,17 @@ import {
   LogOut,
   Loader,
   Users,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import { Header } from '@/components/ui/Header';
+import { NavBar } from '@/components/ui/NavBar';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 
 type Member = {
   roblox_user: string;
@@ -41,6 +48,7 @@ type InterviewStatus = {
   avatar_url?: string | null;
   testimonial?: string | null;
   testimonial_approved?: boolean;
+  is_admin?: boolean;
 };
 
 type Testimonial = {
@@ -53,19 +61,19 @@ type Testimonial = {
 // Roles estáticos mapeados por Roblox username
 const getMemberRole = (username: string) => {
   const name = username.toLowerCase().replace('@', '').trim();
-  if (name.includes('milumon')) return 'Owner';
-  if (name === 'zkylerrbx' || name === 'zkyler') return 'Admin';
-  if (name === 'nekolixrbx' || name === 'nekolix') return 'Moderador';
-  if (name === 'xioramrbx' || name === 'xioram') return 'Moderador';
-  return 'Miembro';
+  if (name.includes('milumon')) return 'Guía de la Bandada 🐣';
+  if (name === 'zkylerrbx' || name === 'zkyler') return 'Protector de la Bandada 🛡️';
+  if (name === 'nekolixrbx' || name === 'nekolix') return 'Ayudante de la Bandada ✨';
+  if (name === 'xioramrbx' || name === 'xioram') return 'Ayudante de la Bandada ✨';
+  return 'Pollito Oficial 🐣';
 };
 
 const getRoleColor = (role: string) => {
   switch (role) {
-    case 'Owner': return 'bg-[#FFD700] text-black border-2 border-black';
-    case 'Admin': return 'bg-[#ea580c] text-white border-2 border-black';
-    case 'Moderador': return 'bg-teal-500 text-white border-2 border-black';
-    default: return 'bg-gray-100 text-gray-800 border border-gray-300';
+    case 'Guía de la Bandada 🐣': return 'bg-sky-50 text-sky-700 border border-sky-200';
+    case 'Protector de la Bandada 🛡️': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    case 'Ayudante de la Bandada ✨': return 'bg-amber-50 text-amber-700 border border-amber-200';
+    default: return 'bg-gray-50 text-gray-600 border border-gray-200';
   }
 };
 
@@ -114,6 +122,7 @@ export default function ComunidadPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const fetchMembers = async () => {
     try {
@@ -449,57 +458,30 @@ export default function ComunidadPage() {
   const activeDateSlots = slots.filter(s => s.slot_date === selectedDateStr);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-black selection:bg-black selection:text-[#FFD700] font-sans flex flex-col justify-between">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#2D3139] selection:bg-[#FFB000] selection:text-black font-sans flex flex-col justify-between">
       <div id="inicio">
         {/* HEADER NAVBAR */}
-        <header className="bg-[#FFD700] border-b-4 border-black py-4 px-6 sticky top-0 z-50 shadow-[0_4px_0_0_#000]">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl filter drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">🐣</span>
-              <h1 className="font-display font-black text-xl uppercase tracking-tighter text-black">
-                MILUMON COMMUNITY
-              </h1>
-            </div>
+        <Header
+          session={session}
+          isAdmin={statusInfo.is_admin || session?.user?.email === 'kpopxfull@gmail.com'}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          scrollToSection={scrollToSection}
+        />
 
-            {/* Nav Links */}
-            <nav className="hidden md:flex items-center gap-6 font-display font-black text-xs uppercase">
-              <button onClick={() => scrollToSection('inicio')} className="hover:underline hover:text-white transition-all cursor-pointer">Inicio</button>
-              <button onClick={() => scrollToSection('beneficios')} className="hover:underline hover:text-white transition-all cursor-pointer">Beneficios</button>
-              <button onClick={() => scrollToSection('stats-evento')} className="hover:underline hover:text-white transition-all cursor-pointer">Eventos</button>
-              <button onClick={() => scrollToSection('timeline-ingreso')} className="hover:underline hover:text-white transition-all cursor-pointer">Cómo Ingresar</button>
-              <button onClick={() => scrollToSection('reglas-testimonios')} className="hover:underline hover:text-white transition-all cursor-pointer">Reglas</button>
-              <button onClick={() => scrollToSection('admision')} className="hover:underline hover:text-white transition-all cursor-pointer">Admisión</button>
-              <button onClick={() => scrollToSection('miembros')} className="hover:underline hover:text-white transition-all cursor-pointer">Miembros</button>
-            </nav>
-
-            <div className="flex items-center gap-3">
-              {session ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white border-2 border-black rounded-lg px-2.5 py-1">
-                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full border border-black animate-ping" />
-                    <span className="font-display font-black text-[10px] text-black hidden lg:inline">
-                      HOLA, <span className="underline">{session.user.email?.split('@')[0].toUpperCase()}</span>
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-1 font-display font-black text-[10px] border-2 border-black bg-white hover:bg-red-100 px-2.5 py-1.5 rounded-lg active:scale-95 transition-all cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    SALIR
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={handleLogin}
-                  className="flex items-center gap-1.5 font-display font-black text-[10px] border-2 border-black bg-black text-white hover:bg-white hover:text-black px-4 py-2 rounded-lg brutalist-shadow-sm active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                >
-                  🐣 ÚNETE A LA COMUNIDAD
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
+        {/* Mobile Menu Panel */}
+        <NavBar
+          variant="drawer"
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+          scrollToSection={scrollToSection}
+          session={session}
+          statusInfo={{ is_admin: statusInfo.is_admin || session?.user?.email === 'kpopxfull@gmail.com' }}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+        />
 
         {/* CONTENEDOR PRINCIPAL */}
         <div className="max-w-6xl mx-auto px-4 mt-12 space-y-20">
@@ -511,125 +493,104 @@ export default function ComunidadPage() {
               {session && statusInfo.status === 'approved' ? (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
-                      ¡BIENVENIDO AL TEAM, <br />
-                      <span className="font-display font-black text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#ea580c]">
+                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                      ¡Bienvenido al Team, <br />
+                      <span className="font-display font-bold text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
                         @{statusInfo.roblox_user || 'POLLITO'}!
                       </span>
                     </h2>
-                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">👑</span>
+                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
-                    Tu vinculación está activa. Ya eres Miembro Oficial (VIP). Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
+                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
+                    Tu vinculación está activa. Ya eres parte de la bandada 🐣. Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
                   </p>
                   <div className="flex flex-wrap gap-4">
-                    <Link
-                      href="/console"
-                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all decoration-transparent"
-                    >
-                      ✓ IR A LA CONSOLA VIP
+                    <Link href="/console" className="decoration-transparent">
+                      <Button variant="primary" size="lg">
+                        ✓ Ir a la Consola VIP
+                      </Button>
                     </Link>
-                    <button
-                      onClick={() => scrollToSection('testimonios')}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    >
+                    <Button variant="secondary" size="lg" onClick={() => scrollToSection('testimonios')}>
                       Dejar testimonio
-                    </button>
+                    </Button>
                   </div>
                 </>
               ) : session && statusInfo.status === 'pending' ? (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
-                      ¡HOLA, <br />
-                      <span className="font-display font-black text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#ea580c]">
+                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                      ¡Hola, <br />
+                      <span className="font-display font-bold text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
                         @{statusInfo.roblox_user || 'POLLITO'}!
                       </span>
                     </h2>
                     <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">📅</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
-                    Tu entrevista de admisión ya está programada. Consulta los detalles de la fecha y horario de stream de Milumon para participar en vivo.
+                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
+                    Tu entrevista de admisión ya está programada. Consulta los detalles de la fecha y el horario del stream de Milumon para participar en vivo.
                   </p>
                   <div className="flex flex-wrap gap-4">
-                    <button
-                      onClick={() => scrollToSection('admision')}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    >
+                    <Button variant="primary" size="lg" onClick={() => scrollToSection('admision')}>
                       Ver mi entrevista
-                    </button>
-                    <button
-                      onClick={() => scrollToSection('reglas')}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    >
+                    </Button>
+                    <Button variant="secondary" size="lg" onClick={() => scrollToSection('reglas-testimonios')}>
                       Reglas
-                    </button>
+                    </Button>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
-                      BIENVENIDO A <br />
-                      <span className="font-display font-black text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter">
-                        MILUMON COMMUNITY
+                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                      Bienvenidos a <br />
+                      <span className="font-display font-bold text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
+                        Milumon Community
                       </span>
                     </h2>
                     <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
-                    La comunidad oficial para fans de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo legendario en Roblox y TikTok.
+                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
+                    La comunidad oficial para fans de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo lindo en Roblox y TikTok.
                   </p>
                   <div className="flex flex-wrap gap-4">
-                    <button
-                      onClick={handleJoinClick}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    >
+                    <Button variant="primary" size="lg" onClick={handleJoinClick}>
                       <Users className="w-4 h-4" />
-                      Únete a la comunidad
-                    </button>
-                    <button
-                      onClick={() => scrollToSection('reglas')}
-                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                    >
-                      Reglas
-                    </button>
+                      Únete a la bandada
+                    </Button>
+                    <Button variant="secondary" size="lg" onClick={() => scrollToSection('timeline-ingreso')}>
+                      ¿Cómo funciona?
+                    </Button>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Right Col: Mascot Frame or Avatar Frame */}
+            {/* Right Col: Mascot / Avatar — sin marco brutalista */}
             <div className="md:col-span-5 flex justify-center">
               {session && statusInfo.status === 'approved' && statusInfo.avatar_url ? (
-                <div className="relative w-full max-w-sm aspect-square bg-[#121212] border-4 border-[#FFD700] rounded-3xl shadow-[8px_8px_0_0_#FFD700] overflow-hidden flex items-center justify-center p-4">
-                  {/* Destellos dorados decorativos */}
-                  <div className="absolute top-3 left-4 text-[#FFD700] text-xl animate-pulse">✨</div>
-                  <div className="absolute bottom-3 right-4 text-[#FFD700] text-2xl animate-bounce">👑</div>
-                  <div className="absolute top-4 right-4 text-[#FFD700] text-sm animate-pulse">✨</div>
+                <div className="relative w-full max-w-[280px] aspect-square">
+                  <div className="absolute inset-0 bg-[#FFF9E6] rounded-3xl -rotate-3" />
                   <img
                     src={statusInfo.avatar_url}
                     alt={statusInfo.roblox_user}
-                    className="w-[85%] h-[85%] object-cover drop-shadow-[0_8px_16px_rgba(255,215,0,0.25)] border-3 border-[#FFD700] rounded-2xl bg-neutral-900"
+                    className="relative w-full h-full object-cover rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
                   />
+                  <span className="absolute -bottom-3 -right-3 text-4xl animate-bounce select-none">🐣</span>
                 </div>
               ) : (
-                <div className="relative w-full max-w-sm aspect-square bg-[#ff9f1c] border-4 border-black rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden flex items-center justify-center p-4">
+                <div className="relative w-full max-w-[280px] aspect-square flex items-center justify-center">
+                  <div className="absolute inset-0 bg-[#FFF9E6] rounded-3xl -rotate-3" />
                   <img
                     src="/images/hero-chick.png"
                     alt="Milumon Chick Mascot"
-                    className="w-full h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,0.55)]"
+                    className="relative w-full h-full object-contain drop-shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                       const parent = e.currentTarget.parentElement;
                       if (parent) {
                         const div = document.createElement('div');
-                        div.className = 'text-center space-y-2';
-                        div.innerHTML = `
-                          <div class='text-9xl animate-bounce'>🐣</div>
-                          <div class='font-display font-black text-lg uppercase bg-white border-2 border-black rounded-lg px-3 py-1 shadow-[2px_2px_0_0_#000]'>MILUMON</div>
-                          <div class='font-sans text-[9px] text-black font-bold'>Colocá tu imagen en public/images/hero-chick.png</div>
-                        `;
+                        div.className = 'relative text-center';
+                        div.innerHTML = `<div class='text-9xl animate-bounce select-none'>🐣</div>`;
                         parent.appendChild(div);
                       }
                     }}
@@ -642,29 +603,29 @@ export default function ComunidadPage() {
           {/* BENEFICIOS SECTION */}
           <section id="beneficios" className="space-y-6 pt-8">
             <div className="text-center">
-              <h3 className="font-display font-black text-3xl uppercase tracking-tight leading-none text-black">
-                ¿QUÉ OBTENES AL ENTRAR?
+              <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
+                ¿Qué obtienes al entrar? 🐣
               </h3>
-              <p className="font-sans text-xs text-slate-500 font-bold uppercase mt-2">
-                Beneficios brutales para la comunidad
+              <p className="font-sans text-xs text-gray-500 font-bold mt-2">
+                Beneficios especiales para toda la bandada
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {[
-                { emoji: '🎮', title: 'Juega en vivo con Milumon', desc: 'Únete a las partidas de Roblox y compite.' },
-                { emoji: '🎤', title: 'Controla el Stream (Consola VIP)', desc: 'Dispara sonidos y mensajes TTS en vivo.' },
-                { emoji: '🎁', title: 'Sorteos de Robux', desc: 'Participación automática en sorteos de la comunidad.' },
-                { emoji: '✨', title: 'Lluvia de Efectos', desc: 'Dispara animaciones en pantalla durante el directo.' },
-                { emoji: '👑', title: 'Destaca tu Avatar', desc: 'Sube de rango y muestra tu personaje oficial.' },
-                { emoji: '🤝', title: 'Conoce a otros Pollitos', desc: 'Encuentra amigos para jugar y charlar.' }
+                { emoji: '🐣', title: 'Juega en vivo con Milumon', desc: 'Únete a las partidas de Roblox y diviértete.' },
+                { emoji: '📣', title: 'Controla el Stream', desc: 'Envía divertidos sonidos y mensajes TTS en vivo.' },
+                { emoji: '🎁', title: 'Sorteos de Robux', desc: 'Participa automáticamente en los sorteos del grupo.' },
+                { emoji: '✨', title: 'Lluvia de Efectos', desc: 'Lanza animaciones de patitas y plumas en pantalla.' },
+                { emoji: '⭐', title: 'Destaca tu Avatar', desc: 'Muestra tu personaje oficial en la lista de miembros.' },
+                { emoji: '🤝', title: 'Conoce nuevos amigos', desc: 'Charla y juega con otros pollitos de la comunidad.' }
               ].map((b, i) => (
-                <div key={i} className="bg-white border-4 border-black p-6 rounded-2xl shadow-[6px_6px_0_0_#000] hover:translate-y-[-4px] hover:shadow-[10px_10px_0_0_#000] transition-all flex flex-col justify-between items-start gap-4">
-                  <span className="text-4xl filter drop-shadow-[2px_2px_0_rgba(0,0,0,0.15)]">{b.emoji}</span>
+                <div key={i} className="bg-white border border-gray-200/80 p-7 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,.1)] hover:translate-y-[-2px] transition-all duration-200 flex flex-col items-start gap-4">
+                  <span className="text-4xl">{b.emoji}</span>
                   <div className="text-left">
-                    <h4 className="font-display font-extrabold text-lg uppercase tracking-tight text-black leading-tight">
+                    <h4 className="font-display font-bold text-base tracking-tight text-[#2D3139] leading-tight">
                       {b.title}
                     </h4>
-                    <p className="font-sans text-xs text-slate-600 font-medium leading-relaxed mt-2">
+                    <p className="font-sans text-sm text-gray-500 leading-relaxed mt-2">
                       {b.desc}
                     </p>
                   </div>
@@ -675,194 +636,167 @@ export default function ComunidadPage() {
 
           {/* STATS & EVENT BANNER */}
           <section id="stats-evento" className="space-y-6 pt-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-                <div className="text-4xl shrink-0">👥</div>
-                <div className="text-left">
-                  <p className="font-display font-extrabold text-2xl leading-none text-black">
-                    {loadingStats ? '...' : stats.totalProfiles.toLocaleString('es-ES')}
+            {/* Stats: una sola superficie con divisores internos */}
+            <div className="bg-white border border-gray-200/80 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.06)] divide-x divide-gray-100 grid grid-cols-2 md:grid-cols-4">
+              {[
+                { emoji: '👥', value: loadingStats ? '...' : stats.totalProfiles.toLocaleString('es-ES'), label: 'Miembros' },
+                { emoji: '🪶', value: loadingStats ? '...' : stats.officialMembers.toLocaleString('es-ES'), label: 'Oficiales' },
+                { emoji: '🟢', value: String(onlineCount), label: 'Online ahora', accent: true },
+                { emoji: '✨', value: `+${loadingStats ? '...' : stats.newMembersThisWeek}`, label: 'Esta semana' },
+              ].map((s, i) => (
+                <div key={i} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
+                  <span className="text-2xl mb-1">{s.emoji}</span>
+                  <p className={`font-display font-bold text-2xl leading-none ${s.accent ? 'text-emerald-600' : 'text-[#2D3139]'}`}>
+                    {s.accent && <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse inline-block mr-1.5" />}
+                    {s.value}
                   </p>
-                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Total de Miembros</p>
+                  <p className="font-sans text-xs text-gray-400 mt-0.5">{s.label}</p>
                 </div>
-              </div>
-
-              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-                <div className="text-4xl shrink-0">🛡️</div>
-                <div className="text-left">
-                  <p className="font-display font-extrabold text-2xl leading-none text-black">
-                    {loadingStats ? '...' : stats.officialMembers.toLocaleString('es-ES')}
-                  </p>
-                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Miembros Oficiales</p>
-                </div>
-              </div>
-
-              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-                <div className="text-4xl shrink-0">🟢</div>
-                <div className="text-left">
-                  <p className="font-display font-extrabold text-2xl leading-none text-green-600 flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping inline-block" />
-                    {onlineCount}
-                  </p>
-                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Online ahora</p>
-                </div>
-              </div>
-
-              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-                <div className="text-4xl shrink-0">✨</div>
-                <div className="text-left">
-                  <p className="font-display font-extrabold text-2xl leading-none text-black">
-                    +{loadingStats ? '...' : stats.newMembersThisWeek}
-                  </p>
-                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Nuevos esta semana</p>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* BANNER EVENTO */}
-            <div className="bg-black text-[#FFD700] border-4 border-black p-6 rounded-3xl shadow-[8px_8px_0_0_#000] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700] opacity-10 rounded-full translate-x-12 -translate-y-12 select-none" />
+            <div className="bg-gradient-to-r from-[#FFF9E6] to-white border border-[#FFC200]/20 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#FFC200] opacity-5 rounded-full translate-x-16 -translate-y-16 select-none" />
               <div className="space-y-3 z-10 text-center md:text-left">
-                <div className="inline-flex items-center gap-2 bg-[#FFD700] text-black border-2 border-black rounded-lg px-2.5 py-1 font-display font-black text-xs uppercase shadow-[2px_2px_0_0_#000]">
-                  ⭐ PRÓXIMO EVENTO EN VIVO
-                </div>
-                <h4 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-white leading-tight mt-1">
-                  NOCHE DE JUEGOS CON MILUMON
+                <Badge variant="warning">⭐ Próximo evento en vivo</Badge>
+                <h4 className="font-display font-bold text-2xl sm:text-3xl tracking-tight text-[#2D3139] leading-tight">
+                  Noche de juegos con Milumon 🎮
                 </h4>
-                <p className="font-sans text-xs font-bold text-yellow-300 leading-normal max-w-xl">
+                <p className="font-sans text-sm text-gray-500 leading-relaxed max-w-xl">
                   ¡Únete para jugar BedWars en directo! Habrá sorteos de Robux gratis, lluvia de efectos interactivos en pantalla y VIP a los mejores pollitos del servidor.
                 </p>
-                <div className="flex flex-wrap gap-4 text-xs font-sans font-bold text-white pt-1 justify-center md:justify-start">
-                  <span className="flex items-center gap-1">🕒 Sábado 8:00 PM</span>
-                  <span className="flex items-center gap-1 text-purple-400">📺 Directo en TikTok & Twitch</span>
+                <div className="flex flex-wrap gap-4 text-sm font-sans text-gray-500 justify-center md:justify-start">
+                  <span className="flex items-center gap-1.5">🕒 Sábado 8:00 PM</span>
+                  <span className="flex items-center gap-1.5 text-purple-600">📺 Directo en TikTok & Twitch</span>
                 </div>
               </div>
-              <div className="bg-white border-4 border-black p-5 rounded-2xl text-center shadow-[4px_4px_0_0_#000] shrink-0 z-10 w-full md:w-auto">
-                <p className="font-display font-black text-[10px] uppercase text-gray-400">Comienza en:</p>
-                <p className="font-display font-extrabold text-2xl text-black mt-1 uppercase tracking-tighter">
+              <div className="bg-white border border-[#FFC200]/20 p-5 rounded-2xl text-center shadow-[0_4px_12px_rgba(0,0,0,.06)] shrink-0 z-10 w-full md:w-auto min-w-[160px]">
+                <p className="font-sans text-xs text-gray-400 uppercase tracking-wide">Comienza en:</p>
+                <p className="font-display font-bold text-2xl text-[#D4A000] mt-1 tracking-tight">
                   {countdownText}
                 </p>
                 <a
                   href="https://tiktok.com/@milumon_gaming"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block mt-3 w-full py-2 bg-[#FFD700] hover:bg-yellow-300 border-2 border-black rounded-xl font-display font-black text-[10px] text-black uppercase shadow-[2px_2px_0_0_#000] transition-all cursor-pointer text-center"
+                  className="block mt-3 w-full py-2 bg-[#FFC200] hover:brightness-105 rounded-xl font-display font-semibold text-sm text-black transition-all cursor-pointer text-center active:scale-[0.97]"
                 >
-                  IR AL DIRECTO →
+                  Ir al directo 📺
                 </a>
               </div>
             </div>
           </section>
 
           {/* TIMELINE DE INGRESO */}
-          <section id="timeline-ingreso" className="space-y-6 pt-8">
+          <section id="timeline-ingreso" className="space-y-8 pt-8">
             <div className="text-center">
-              <h3 className="font-display font-black text-3xl uppercase tracking-tight leading-none text-black">
-                CÓMO INGRESAR
+              <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
+                Cómo ingresar a la bandada 🐣
               </h3>
-              <p className="font-sans text-sm text-slate-500 font-bold uppercase mt-2">
+              <p className="font-sans text-sm text-gray-500 mt-2">
                 Sigue estos 5 sencillos pasos para unirte
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 relative">
-              {[
-                { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.' },
-                { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.' },
-                { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.' },
-                { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.' },
-                { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.' }
-              ].map((step, idx) => (
-                <div key={idx} className="bg-white border-4 border-black p-5 rounded-2xl shadow-[4px_4px_0_0_#000] relative flex flex-col justify-between items-start gap-4">
-                  <div className="bg-[#FFD700] text-black font-display font-black text-lg border-3 border-black rounded-xl w-10 h-10 flex items-center justify-center shadow-[2px_2px_0_0_#000]">
-                    {step.id}
-                  </div>
-                  <div className="text-left">
-                    <h4 className="font-display font-extrabold text-sm uppercase text-black leading-tight">
-                      {step.title}
-                    </h4>
-                    <p className="font-sans text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
-                      {step.desc}
-                    </p>
-                  </div>
-                  {idx < 4 && (
-                    <div className="hidden md:block absolute top-1/2 right-[-20px] translate-y-[-50%] text-2xl text-black font-black z-20">
-                      →
+            {/* Desktop: horizontal con línea conectora */}
+            <div className="relative">
+              <div className="hidden md:block absolute top-5 left-[10%] right-[10%] h-px border-t border-dashed border-gray-200 z-0" />
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                {[
+                  { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.' },
+                  { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.' },
+                  { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.' },
+                  { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.' },
+                  { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.' }
+                ].map((step, idx) => (
+                  <div key={idx} className="flex flex-col items-center text-center gap-3 relative z-10">
+                    <div className="w-10 h-10 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-base flex items-center justify-center border border-[#FFC200]/30">
+                      {step.id}
                     </div>
-                  )}
-                </div>
-              ))}
+                    <div>
+                      <h4 className="font-display font-bold text-sm text-[#2D3139] leading-tight">
+                        {step.title}
+                      </h4>
+                      <p className="font-sans text-xs text-gray-500 leading-relaxed mt-1">
+                        {step.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
 
           {/* REGLAS & TESTIMONIOS */}
           <section id="reglas-testimonios" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-8">
             {/* Reglas (5 cols) */}
-            <div id="reglas" className="lg:col-span-5 bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6">
-              <h3 className="font-display font-extrabold text-xl uppercase border-b-2 border-black pb-2 flex items-center gap-2 text-black">
-                📋 REGLAS PRINCIPALES
-              </h3>
-              <div className="space-y-4">
+            <div id="reglas" className="lg:col-span-5 space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                <span className="text-lg">📋</span>
+                <h3 className="font-display font-bold text-xl text-[#2D3139]">Reglas principales</h3>
+              </div>
+              <div className="space-y-3">
                 {[
                   { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
                   { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
                   { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos.' }
                 ].map(rule => (
-                  <div key={rule.id} className="border-2 border-black p-3.5 rounded-xl flex items-center gap-4 bg-white shadow-[2px_2px_0_0_#000]">
-                    <div className="bg-[#FFD700] text-black font-display font-black text-sm border-2 border-black rounded-lg px-2.5 py-1.5 shadow-[2px_2px_0_0_#000] shrink-0">
-                      {rule.id}
-                    </div>
-                    <div className="text-left font-sans">
-                      <h4 className="font-display font-extrabold text-sm uppercase text-black leading-none mb-1">{rule.title}</h4>
-                      <p className="font-medium text-xs text-gray-500 leading-snug">{rule.desc}</p>
+                  <div key={rule.id} className="flex items-start gap-3 py-3">
+                    <span className="shrink-0 w-7 h-7 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-xs flex items-center justify-center border border-[#FFC200]/20">{rule.id}</span>
+                    <div>
+                      <h4 className="font-display font-semibold text-sm text-[#2D3139] leading-none">{rule.title}</h4>
+                      <p className="font-sans text-xs text-gray-500 leading-snug mt-1">{rule.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-              <button 
+              <button
                 onClick={() => setShowRulesModal(true)}
-                className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
               >
-                VER TODAS LAS REGLAS →
+                Ver reglamento completo 📋
               </button>
             </div>
 
             {/* Testimonios Dinámicos (7 cols) */}
-            <div id="testimonios" className="lg:col-span-7 bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6">
-              <h3 className="font-display font-extrabold text-xl uppercase border-b-2 border-black pb-2 flex items-center gap-2 text-black">
-                ⭐ LO QUE DICEN LOS POLLITOS
-              </h3>
+            <div id="testimonios" className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-5">
+              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                <span className="text-lg">⭐</span>
+                <h3 className="font-display font-bold text-xl text-[#2D3139]">Lo que dicen los pollitos</h3>
+              </div>
               
               {loadingTestimonials ? (
                 <div className="flex justify-center items-center py-12">
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                    <Loader className="w-8 h-8 text-black" />
+                    <Loader className="w-8 h-8 text-[#FFC200]" />
                   </motion.div>
                 </div>
               ) : testimonials.length === 0 ? (
-                <div className="text-center py-12 bg-yellow-50/50 rounded-2xl border-2 border-dashed border-gray-300">
-                  <p className="font-sans text-xs font-bold text-gray-500 uppercase">
+                <div className="text-center py-12 bg-gray-50 rounded-xl">
+                  <p className="font-sans text-sm text-gray-400">
                     No hay testimonios aprobados aún.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1.5 scrollbar-thin">
+                <div className="space-y-0 max-h-[300px] overflow-y-auto pr-1.5 scrollbar-thin divide-y divide-gray-50">
                   {testimonials.map((t, idx) => (
-                    <div key={idx} className="border-2 border-black p-4 rounded-xl flex items-start gap-4 bg-white shadow-[3px_3px_0_0_#000]">
-                      <div className="w-12 h-12 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center shrink-0 shadow-[1px_1px_0_0_#000]">
+                    <div key={idx} className="py-4 flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
                         {t.roblox_avatar_url ? (
                           <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-xl">🐣</span>
+                          <span className="text-lg">🐣</span>
                         )}
                       </div>
                       <div className="text-left font-sans flex-grow">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-center">
                           <div>
-                            <h4 className="font-display font-black text-xs uppercase text-black leading-none">{t.roblox_display_name}</h4>
-                            <span className="text-[9px] text-gray-400 font-bold">@{t.roblox_user}</span>
+                            <h4 className="font-display font-semibold text-sm text-[#2D3139] leading-none">{t.roblox_display_name}</h4>
+                            <span className="text-[10px] text-gray-400">@{t.roblox_user}</span>
                           </div>
-                          <span className="text-xs text-yellow-500">★★★★★</span>
+                          <span className="text-xs text-amber-400">★★★★★</span>
                         </div>
-                        <p className="text-xs text-gray-600 font-medium leading-relaxed mt-2 italic border-l-2 border-[#FFD700] pl-2">
+                        <p className="text-sm text-gray-600 leading-relaxed mt-2 italic border-l-2 border-[#FFC200]/50 pl-2.5">
                           &quot;{t.testimonial}&quot;
                         </p>
                       </div>
@@ -871,18 +805,18 @@ export default function ComunidadPage() {
                 </div>
               )}
 
-              {/* LÓGICA DE DEJAR / EDITAR TESTIMONIO */}
+              {/* Dejar / editar testimonio */}
               {session && statusInfo.status === 'approved' && (
-                <div className="border-t-2 border-black pt-6 space-y-4 text-left">
+                <div className="border-t border-gray-100 pt-5 space-y-4 text-left">
                   {statusInfo.testimonial && !isEditingTestimonial ? (
-                    <div className="bg-yellow-50/50 border-2 border-black p-4 rounded-2xl shadow-[2px_2px_0_0_#000] space-y-3">
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="font-display font-black text-xs uppercase text-black">Tu testimonio enviado:</span>
-                        <span className={`font-display font-black text-[9px] uppercase px-2 py-0.5 border-2 border-black rounded shadow-[1px_1px_0_0_#000] ${statusInfo.testimonial_approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                          {statusInfo.testimonial_approved ? '✓ Aprobado' : '⏳ Pendiente de moderación'}
+                        <span className="font-display font-semibold text-sm text-[#2D3139]">Tu testimonio enviado:</span>
+                        <span className={`font-display font-semibold text-xs px-2.5 py-0.5 rounded-full ${statusInfo.testimonial_approved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                          {statusInfo.testimonial_approved ? '✓ Aprobado' : '⏳ Pendiente'}
                         </span>
                       </div>
-                      <p className="font-sans text-xs text-gray-600 italic border-l-4 border-yellow-400 pl-3">
+                      <p className="font-sans text-sm text-gray-600 italic border-l-2 border-[#FFC200]/50 pl-3">
                         &quot;{statusInfo.testimonial}&quot;
                       </p>
                       <button
@@ -890,19 +824,19 @@ export default function ComunidadPage() {
                           setUserTestimonial(statusInfo.testimonial || '');
                           setIsEditingTestimonial(true);
                         }}
-                        className="py-1.5 px-4 bg-black hover:bg-white text-white hover:text-black font-display font-extrabold text-[10px] uppercase border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                        className="py-1.5 px-4 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 rounded-lg font-display font-semibold text-sm transition-all cursor-pointer"
                       >
                         Editar testimonio
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-slate-50 border-2 border-black p-4 rounded-2xl shadow-[2px_2px_0_0_#000] space-y-3">
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                       <div className="space-y-1">
-                        <h4 className="font-display font-black text-xs uppercase text-black">
+                        <h4 className="font-display font-semibold text-sm text-[#2D3139]">
                           {isEditingTestimonial ? 'Editar tu testimonio' : '¿Qué opinas de la comunidad?'}
                         </h4>
-                        <p className="text-[10px] text-gray-500 leading-normal">
-                          Deja tu testimonio (máx. 150 caracteres). Aparecerá en la Landing Page una vez que el administrador lo apruebe.
+                        <p className="text-xs text-gray-400">
+                          Máx. 150 caracteres. Aparece en la landing una vez aprobado.
                         </p>
                       </div>
 
@@ -913,23 +847,23 @@ export default function ComunidadPage() {
                           placeholder="Tu opinión aquí..."
                           rows={2}
                           maxLength={150}
-                          className="w-full px-3 py-2 bg-white border-2 border-black text-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 text-[#2D3139] rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30"
                         />
                         
                         {testimonialError && (
-                          <p className="text-red-500 font-sans text-[10px] font-bold">✕ {testimonialError}</p>
+                          <p className="text-red-500 font-sans text-xs">✕ {testimonialError}</p>
                         )}
                         {testimonialSuccess && (
-                          <p className="text-green-600 font-sans text-[10px] font-bold">✓ Testimonio enviado con éxito. Pendiente de moderación.</p>
+                          <p className="text-emerald-600 font-sans text-xs">✓ Testimonio enviado. Pendiente de moderación.</p>
                         )}
 
                         <div className="flex gap-2">
                           <button
                             type="submit"
                             disabled={testimonialSubmitting || !userTestimonial.trim() || userTestimonial.trim() === statusInfo.testimonial}
-                            className="py-2 px-4 bg-[#FFD700] hover:bg-yellow-300 disabled:opacity-50 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                            className="py-2 px-4 bg-[#FFC200] hover:brightness-105 disabled:opacity-50 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
                           >
-                            {testimonialSubmitting ? 'Guardando...' : 'Guardar Testimonio'}
+                            {testimonialSubmitting ? 'Guardando...' : 'Guardar'}
                           </button>
                           {isEditingTestimonial && (
                             <button
@@ -939,7 +873,7 @@ export default function ComunidadPage() {
                                 setIsEditingTestimonial(false);
                                 setTestimonialError(null);
                               }}
-                              className="py-2 px-4 bg-white hover:bg-gray-100 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl active:scale-95 transition-all cursor-pointer"
+                              className="py-2 px-4 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
                             >
                               Cancelar
                             </button>
@@ -963,56 +897,54 @@ export default function ComunidadPage() {
                 
                 {/* IF NOT LOGGED IN ACCORDION PANEL */}
                 {!session && (
-                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] text-center space-y-4">
-                    <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                      <Lock className="w-6 h-6 text-red-600 stroke-[3]" />
+                  <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-[0_4px_12px_rgba(0,0,0,.06)] text-center space-y-4">
+                    <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mx-auto">
+                      <Lock className="w-6 h-6 text-red-400" />
                     </div>
-                    <h3 className="font-display font-extrabold text-lg uppercase">Acceso de Admisión</h3>
-                    <p className="font-sans text-xs font-semibold text-gray-500 leading-relaxed">
+                    <h3 className="font-display font-bold text-lg leading-none text-[#2D3139]">Acceso de Admisión</h3>
+                    <p className="font-sans text-sm text-gray-500 leading-relaxed">
                       Inicia sesión con Google para agendar tu entrevista de admisión los días viernes y vincular tus cuentas oficiales.
                     </p>
                     <button
                       onClick={handleLogin}
-                      className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                      className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
                     >
-                      🔐 INICIAR SESIÓN
+                      🔐 Iniciar Sesión con Google
                     </button>
                   </div>
                 )}
 
                 {/* LOADING STATE */}
                 {session && loadingStatus && (
-                  <div className="bg-white border-4 border-black rounded-3xl p-8 shadow-[6px_6px_0_0_#000] text-center">
-                    <motion.div className="mx-auto" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                      <Loader className="w-6 h-6 text-black" />
+                  <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-[0_4px_12px_rgba(0,0,0,.06)] text-center">
+                    <motion.div className="mx-auto w-fit" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+                      <Loader className="w-6 h-6 text-[#FFC200]" />
                     </motion.div>
-                    <p className="font-display font-black text-[10px] text-gray-500 uppercase mt-4">
-                      Cargando tu estado...
-                    </p>
+                    <p className="font-sans text-sm text-gray-400 mt-4">Cargando tu estado...</p>
                   </div>
                 )}
 
                 {/* PENDING INTERVIEW STATUS */}
                 {session && !loadingStatus && statusInfo.status === 'pending' && (
-                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
-                    <div className="w-12 h-12 bg-yellow-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                      <Clock className="w-6 h-6 text-yellow-600 stroke-[3] animate-pulse" />
+                  <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.06)] space-y-4 text-center">
+                    <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mx-auto">
+                      <Clock className="w-6 h-6 text-amber-500 animate-pulse" />
                     </div>
-                    <h3 className="font-display font-extrabold text-lg text-yellow-700 uppercase">Entrevista Agendada</h3>
+                    <h3 className="font-display font-bold text-lg text-amber-600">Entrevista Agendada</h3>
                     
-                    <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-2xl text-left space-y-1.5 font-sans text-xs">
-                      <p className="font-bold text-gray-700">
-                        📅 Fecha: <span className="font-black text-black">{statusInfo.interview_date ? formatDate(statusInfo.interview_date) : ''}</span>
+                    <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl text-left space-y-1.5 font-sans text-sm">
+                      <p className="text-gray-600">
+                        📅 Fecha: <span className="font-semibold text-[#2D3139]">{statusInfo.interview_date ? formatDate(statusInfo.interview_date) : ''}</span>
                       </p>
-                      <p className="font-bold text-gray-700">
-                        🕒 Hora: <span className="font-black text-black">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
+                      <p className="text-gray-600">
+                        🕒 Hora: <span className="font-semibold text-[#2D3139]">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
                       </p>
-                      <div className="border-t border-black/10 pt-1 text-[10px] text-gray-500">
+                      <div className="border-t border-amber-100 pt-2 text-xs text-gray-400">
                         <p>• Roblox: @{statusInfo.roblox_user}</p>
                         <p>• TikTok: @{statusInfo.tiktok_user}</p>
                       </div>
                     </div>
-                    <p className="font-sans text-[10px] font-medium text-gray-400 leading-snug text-center">
+                    <p className="font-sans text-sm text-gray-500 leading-snug">
                       Milumon te llamará en su stream. Tené Roblox abierto y estate atento al directo.
                     </p>
                   </div>
@@ -1020,15 +952,15 @@ export default function ComunidadPage() {
 
                 {/* REJECTED STATUS FOR GUESTS */}
                 {session && !loadingStatus && statusInfo.status === 'rejected' && !isRescheduling && (
-                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
-                    <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                      <AlertTriangle className="w-6 h-6 text-red-600 stroke-[3]" />
+                  <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.06)] space-y-4 text-center">
+                    <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mx-auto">
+                      <AlertTriangle className="w-6 h-6 text-red-400" />
                     </div>
-                    <h3 className="font-display font-extrabold text-lg text-red-700 uppercase">Solicitud Rechazada</h3>
+                    <h3 className="font-display font-bold text-lg text-red-500 leading-none">Solicitud Rechazada</h3>
                     
-                    <div className="bg-red-50 border-2 border-black p-3 rounded-xl space-y-1.5 font-sans text-left">
-                      <p className="font-black text-red-700 text-[10px]">Motivo brindado:</p>
-                      <p className="text-[10px] text-gray-800 bg-white border border-black p-2 rounded-lg italic font-bold">
+                    <div className="bg-red-50/50 border border-red-100 p-3 rounded-xl space-y-1.5 font-sans text-left">
+                      <p className="font-semibold text-red-400 text-xs">Motivo brindado:</p>
+                      <p className="text-sm text-gray-500 bg-white border border-red-100 p-2 rounded-lg italic">
                         &quot;{statusInfo.rejection_reason || 'Datos inválidos en Roblox/TikTok.'}&quot;
                       </p>
                     </div>
@@ -1040,7 +972,7 @@ export default function ComunidadPage() {
                         setIsReturning(false);
                         setIsRescheduling(true);
                       }}
-                      className="w-full py-3 bg-[#ea580c] hover:bg-orange-600 text-white font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                      className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
                     >
                       Corregir y Re-agendar
                     </button>
@@ -1049,27 +981,27 @@ export default function ComunidadPage() {
 
                 {/* THE INTERACTIVE CALENDAR FOR BOOKING */}
                 {session && !loadingStatus && showBookingForm && (
-                  <div className="bg-white border-4 border-black rounded-3xl p-5 shadow-[6px_6px_0_0_#000] space-y-4">
+                  <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.06)] space-y-4">
                     
-                    <div className="border-b-2 border-black pb-2 text-left">
-                      <h3 className="font-display font-extrabold text-sm uppercase flex items-center gap-1.5 text-black">
-                        📅 ENTREVISTAS DE ADMISIÓN
+                    <div className="border-b border-gray-100 pb-3 text-left">
+                      <h3 className="font-display font-bold text-sm flex items-center gap-1.5 text-[#2D3139]">
+                        📅 Entrevistas de Admisión
                       </h3>
-                      <p className="font-sans text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Todos los viernes</p>
+                      <p className="font-sans text-xs text-gray-400 mt-0.5">Todos los viernes</p>
                     </div>
 
-                    <p className="font-sans text-xs text-gray-600 leading-relaxed text-left border-b border-gray-100 pb-2">
+                    <p className="font-sans text-xs text-gray-600 leading-relaxed text-left border-b border-black/10 pb-2">
                       Agenda tu entrevista para conocer al equipo y formar parte de la comunidad.
                     </p>
 
                     {formSuccess && (
-                      <div className="bg-green-50 border-2 border-black p-4 rounded-xl text-center space-y-2">
-                        <Check className="w-7 h-7 text-green-600 mx-auto stroke-[3]" />
-                        <p className="font-display font-extrabold text-sm text-green-800 uppercase leading-none">¡Reservado!</p>
-                        <p className="font-sans text-xs text-green-700 font-medium">Tu entrevista fue registrada. Recargá la página si no ves tu horario.</p>
+                      <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-center space-y-2 text-emerald-700">
+                        <Check className="w-7 h-7 text-emerald-500 mx-auto" />
+                        <p className="font-display font-semibold text-sm">¡Reservado!</p>
+                        <p className="font-sans text-sm text-emerald-600">Tu entrevista fue registrada.</p>
                         <button 
                           onClick={() => { setFormSuccess(false); setSelectedDate(null); setSelectedSlotId(''); }} 
-                          className="font-display font-black text-[10px] underline cursor-pointer block mx-auto text-black"
+                          className="font-display font-bold text-[10px] underline cursor-pointer block mx-auto text-[#2D3139]"
                         >
                           VOLVER
                         </button>
@@ -1079,14 +1011,14 @@ export default function ComunidadPage() {
                     {!formSuccess && (
                       <div>
                         {/* Calendar Month Header */}
-                        <div className="flex justify-between items-center font-display font-black text-xs uppercase px-2 mb-3 bg-gray-50 border border-gray-200 py-1 rounded-lg">
-                          <span className="text-gray-400">&lt;</span>
-                          <span className="text-black">{monthName} {currentYear}</span>
-                          <span className="text-gray-400">&gt;</span>
+                        <div className="flex justify-between items-center font-sans text-sm px-2 mb-3 text-gray-500">
+                          <span className="font-semibold">&lt;</span>
+                          <span className="font-display font-bold text-[#2D3139]">{monthName} {currentYear}</span>
+                          <span className="font-semibold">&gt;</span>
                         </div>
 
                         {/* Calendar Grid */}
-                        <div className="grid grid-cols-7 gap-1 text-center font-sans text-[10px] font-bold text-gray-400 uppercase mb-2 border-b border-gray-100 pb-1">
+                        <div className="grid grid-cols-7 gap-1 text-center font-sans text-[10px] font-bold text-gray-500 uppercase mb-2 border-b border-black/10 pb-1">
                           <div>Lun</div>
                           <div>Mar</div>
                           <div>Mié</div>
@@ -1108,23 +1040,23 @@ export default function ComunidadPage() {
                             const isFriday = cell.getDay() === 5;
                             const isSelected = selectedDate && selectedDate.getDate() === cell.getDate();
 
-                            let cellBg = 'bg-white hover:bg-gray-50';
-                            let cellText = 'text-black';
-                            let cellBorder = 'border border-gray-200';
+                            let cellBg = 'bg-white hover:bg-[#FCF9F2]';
+                            let cellText = 'text-[#2D3139]';
+                            let cellBorder = 'border-3 border-black';
                             
                             if (isFriday) {
-                              cellBg = 'bg-yellow-400/20';
-                              cellBorder = 'border-2 border-[#FFD700]';
+                              cellBg = 'bg-[#FFF9E6] hover:bg-[#FFF0C0]';
+                              cellBorder = 'border border-[#FFC200]/30';
                               if (hasSlots) {
-                                cellBg = 'bg-[#FFD700] hover:bg-yellow-300';
-                                cellBorder = 'border-2 border-black';
+                                cellBg = 'bg-[#FFC200] hover:brightness-105 text-black';
+                                cellBorder = 'border border-[#FFC200]';
                               }
                             }
                             
                             if (isSelected) {
-                              cellBg = 'bg-black text-white';
-                              cellBorder = 'border-2 border-black';
-                              cellText = 'text-white';
+                              cellBg = 'bg-[#FFC200] text-black';
+                              cellBorder = 'border border-[#FFC200]';
+                              cellText = 'text-black';
                             }
 
                             return (
@@ -1136,11 +1068,11 @@ export default function ComunidadPage() {
                                   setSelectedDate(cell);
                                   setSelectedSlotId(''); // reset slots
                                 }}
-                                className={`aspect-square rounded-lg flex flex-col items-center justify-center font-display font-extrabold text-xs transition-all active:scale-95 ${cellBg} ${cellText} ${cellBorder} ${hasSlots ? 'cursor-pointer' : 'opacity-40 cursor-default'}`}
+                                className={`aspect-square rounded-xl flex flex-col items-center justify-center font-display font-bold text-xs transition-all ${cellBg} ${cellText} ${cellBorder} ${hasSlots ? 'cursor-pointer' : 'opacity-30 cursor-default'}`}
                               >
                                 <span>{cell.getDate()}</span>
                                 {hasSlots && (
-                                  <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white' : 'bg-black'}`} />
+                                  <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-black' : 'bg-white'}`} />
                                 )}
                               </button>
                             );
@@ -1155,25 +1087,25 @@ export default function ComunidadPage() {
                               setSelectedSlotId('admission-help');
                               setShowHowItWorks(prev => !prev);
                             }}
-                            className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
+                            className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
                           >
-                            AGENDAR ENTREVISTA
+                            Agendar entrevista
                           </button>
                           <button
                             type="button"
                             onClick={() => {
                               setShowHowItWorks(prev => !prev);
                             }}
-                            className="px-4 py-3 bg-white hover:bg-gray-50 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl active:scale-95 transition-all text-center cursor-pointer"
+                            className="px-4 py-2.5 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
                           >
-                            CÓMO FUNCIONA
+                            Cómo funciona
                           </button>
                         </div>
 
                         {/* How it works modal details */}
                         {showHowItWorks && (
-                          <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-xl text-left font-sans text-xs mt-3 space-y-1.5 leading-snug">
-                            <p className="font-display font-black text-black">💡 GUÍA RÁPIDA:</p>
+                          <div className="bg-[#FCF9F2] border-3 border-black p-3.5 rounded-2xl text-left font-sans text-xs mt-3 space-y-1.5 leading-snug shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
+                            <p className="font-display font-bold text-[#FFB000]">💡 GUÍA RÁPIDA:</p>
                             <p>1. Seleccioná un día viernes resaltado en amarillo en el calendario.</p>
                             <p>2. Elegí una de las horas libres listadas abajo.</p>
                             <p>3. Completá tus nombres reales de Roblox y TikTok.</p>
@@ -1183,13 +1115,13 @@ export default function ComunidadPage() {
 
                         {/* Slots and booking forms */}
                         {selectedDate && (
-                          <div className="mt-4 space-y-4 pt-4 border-t-2 border-dashed border-gray-200">
-                            <p className="font-sans text-[10px] font-black uppercase text-gray-400 text-left">
+                          <div className="mt-4 space-y-4 pt-4 border-t border-dashed border-gray-200">
+                            <p className="font-sans text-[10px] font-bold uppercase text-gray-500 text-left">
                               Horarios disponibles ({activeDateSlots.length}):
                             </p>
                             
                             {activeDateSlots.length === 0 ? (
-                              <p className="font-sans text-xs font-bold text-red-500 text-left">No hay horarios libres para esta fecha.</p>
+                              <p className="font-sans text-xs font-bold text-red-600 text-left">No hay horarios libres para esta fecha.</p>
                             ) : (
                               <div className="flex flex-wrap gap-2">
                                 {activeDateSlots.map(s => {
@@ -1199,7 +1131,7 @@ export default function ComunidadPage() {
                                       key={s.id}
                                       type="button"
                                       onClick={() => setSelectedSlotId(s.id)}
-                                      className={`px-3 py-1.5 rounded-lg border-2 font-display font-extrabold text-[11px] transition-all active:scale-95 cursor-pointer ${isSel ? 'bg-black text-yellow-400 border-black' : 'bg-white hover:bg-gray-50 text-black border-gray-300'}`}
+                                      className={`px-3 py-1.5 rounded-lg border font-display font-semibold text-sm transition-all cursor-pointer ${isSel ? 'bg-[#FFC200] text-black border-[#FFC200]' : 'bg-white hover:bg-gray-50 text-[#2D3139] border-gray-200'}`}
                                     >
                                       {formatTime(s.slot_time)}
                                     </button>
@@ -1210,18 +1142,18 @@ export default function ComunidadPage() {
 
                             {selectedSlotId && selectedSlotId !== 'admission-help' && (
                               <form onSubmit={handleBook} className="space-y-4 pt-2">
-                                <div className="flex border-2 border-black rounded-lg overflow-hidden text-center text-[10px] font-display font-black uppercase">
+                                <div className="flex border border-gray-200 rounded-xl overflow-hidden text-center text-sm font-display font-semibold">
                                   <button
                                     type="button"
                                     onClick={() => { setIsReturning(false); setFormError(null); }}
-                                    className={`flex-grow py-1.5 ${!isReturning ? 'bg-yellow-400 text-black' : 'bg-white text-gray-400'}`}
+                                    className={`flex-grow py-1.5 ${!isReturning ? 'bg-[#FFC200] text-black' : 'bg-gray-50 text-gray-400'}`}
                                   >
                                     Nuevo
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => { setIsReturning(true); setFormError(null); }}
-                                    className={`flex-grow py-1.5 border-l-2 border-black ${isReturning ? 'bg-[#ea580c] text-white' : 'bg-white text-gray-400'}`}
+                                    className={`flex-grow py-1.5 border-l border-gray-200 ${isReturning ? 'bg-red-500 text-white' : 'bg-gray-50 text-gray-400'}`}
                                   >
                                     Re-Ingreso
                                   </button>
@@ -1229,55 +1161,55 @@ export default function ComunidadPage() {
 
                                 <div className="space-y-2 text-left">
                                   <div>
-                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario Roblox</label>
+                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario Roblox</label>
                                     <input
                                       type="text"
                                       value={robloxUser}
                                       onChange={(e) => setRobloxUser(e.target.value)}
                                       placeholder="Ej: MilumonRoblox"
-                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario TikTok</label>
+                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario TikTok</label>
                                     <input
                                       type="text"
                                       value={tiktokUser}
                                       onChange={(e) => setTiktokUser(e.target.value)}
                                       placeholder="Ej: @Milumon"
-                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Testimonio de la comunidad (Opcional)</label>
+                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
                                     <textarea
                                       value={userTestimonial}
                                       onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
                                       placeholder="Cuéntanos brevemente qué opinas del Team (Máx. 150 caracteres)"
                                       rows={2}
                                       maxLength={150}
-                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                     />
                                   </div>
 
                                   {isReturning && (
                                     <div className="space-y-2 pt-1 border-t border-gray-100">
                                       <div>
-                                        <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Motivo del ban?</label>
+                                        <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Motivo del ban?</label>
                                         <textarea
                                           value={banReason}
                                           onChange={(e) => setBanReason(e.target.value)}
                                           rows={2}
-                                          className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Por qué deberías volver?</label>
+                                        <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Por qué deberías volver?</label>
                                         <textarea
                                           value={returnReason}
                                           onChange={(e) => setReturnReason(e.target.value)}
                                           rows={2}
-                                          className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                         />
                                       </div>
                                     </div>
@@ -1285,16 +1217,16 @@ export default function ComunidadPage() {
                                 </div>
 
                                 {formError && (
-                                  <div className="bg-red-50 border-2 border-black p-2.5 rounded-lg flex items-start gap-1.5">
-                                    <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                                    <p className="font-sans text-[10px] font-bold text-red-700 leading-snug">{formError}</p>
+                                  <div className="bg-red-50 border border-red-100 p-2.5 rounded-xl flex items-start gap-1.5 text-red-500">
+                                    <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                    <p className="font-sans text-sm">{formError}</p>
                                   </div>
                                 )}
 
                                 <button
                                   type="submit"
                                   disabled={submitting}
-                                  className={`w-full py-2.5 font-display font-black text-xs uppercase border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50 ${isReturning ? 'bg-orange-500 hover:bg-orange-400 text-white' : 'bg-yellow-400 hover:bg-yellow-300 text-black'}`}
+                                  className={`w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer ${isReturning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-[#FFC200] hover:brightness-105 text-black'} active:scale-[0.97]`}
                                 >
                                   {submitting ? 'Reservando...' : 'Confirmar Reserva'}
                                 </button>
@@ -1314,28 +1246,28 @@ export default function ComunidadPage() {
           </section>
 
           {/* SECCIÓN MIEMBROS OFICIALES */}
-          <section id="miembros" className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6 pt-8">
-            <div className="flex justify-between items-center border-b-2 border-black pb-2">
-              <h3 className="font-display font-extrabold text-xl uppercase flex items-center gap-2 text-black">
-                👥 MIEMBROS OFICIALES
+          <section id="miembros" className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-6 pt-8">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+              <h3 className="font-display font-bold text-xl flex items-center gap-2 text-[#2D3139]">
+                👥 Miembros Oficiales
               </h3>
               <button
                 onClick={() => alert('Próximamente grilla expandida con filtros.')}
-                className="px-3 py-1.5 bg-white hover:bg-gray-50 border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all font-display font-black text-[10px] uppercase cursor-pointer"
+                className="px-3 py-1.5 text-sm font-sans text-gray-400 hover:text-[#2D3139] transition-colors cursor-pointer"
               >
-                VER TODOS &gt;
+                Ver todos →
               </button>
             </div>
 
             {loadingMembers ? (
               <div className="flex justify-center items-center py-12">
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                  <Loader className="w-8 h-8 text-black" />
+                  <Loader className="w-8 h-8 text-[#FFC200]" />
                 </motion.div>
               </div>
             ) : members.length === 0 ? (
-              <div className="text-center py-12 bg-yellow-50 rounded-2xl border-2 border-dashed border-gray-300">
-                <p className="font-sans text-xs font-bold text-gray-500 uppercase">
+              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                <p className="font-sans text-sm text-gray-400">
                   No hay miembros oficiales registrados aún. ¡Sé el primero!
                 </p>
               </div>
@@ -1349,13 +1281,9 @@ export default function ComunidadPage() {
                       <motion.div
                         key={member.roblox_user}
                         whileHover={{ scale: 1.03, y: -2 }}
-                        className="border-2 border-black p-4 rounded-2xl text-center flex flex-col items-center justify-between shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] bg-white transition-all relative"
+                        className="bg-white border border-gray-200/80 p-4 rounded-2xl text-center flex flex-col items-center gap-3 shadow-[0_4px_12px_rgba(0,0,0,.06)] hover:shadow-[0_8px_20px_rgba(0,0,0,.1)] transition-all"
                       >
-                        <span className="absolute top-2.5 right-2.5 text-xs select-none">
-                          ⭐
-                        </span>
-                        
-                        <div className="w-16 h-16 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center mb-3 shadow-[2px_2px_0_0_#000]">
+                        <div className="w-14 h-14 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center">
                           {member.roblox_avatar_url ? (
                             <img
                               src={member.roblox_avatar_url}
@@ -1367,14 +1295,16 @@ export default function ComunidadPage() {
                           )}
                         </div>
                         
-                        <p className="font-display font-extrabold text-xs uppercase text-black leading-none truncate max-w-full">
-                          {member.roblox_display_name}
-                        </p>
-                        <p className="font-sans text-[10px] text-gray-500 font-semibold mt-1 truncate max-w-full">
-                          @{member.roblox_user}
-                        </p>
+                        <div className="w-full">
+                          <p className="font-display font-bold text-xs text-[#2D3139] leading-none truncate">
+                            {member.roblox_display_name}
+                          </p>
+                          <p className="font-sans text-[10px] text-gray-400 mt-0.5 truncate">
+                            @{member.roblox_user}
+                          </p>
+                        </div>
 
-                        <span className={`mt-3 font-display font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[1px_1px_0_0_#000] border-2 border-black block ${getRoleColor(role)}`}>
+                        <span className={`font-sans text-[9px] tracking-wide px-2 py-0.5 rounded-full ${getRoleColor(role)}`}>
                           {role}
                         </span>
                       </motion.div>
@@ -1391,17 +1321,18 @@ export default function ComunidadPage() {
       {/* MODAL DE REGLAS COMPLETAS */}
       {showRulesModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white border-4 border-black rounded-3xl p-6 max-w-lg w-full shadow-[8px_8px_0_0_#000] relative">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-[0_24px_80px_rgba(0,0,0,0.2)] relative">
             <button
               onClick={() => setShowRulesModal(false)}
-              className="absolute top-4 right-4 bg-white hover:bg-red-100 border-2 border-black rounded-lg w-8 h-8 flex items-center justify-center font-display font-black text-sm active:scale-90 transition-all cursor-pointer"
+              className="absolute top-4 right-4 bg-gray-50 hover:bg-gray-100 rounded-xl w-8 h-8 flex items-center justify-center font-sans text-sm text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
             >
               ✕
             </button>
-            <h3 className="font-display font-black text-xl uppercase mb-6 border-b-2 border-black pb-2 flex items-center gap-2 text-black">
-              📋 REGLAMENTO COMPLETO
-            </h3>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+            <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
+              <span className="text-xl">📋</span>
+              <h3 className="font-display font-bold text-xl text-[#2D3139]">Reglamento Completo</h3>
+            </div>
+            <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
               {[
                 { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
                 { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
@@ -1409,40 +1340,41 @@ export default function ComunidadPage() {
                 { id: '04', title: 'Sigue al staff', desc: 'Escucha y respeta las indicaciones de moderadores y administradores.' },
                 { id: '05', title: 'Diviértete', desc: 'Disfruta al máximo, apoya a los demás y pásala de 10.' }
               ].map(rule => (
-                <div key={rule.id} className="border-2 border-black p-3.5 rounded-xl flex items-center gap-4 bg-white shadow-[2px_2px_0_0_#000]">
-                  <div className="bg-[#FFD700] text-black font-display font-black text-sm border-2 border-black rounded-lg px-2.5 py-1.5 shadow-[2px_2px_0_0_#000] shrink-0">
-                    {rule.id}
-                  </div>
-                  <div className="text-left font-sans">
-                    <h4 className="font-display font-extrabold text-sm uppercase text-black leading-none mb-1">{rule.title}</h4>
-                    <p className="font-medium text-xs text-gray-500 leading-snug">{rule.desc}</p>
+                <div key={rule.id} className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0">
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-xs flex items-center justify-center border border-[#FFC200]/20">{rule.id}</span>
+                  <div>
+                    <h4 className="font-display font-semibold text-sm text-[#2D3139]">{rule.title}</h4>
+                    <p className="font-sans text-xs text-gray-500 leading-snug mt-0.5">{rule.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
             <button
               onClick={() => setShowRulesModal(false)}
-              className="mt-6 w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+              className="mt-5 w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
             >
-              ENTENDIDO
+              Entendido
             </button>
           </div>
         </div>
       )}
 
-      {/* FOOTER BRUTALISTA */}
-      <footer className="mt-16 bg-[#FFD700] text-black border-t-4 border-black py-8 px-6 text-center select-none shrink-0 shadow-[0_-4px_0_0_#000]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-display font-black text-xs">
-          <p>© 2025 Milumon Community. Todos los derechos reservados.</p>
-          <div className="flex items-center gap-4">
-            <Link href="/awards" className="text-black hover:text-white underline decoration-2 font-display uppercase tracking-wider text-[10px]">
-              🏆 Resultados Históricos - Pollito Awards
-            </Link>
+      {/* FOOTER */}
+      <footer className="mt-16 border-t border-gray-200 py-8 px-6 select-none shrink-0 bg-[#FDFBF7]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🐣</span>
+            <span className="font-display font-bold text-sm text-[#2D3139]">Milumon Community</span>
+            <span className="text-gray-300">|</span>
+            <span className="font-sans text-xs text-gray-400">© 2025</span>
           </div>
-          <div className="flex items-center gap-4 text-black text-lg">
-            <a href="https://discord.gg" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-all">🎮</a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-all">📺</a>
-            <a href="https://tiktok.com/@milumon_gaming" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-all">📱</a>
+          <div className="flex items-center gap-6 font-sans text-sm text-gray-400">
+            <Link href="/awards" className="hover:text-[#2D3139] transition-colors">
+              🏆 Pollito Awards
+            </Link>
+            <a href="https://discord.gg" target="_blank" rel="noopener noreferrer" className="hover:text-[#2D3139] transition-colors">Discord</a>
+            <a href="https://tiktok.com/@milumon_gaming" target="_blank" rel="noopener noreferrer" className="hover:text-[#2D3139] transition-colors">TikTok</a>
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#2D3139] transition-colors">YouTube</a>
           </div>
         </div>
       </footer>
