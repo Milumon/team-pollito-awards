@@ -40,8 +40,18 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .gte('created_at', firstDayOfMonth);
 
-    if (err1 || err2 || err3 || err4) {
-      const errMsg = err1?.message || err2?.message || err3?.message || err4?.message || '';
+    // 5. Nuevos perfiles esta semana
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+
+    const { count: newMembersThisWeek, error: err5 } = await supabaseAdmin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', sevenDaysAgoStr);
+
+    if (err1 || err2 || err3 || err4 || err5) {
+      const errMsg = err1?.message || err2?.message || err3?.message || err4?.message || err5?.message || '';
       return NextResponse.json({ error: `Error en base de datos: ${errMsg}` }, { status: 500 });
     }
 
@@ -50,6 +60,7 @@ export async function GET() {
       officialMembers: officialMembers || 0,
       pendingInterviews: pendingInterviews || 0,
       eventsThisMonth: eventsThisMonth || 0,
+      newMembersThisWeek: newMembersThisWeek || 0,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error desconocido';

@@ -41,6 +41,13 @@ type InterviewStatus = {
   avatar_url?: string | null;
 };
 
+type Testimonial = {
+  roblox_display_name: string;
+  roblox_user: string;
+  roblox_avatar_url: string | null;
+  testimonial: string;
+};
+
 // Roles estáticos mapeados por Roblox username
 const getMemberRole = (username: string) => {
   const name = username.toLowerCase().replace('@', '').trim();
@@ -70,7 +77,19 @@ export default function ComunidadPage() {
     officialMembers: 147,
     pendingInterviews: 23,
     eventsThisMonth: 8,
+    newMembersThisWeek: 0,
   });
+
+  // Testimonials States
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
+  const [userTestimonial, setUserTestimonial] = useState('');
+  const [testimonialSubmitting, setTestimonialSubmitting] = useState(false);
+  const [testimonialSuccess, setTestimonialSuccess] = useState(false);
+  const [testimonialError, setTestimonialError] = useState<string | null>(null);
+
+  // Modal Rules State
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   // Loading states
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -146,6 +165,58 @@ export default function ComunidadPage() {
       console.error('Error fetching interview status:', err);
     } finally {
       setLoadingStatus(false);
+    }
+  };
+
+  const fetchTestimonials = async () => {
+    try {
+      const res = await fetch('/api/testimonials');
+      if (res.ok) {
+        const data = await res.json();
+        setTestimonials(data);
+      }
+    } catch (err) {
+      console.error('Error fetching testimonials:', err);
+    } finally {
+      setLoadingTestimonials(false);
+    }
+  };
+
+  const handleSendTestimonial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTestimonialError(null);
+    setTestimonialSuccess(false);
+
+    if (!userTestimonial.trim()) {
+      setTestimonialError('El testimonio no puede estar vacío.');
+      return;
+    }
+
+    try {
+      setTestimonialSubmitting(true);
+      const token = session?.access_token;
+      const res = await fetch('/api/testimonials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ testimonial: userTestimonial.trim() })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTestimonialError(data.error || 'Error al enviar el testimonio.');
+        return;
+      }
+
+      setTestimonialSuccess(true);
+      setUserTestimonial('');
+      fetchTestimonials();
+    } catch {
+      setTestimonialError('Error de red al enviar el testimonio.');
+    } finally {
+      setTestimonialSubmitting(false);
     }
   };
 
@@ -255,6 +326,7 @@ export default function ComunidadPage() {
       fetchMembers();
       fetchSlots();
       fetchStats();
+      fetchTestimonials();
     });
 
     supabase.auth.getSession().then((res) => {
@@ -316,6 +388,43 @@ export default function ComunidadPage() {
   for (let d = 1; d <= totalDays; d++) {
     calendarCells.push(new Date(currentYear, currentMonth, d));
   }
+  const [onlineCount, setOnlineCount] = useState(52);
+  const [countdownText, setCountdownText] = useState('Calculando...');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOnlineCount(prev => {
+        const diff = Math.floor(Math.random() * 5) - 2; // de -2 a +2
+        const next = prev + diff;
+        return next > 30 && next < 80 ? next : prev;
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      // Próximo sábado a las 20:00 (8:00 PM)
+      const nextEvent = new Date();
+      nextEvent.setDate(now.getDate() + ((6 + 7 - now.getDay()) % 7)); // siguiente sábado
+      nextEvent.setHours(20, 0, 0, 0);
+      
+      if (nextEvent.getTime() < now.getTime()) {
+        nextEvent.setDate(nextEvent.getDate() + 7);
+      }
+      
+      const diffMs = nextEvent.getTime() - now.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      setCountdownText(`${diffDays}d ${diffHrs}h ${diffMins}m`);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Filtrar slots de la fecha seleccionada
   const selectedDateStr = selectedDate
@@ -339,10 +448,12 @@ export default function ComunidadPage() {
             {/* Nav Links */}
             <nav className="hidden md:flex items-center gap-6 font-display font-black text-xs uppercase">
               <button onClick={() => scrollToSection('inicio')} className="hover:underline hover:text-white transition-all cursor-pointer">Inicio</button>
-              <button onClick={() => scrollToSection('reglas')} className="hover:underline hover:text-white transition-all cursor-pointer">Reglas</button>
+              <button onClick={() => scrollToSection('beneficios')} className="hover:underline hover:text-white transition-all cursor-pointer">Beneficios</button>
+              <button onClick={() => scrollToSection('stats-evento')} className="hover:underline hover:text-white transition-all cursor-pointer">Eventos</button>
+              <button onClick={() => scrollToSection('timeline-ingreso')} className="hover:underline hover:text-white transition-all cursor-pointer">Cómo Ingresar</button>
+              <button onClick={() => scrollToSection('reglas-testimonios')} className="hover:underline hover:text-white transition-all cursor-pointer">Reglas</button>
+              <button onClick={() => scrollToSection('admision')} className="hover:underline hover:text-white transition-all cursor-pointer">Admisión</button>
               <button onClick={() => scrollToSection('miembros')} className="hover:underline hover:text-white transition-all cursor-pointer">Miembros</button>
-              <button onClick={() => scrollToSection('admision')} className="hover:underline hover:text-white transition-all cursor-pointer">Admisiones</button>
-              <button onClick={() => scrollToSection('evento')} className="hover:underline hover:text-white transition-all cursor-pointer">Eventos</button>
             </nav>
 
             <div className="flex items-center gap-3">
@@ -374,13 +485,15 @@ export default function ComunidadPage() {
           </div>
         </header>
 
-        {/* HERO SECTION */}
-        <div className="max-w-6xl mx-auto px-4 mt-12">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center mb-12">
+        {/* CONTENEDOR PRINCIPAL */}
+        <div className="max-w-6xl mx-auto px-4 mt-12 space-y-20">
+          
+          {/* HERO SECTION */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
             {/* Left Col: Info */}
             <div className="md:col-span-7 space-y-6">
               <div className="flex items-start gap-4">
-                <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black">
+                <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
                   BIENVENIDO A <br />
                   <span className="font-display font-black text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter">
                     MILUMON COMMUNITY
@@ -388,8 +501,8 @@ export default function ComunidadPage() {
                 </h2>
                 <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
               </div>
-              <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed">
-                La comunidad oficial para fans de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo legendario en Roblox y TikTok.
+              <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
+                La comunidad donde los verdaderos Pollitos juegan, compiten y aparecen en los streams de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo legendario en Roblox y TikTok.
               </p>
               <div className="flex flex-wrap gap-4">
                 <button
@@ -403,7 +516,7 @@ export default function ComunidadPage() {
                   onClick={() => scrollToSection('reglas')}
                   className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
                 >
-                  Conoce más
+                  Reglas
                 </button>
               </div>
             </div>
@@ -434,198 +547,271 @@ export default function ComunidadPage() {
             </div>
           </div>
 
-          {/* STATS / KPI ROW */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-            <div className="bg-white border-2 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-              <div className="text-3xl shrink-0">👥</div>
-              <div>
-                <p className="font-display font-extrabold text-2xl leading-none text-black">
-                  {loadingStats ? '...' : stats.totalProfiles.toLocaleString('es-ES')}
-                </p>
-                <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Total de Miembros</p>
+          {/* BENEFICIOS SECTION */}
+          <section id="beneficios" className="space-y-6 pt-8">
+            <div className="text-center">
+              <h3 className="font-display font-black text-3xl uppercase tracking-tight leading-none text-black">
+                ¿QUÉ OBTENES AL ENTRAR?
+              </h3>
+              <p className="font-sans text-xs text-slate-500 font-bold uppercase mt-2">
+                Beneficios brutales para la comunidad
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                { emoji: '🎮', title: 'Juega en vivo con Milumon', desc: 'Únete a las partidas de Roblox y compite.' },
+                { emoji: '🎤', title: 'Controla el Stream (Consola VIP)', desc: 'Dispara sonidos y mensajes TTS en vivo.' },
+                { emoji: '🎁', title: 'Sorteos de Robux', desc: 'Participación automática en sorteos de la comunidad.' },
+                { emoji: '✨', title: 'Lluvia de Efectos', desc: 'Dispara animaciones en pantalla durante el directo.' },
+                { emoji: '👑', title: 'Destaca tu Avatar', desc: 'Sube de rango y muestra tu personaje oficial.' },
+                { emoji: '🤝', title: 'Conoce a otros Pollitos', desc: 'Encuentra amigos para jugar y charlar.' }
+              ].map((b, i) => (
+                <div key={i} className="bg-white border-4 border-black p-6 rounded-2xl shadow-[6px_6px_0_0_#000] hover:translate-y-[-4px] hover:shadow-[10px_10px_0_0_#000] transition-all flex flex-col justify-between items-start gap-4">
+                  <span className="text-4xl filter drop-shadow-[2px_2px_0_rgba(0,0,0,0.15)]">{b.emoji}</span>
+                  <div className="text-left">
+                    <h4 className="font-display font-extrabold text-lg uppercase tracking-tight text-black leading-tight">
+                      {b.title}
+                    </h4>
+                    <p className="font-sans text-xs text-slate-600 font-medium leading-relaxed mt-2">
+                      {b.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* STATS & EVENT BANNER */}
+          <section id="stats-evento" className="space-y-6 pt-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
+                <div className="text-4xl shrink-0">👥</div>
+                <div className="text-left">
+                  <p className="font-display font-extrabold text-2xl leading-none text-black">
+                    {loadingStats ? '...' : stats.totalProfiles.toLocaleString('es-ES')}
+                  </p>
+                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Total de Miembros</p>
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
+                <div className="text-4xl shrink-0">🛡️</div>
+                <div className="text-left">
+                  <p className="font-display font-extrabold text-2xl leading-none text-black">
+                    {loadingStats ? '...' : stats.officialMembers.toLocaleString('es-ES')}
+                  </p>
+                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Miembros Oficiales</p>
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
+                <div className="text-4xl shrink-0">🟢</div>
+                <div className="text-left">
+                  <p className="font-display font-extrabold text-2xl leading-none text-green-600 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping inline-block" />
+                    {onlineCount}
+                  </p>
+                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Online ahora</p>
+                </div>
+              </div>
+
+              <div className="bg-white border-4 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
+                <div className="text-4xl shrink-0">✨</div>
+                <div className="text-left">
+                  <p className="font-display font-extrabold text-2xl leading-none text-black">
+                    +{loadingStats ? '...' : stats.newMembersThisWeek}
+                  </p>
+                  <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Nuevos esta semana</p>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white border-2 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-              <div className="text-3xl shrink-0">🛡️</div>
-              <div>
-                <p className="font-display font-extrabold text-2xl leading-none text-black">
-                  {loadingStats ? '...' : stats.officialMembers.toLocaleString('es-ES')}
+            {/* BANNER EVENTO */}
+            <div className="bg-black text-[#FFD700] border-4 border-black p-6 rounded-3xl shadow-[8px_8px_0_0_#000] flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-[#FFD700] opacity-10 rounded-full translate-x-12 -translate-y-12 select-none" />
+              <div className="space-y-3 z-10 text-center md:text-left">
+                <div className="inline-flex items-center gap-2 bg-[#FFD700] text-black border-2 border-black rounded-lg px-2.5 py-1 font-display font-black text-xs uppercase shadow-[2px_2px_0_0_#000]">
+                  ⭐ PRÓXIMO EVENTO EN VIVO
+                </div>
+                <h4 className="font-display font-black text-2xl sm:text-3xl uppercase tracking-tight text-white leading-tight mt-1">
+                  NOCHE DE JUEGOS CON MILUMON
+                </h4>
+                <p className="font-sans text-xs font-bold text-yellow-300 leading-normal max-w-xl">
+                  ¡Únete para jugar BedWars en directo! Habrá sorteos de Robux gratis, lluvia de efectos interactivos en pantalla y VIP a los mejores pollitos del servidor.
                 </p>
-                <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Miembros Oficiales</p>
+                <div className="flex flex-wrap gap-4 text-xs font-sans font-bold text-white pt-1 justify-center md:justify-start">
+                  <span className="flex items-center gap-1">🕒 Sábado 8:00 PM</span>
+                  <span className="flex items-center gap-1 text-purple-400">📺 Directo en TikTok & Twitch</span>
+                </div>
+              </div>
+              <div className="bg-white border-4 border-black p-5 rounded-2xl text-center shadow-[4px_4px_0_0_#000] shrink-0 z-10 w-full md:w-auto">
+                <p className="font-display font-black text-[10px] uppercase text-gray-400">Comienza en:</p>
+                <p className="font-display font-extrabold text-2xl text-black mt-1 uppercase tracking-tighter">
+                  {countdownText}
+                </p>
+                <a
+                  href="https://tiktok.com/@milumon_gaming"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-3 w-full py-2 bg-[#FFD700] hover:bg-yellow-300 border-2 border-black rounded-xl font-display font-black text-[10px] text-black uppercase shadow-[2px_2px_0_0_#000] transition-all cursor-pointer text-center"
+                >
+                  IR AL DIRECTO →
+                </a>
               </div>
             </div>
+          </section>
 
-            <div className="bg-white border-2 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-              <div className="text-3xl shrink-0">📅</div>
-              <div>
-                <p className="font-display font-extrabold text-2xl leading-none text-black">
-                  {loadingStats ? '...' : stats.pendingInterviews}
-                </p>
-                <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Entrevistas Próximas</p>
+          {/* TIMELINE DE INGRESO */}
+          <section id="timeline-ingreso" className="space-y-6 pt-8">
+            <div className="text-center">
+              <h3 className="font-display font-black text-3xl uppercase tracking-tight leading-none text-black">
+                CÓMO INGRESAR
+              </h3>
+              <p className="font-sans text-sm text-slate-500 font-bold uppercase mt-2">
+                Sigue estos 5 sencillos pasos para unirte
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 relative">
+              {[
+                { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.' },
+                { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.' },
+                { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.' },
+                { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.' },
+                { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.' }
+              ].map((step, idx) => (
+                <div key={idx} className="bg-white border-4 border-black p-5 rounded-2xl shadow-[4px_4px_0_0_#000] relative flex flex-col justify-between items-start gap-4">
+                  <div className="bg-[#FFD700] text-black font-display font-black text-lg border-3 border-black rounded-xl w-10 h-10 flex items-center justify-center shadow-[2px_2px_0_0_#000]">
+                    {step.id}
+                  </div>
+                  <div className="text-left">
+                    <h4 className="font-display font-extrabold text-sm uppercase text-black leading-tight">
+                      {step.title}
+                    </h4>
+                    <p className="font-sans text-[11px] text-slate-500 font-medium leading-relaxed mt-1">
+                      {step.desc}
+                    </p>
+                  </div>
+                  {idx < 4 && (
+                    <div className="hidden md:block absolute top-1/2 right-[-20px] translate-y-[-50%] text-2xl text-black font-black z-20">
+                      →
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* REGLAS & TESTIMONIOS */}
+          <section id="reglas-testimonios" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-8">
+            {/* Reglas (5 cols) */}
+            <div id="reglas" className="lg:col-span-5 bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6">
+              <h3 className="font-display font-extrabold text-xl uppercase border-b-2 border-black pb-2 flex items-center gap-2 text-black">
+                📋 REGLAS PRINCIPALES
+              </h3>
+              <div className="space-y-4">
+                {[
+                  { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
+                  { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
+                  { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos.' }
+                ].map(rule => (
+                  <div key={rule.id} className="border-2 border-black p-3.5 rounded-xl flex items-center gap-4 bg-white shadow-[2px_2px_0_0_#000]">
+                    <div className="bg-[#FFD700] text-black font-display font-black text-sm border-2 border-black rounded-lg px-2.5 py-1.5 shadow-[2px_2px_0_0_#000] shrink-0">
+                      {rule.id}
+                    </div>
+                    <div className="text-left font-sans">
+                      <h4 className="font-display font-extrabold text-sm uppercase text-black leading-none mb-1">{rule.title}</h4>
+                      <p className="font-medium text-xs text-gray-500 leading-snug">{rule.desc}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
+              <button 
+                onClick={() => setShowRulesModal(true)}
+                className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+              >
+                VER TODAS LAS REGLAS →
+              </button>
             </div>
 
-            <div className="bg-white border-2 border-black p-4 rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-              <div className="text-3xl shrink-0">⚡</div>
-              <div>
-                <p className="font-display font-extrabold text-2xl leading-none text-black">
-                  {loadingStats ? '...' : stats.eventsThisMonth}
-                </p>
-                <p className="font-sans text-[10px] font-bold text-gray-500 uppercase mt-1">Eventos Este Mes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* MAIN GRID CONTENT */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* LEFT COLUMN: RULES & MEMBERS (8 cols) */}
-            <div className="lg:col-span-8 space-y-8">
+            {/* Testimonios Dinámicos (7 cols) */}
+            <div id="testimonios" className="lg:col-span-7 bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6">
+              <h3 className="font-display font-extrabold text-xl uppercase border-b-2 border-black pb-2 flex items-center gap-2 text-black">
+                ⭐ LO QUE DICEN LOS POLLITOS
+              </h3>
               
-              {/* RULES SECTION */}
-              <div id="reglas" className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
-                <h3 className="font-display font-extrabold text-xl uppercase mb-6 border-b-2 border-black pb-2 flex items-center gap-2 text-black">
-                  📋 REGLAS GENERALES
-                </h3>
-                <div className="space-y-3">
-                  {[
-                    { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
-                    { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y relevante.' },
-                    { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos.' },
-                    { id: '04', title: 'Sigue al staff', desc: 'Escucha a los moderadores y administradores.' },
-                    { id: '05', title: 'Diviértete', desc: 'Disfruta, participa y crea momentos increíbles.' }
-                  ].map(rule => (
-                    <div key={rule.id} className="border-2 border-black p-3.5 rounded-xl flex items-center gap-4 bg-white shadow-[2px_2px_0_0_#000]">
-                      <div className="bg-[#FFD700] text-black font-display font-black text-sm border-2 border-black rounded-lg px-2.5 py-1.5 shadow-[2px_2px_0_0_#000] shrink-0">
-                        {rule.id}
+              {loadingTestimonials ? (
+                <div className="flex justify-center items-center py-12">
+                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+                    <Loader className="w-8 h-8 text-black" />
+                  </motion.div>
+                </div>
+              ) : testimonials.length === 0 ? (
+                <div className="text-center py-12 bg-yellow-50/50 rounded-2xl border-2 border-dashed border-gray-300">
+                  <p className="font-sans text-xs font-bold text-gray-500 uppercase">
+                    No hay testimonios aprobados aún. ¡Sé el primero en dejar tu opinión!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1.5 scrollbar-thin">
+                  {testimonials.map((t, idx) => (
+                    <div key={idx} className="border-2 border-black p-4 rounded-xl flex items-start gap-4 bg-white shadow-[3px_3px_0_0_#000]">
+                      <div className="w-12 h-12 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center shrink-0 shadow-[1px_1px_0_0_#000]">
+                        {t.roblox_avatar_url ? (
+                          <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xl">🐣</span>
+                        )}
                       </div>
-                      <div className="text-left font-sans">
-                        <h4 className="font-display font-extrabold text-sm uppercase text-black leading-none mb-1">{rule.title}</h4>
-                        <p className="font-medium text-xs text-gray-500 leading-snug">{rule.desc}</p>
+                      <div className="text-left font-sans flex-grow">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-display font-black text-xs uppercase text-black leading-none">{t.roblox_display_name}</h4>
+                            <span className="text-[9px] text-gray-400 font-bold">@{t.roblox_user}</span>
+                          </div>
+                          <span className="text-xs text-yellow-500">★★★★★</span>
+                        </div>
+                        <p className="text-xs text-gray-600 font-medium leading-relaxed mt-2 italic border-l-2 border-[#FFD700] pl-2">
+                          &quot;{t.testimonial}&quot;
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <button 
-                    onClick={() => alert('Próximamente se cargará el reglamento expandido del Team.')}
-                    className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                  >
-                    VER REGLAS COMPLETAS →
-                  </button>
-                </div>
-              </div>
-
-              {/* MEMBERS SECTION */}
-              <div id="miembros" className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
-                <div className="flex justify-between items-center mb-6 border-b-2 border-black pb-2">
-                  <h3 className="font-display font-extrabold text-xl uppercase flex items-center gap-2 text-black">
-                    👥 MIEMBROS OFICIALES
-                  </h3>
-                  <button
-                    onClick={() => alert('Próximamente grilla expandida con filtros.')}
-                    className="px-3 py-1.5 bg-white hover:bg-gray-50 border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all font-display font-black text-[10px] uppercase cursor-pointer"
-                  >
-                    VER TODOS &gt;
-                  </button>
-                </div>
-
-                {loadingMembers ? (
-                  <div className="flex justify-center items-center py-12">
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                      <Loader className="w-8 h-8 text-black" />
-                    </motion.div>
-                  </div>
-                ) : members.length === 0 ? (
-                  <div className="text-center py-12 bg-yellow-50 rounded-2xl border-2 border-dashed border-gray-300">
-                    <p className="font-sans text-xs font-bold text-gray-500 uppercase">
-                      No hay miembros oficiales registrados aún. ¡Sé el primero!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="max-h-[360px] overflow-y-auto pr-1.5 scrollbar-thin">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 p-1">
-                      {sortedMembers.map((member) => {
-                        const role = getMemberRole(member.roblox_user);
-                        
-                        return (
-                          <motion.div
-                            key={member.roblox_user}
-                            whileHover={{ scale: 1.03, y: -2 }}
-                            className={`border-2 border-black p-4 rounded-2xl text-center flex flex-col items-center justify-between shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] bg-white transition-all relative`}
-                          >
-                            <span className="absolute top-2.5 right-2.5 text-xs select-none">
-                              ⭐
-                            </span>
-                            
-                            <div className="w-16 h-16 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center mb-3 shadow-[2px_2px_0_0_#000]">
-                              {member.roblox_avatar_url ? (
-                                <img
-                                  src={member.roblox_avatar_url}
-                                  alt={member.roblox_display_name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-2xl">🐣</span>
-                              )}
-                            </div>
-                            
-                            <p className="font-display font-extrabold text-xs uppercase text-black leading-none truncate max-w-full">
-                              {member.roblox_display_name}
-                            </p>
-                            <p className="font-sans text-[10px] text-gray-500 font-semibold mt-1 truncate max-w-full">
-                              @{member.roblox_user}
-                            </p>
-
-                            <span className={`mt-3 font-display font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[1px_1px_0_0_#000] border-2 border-black block ${getRoleColor(role)}`}>
-                              {role}
-                            </span>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* ¿LISTO PARA UNIRTE? BANNER */}
-              <div className="bg-black text-[#FFD700] border-4 border-black p-6 rounded-3xl shadow-[6px_6px_0_0_#000] flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-left space-y-1 max-w-lg">
-                  <h4 className="font-display font-extrabold text-xl uppercase tracking-wider text-white">¿LISTO PARA UNIRTE?</h4>
-                  <p className="font-sans text-xs font-medium text-yellow-300 leading-snug">
-                    Forma parte de una comunidad épica y participa en eventos, sorteos y mucho más.
-                  </p>
-                </div>
-                <button
-                  onClick={handleJoinClick}
-                  className="flex items-center gap-1.5 px-5 py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#fff] active:translate-y-0.5 active:shadow-none transition-all shrink-0 cursor-pointer"
-                >
-                  ÚNETE AHORA <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
+              )}
             </div>
+          </section>
 
-            {/* RIGHT COLUMN: ADMISSION / PROFILE & EVENT (4 cols) */}
-            <div id="admision" className="lg:col-span-4 space-y-8">
-              
-              {/* CONDITIONAL AREA: CALENDAR (GUEST/CANDIDATE) OR PROFILE CARD (APPROVED VIP) */}
-              {session && !loadingStatus && statusInfo.status === 'approved' ? (
-                /* ================= VIP PROFILE PANEL ================= */
-                <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-5 text-center">
-                  <div className="w-14 h-14 bg-[#FFD700] border-3 border-black rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-[3px_3px_0_0_#000] animate-bounce">
+          {/* ADMISIÓN / VIP SECTION */}
+          <section id="admision" className="pt-8">
+            {session && !loadingStatus && statusInfo.status === 'approved' ? (
+              /* ================= VIP PROFILE PANEL ================= */
+              <div className="max-w-3xl mx-auto w-full">
+                <div className="bg-[#121212] border-4 border-[#FFD700] rounded-3xl p-8 shadow-[8px_8px_0_0_#FFD700] text-center space-y-6 relative overflow-hidden">
+                  {/* Destellos dorados / Estrellas */}
+                  <div className="absolute top-4 left-6 text-2xl animate-pulse">✨</div>
+                  <div className="absolute bottom-6 right-8 text-3xl animate-bounce">👑</div>
+                  <div className="absolute top-8 right-6 text-xl animate-pulse">✨</div>
+                  <div className="absolute bottom-8 left-8 text-xl animate-bounce">⭐</div>
+
+                  <div className="w-16 h-16 bg-[#FFD700] border-3 border-black rounded-2xl flex items-center justify-center mx-auto text-4xl shadow-[4px_4px_0_0_#000]">
                     👑
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="font-display font-extrabold text-lg uppercase">¡Ya sos Miembro Oficial!</h3>
-                    <p className="font-sans text-xs font-semibold text-gray-500 leading-relaxed max-w-xs mx-auto">
-                      Formás parte del selecto **Team Pollito**. Tu vinculación está activa y tenés acceso a la Consola VIP en vivo.
+                  
+                  <div className="space-y-2">
+                    <span className="inline-block bg-[#FFD700] text-black border-2 border-black rounded-full px-4 py-1 text-xs font-display font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
+                      🔒 ACCESO VIP
+                    </span>
+                    <h3 className="font-display font-black text-2xl uppercase text-white tracking-tight mt-3">
+                      ¡Eres Miembro Oficial del Team Pollito!
+                    </h3>
+                    <p className="font-sans text-xs font-semibold text-gray-300 leading-relaxed max-w-lg mx-auto">
+                      Tu vinculación está activa en el sistema. Tienes acceso completo a la consola en vivo para interactuar en el stream.
                     </p>
                   </div>
 
-                  <div className="bg-yellow-50/50 border-2 border-black p-3.5 rounded-2xl flex items-center gap-3.5 shadow-[2px_2px_0_0_#000]">
-                    <div className="w-12 h-12 rounded-xl bg-white border-2 border-black overflow-hidden flex items-center justify-center shrink-0">
+                  {/* Tarjeta de perfil vinculada */}
+                  <div className="max-w-md mx-auto bg-neutral-900 border-2 border-neutral-700 p-4 rounded-2xl flex items-center gap-4 shadow-[4px_4px_0_0_rgba(0,0,0,0.5)]">
+                    <div className="w-12 h-12 rounded-xl bg-neutral-800 border-2 border-[#FFD700] overflow-hidden flex items-center justify-center shrink-0">
                       {statusInfo.avatar_url ? (
                         <img
                           src={statusInfo.avatar_url}
@@ -637,413 +823,525 @@ export default function ComunidadPage() {
                       )}
                     </div>
                     <div className="text-left min-w-0 font-sans">
-                      <span className="bg-[#ea580c] text-white border border-black rounded px-1.5 py-0.2 text-[8px] font-black uppercase tracking-wider">VIP MEMBER</span>
-                      <p className="font-display font-black text-xs uppercase text-black leading-none truncate mt-1">
+                      <span className="bg-[#ea580c] text-white border border-black rounded px-2 py-0.5 text-[8px] font-black uppercase tracking-wider">
+                        MEMBER VIP
+                      </span>
+                      <p className="font-display font-black text-sm uppercase text-white leading-none mt-1 truncate">
                         @{statusInfo.roblox_user}
                       </p>
-                      <p className="text-[10px] text-gray-500 font-bold mt-0.5 truncate">
+                      <p className="text-[10px] text-gray-400 font-bold mt-1 truncate">
                         TikTok: @{statusInfo.tiktok_user}
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  {/* Testimonio opcional formulario */}
+                  <div className="max-w-md mx-auto border-t border-neutral-800 pt-6 space-y-4">
+                    <div className="text-left font-sans">
+                      <h4 className="font-display font-extrabold text-xs uppercase text-[#FFD700]">¿Qué opinas de la comunidad?</h4>
+                      <p className="text-[10px] text-neutral-400 mt-1 leading-normal">
+                        Deja tu testimonio (máx. 150 caracteres). Aparecerá en la Landing Page una vez que el administrador lo apruebe.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleSendTestimonial} className="space-y-3">
+                      <textarea
+                        value={userTestimonial}
+                        onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                        placeholder="Tu opinión aquí..."
+                        rows={2}
+                        maxLength={150}
+                        className="w-full px-3 py-2 bg-neutral-900 border-2 border-neutral-700 text-white rounded-lg font-sans text-xs focus:outline-none focus:border-[#FFD700]"
+                      />
+                      
+                      {testimonialError && (
+                        <p className="text-red-500 font-sans text-[10px] font-bold text-left">✕ {testimonialError}</p>
+                      )}
+                      {testimonialSuccess && (
+                        <p className="text-green-500 font-sans text-[10px] font-bold text-left">✓ Testimonio enviado con éxito. Pendiente de moderación.</p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={testimonialSubmitting || !userTestimonial.trim()}
+                        className="w-full py-2.5 bg-[#FFD700] hover:bg-yellow-300 disabled:opacity-50 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#fff] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                      >
+                        {testimonialSubmitting ? 'Enviando...' : 'Enviar Testimonio'}
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="pt-4 border-t border-neutral-800 flex justify-center">
                     <Link
                       href="/console"
-                      className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all decoration-transparent"
+                      className="flex items-center justify-center gap-2 w-full max-w-sm py-4 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[4px_4px_0_0_#fff] active:translate-y-0.5 active:shadow-none transition-all decoration-transparent"
                     >
                       ✓ IR A LA CONSOLA VIP
                     </Link>
                   </div>
                 </div>
-              ) : (
-                /* ================= ADMISSIONS CALENDAR / BOOKING ================= */
-                <div className="space-y-6">
-                  
-                  {/* IF NOT LOGGED IN ACCORDION PANEL */}
-                  {!session && (
-                    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] text-center space-y-4">
-                      <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                        <Lock className="w-6 h-6 text-red-600 stroke-[3]" />
-                      </div>
-                      <h3 className="font-display font-extrabold text-lg uppercase">Acceso de Admisión</h3>
-                      <p className="font-sans text-xs font-semibold text-gray-500 leading-relaxed">
-                        Inicia sesión con Google para agendar tu entrevista de admisión los días viernes y vincular tus cuentas oficiales.
-                      </p>
-                      <button
-                        onClick={handleLogin}
-                        className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                      >
-                        🔐 INICIAR SESIÓN
-                      </button>
+              </div>
+            ) : (
+              /* ================= ADMISSIONS CALENDAR / BOOKING ================= */
+              <div className="max-w-3xl mx-auto w-full">
+                
+                {/* IF NOT LOGGED IN ACCORDION PANEL */}
+                {!session && (
+                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] text-center space-y-4">
+                    <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
+                      <Lock className="w-6 h-6 text-red-600 stroke-[3]" />
                     </div>
-                  )}
+                    <h3 className="font-display font-extrabold text-lg uppercase">Acceso de Admisión</h3>
+                    <p className="font-sans text-xs font-semibold text-gray-500 leading-relaxed">
+                      Inicia sesión con Google para agendar tu entrevista de admisión los días viernes y vincular tus cuentas oficiales.
+                    </p>
+                    <button
+                      onClick={handleLogin}
+                      className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                    >
+                      🔐 INICIAR SESIÓN
+                    </button>
+                  </div>
+                )}
 
-                  {/* LOADING STATE */}
-                  {session && loadingStatus && (
-                    <div className="bg-white border-4 border-black rounded-3xl p-8 shadow-[6px_6px_0_0_#000] text-center">
-                      <motion.div className="mx-auto" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                        <Loader className="w-6 h-6 text-black" />
-                      </motion.div>
-                      <p className="font-display font-black text-[10px] text-gray-500 uppercase mt-4">
-                        Cargando tu estado...
+                {/* LOADING STATE */}
+                {session && loadingStatus && (
+                  <div className="bg-white border-4 border-black rounded-3xl p-8 shadow-[6px_6px_0_0_#000] text-center">
+                    <motion.div className="mx-auto" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+                      <Loader className="w-6 h-6 text-black" />
+                    </motion.div>
+                    <p className="font-display font-black text-[10px] text-gray-500 uppercase mt-4">
+                      Cargando tu estado...
+                    </p>
+                  </div>
+                )}
+
+                {/* PENDING INTERVIEW STATUS */}
+                {session && !loadingStatus && statusInfo.status === 'pending' && (
+                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
+                    <div className="w-12 h-12 bg-yellow-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
+                      <Clock className="w-6 h-6 text-yellow-600 stroke-[3] animate-pulse" />
+                    </div>
+                    <h3 className="font-display font-extrabold text-lg text-yellow-700 uppercase">Entrevista Agendada</h3>
+                    
+                    <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-2xl text-left space-y-1.5 font-sans text-xs">
+                      <p className="font-bold text-gray-700">
+                        📅 Fecha: <span className="font-black text-black">{statusInfo.interview_date ? formatDate(statusInfo.interview_date) : ''}</span>
+                      </p>
+                      <p className="font-bold text-gray-700">
+                        🕒 Hora: <span className="font-black text-black">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
+                      </p>
+                      <div className="border-t border-black/10 pt-1 text-[10px] text-gray-500">
+                        <p>• Roblox: @{statusInfo.roblox_user}</p>
+                        <p>• TikTok: @{statusInfo.tiktok_user}</p>
+                      </div>
+                    </div>
+                    <p className="font-sans text-[10px] font-medium text-gray-400 leading-snug text-center">
+                      Milumon te llamará en su stream. Tené Roblox abierto y estate atento al directo.
+                    </p>
+                  </div>
+                )}
+
+                {/* REJECTED STATUS FOR GUESTS */}
+                {session && !loadingStatus && statusInfo.status === 'rejected' && !isRescheduling && (
+                  <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
+                    <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
+                      <AlertTriangle className="w-6 h-6 text-red-600 stroke-[3]" />
+                    </div>
+                    <h3 className="font-display font-extrabold text-lg text-red-700 uppercase">Solicitud Rechazada</h3>
+                    
+                    <div className="bg-red-50 border-2 border-black p-3 rounded-xl space-y-1.5 font-sans text-left">
+                      <p className="font-black text-red-700 text-[10px]">Motivo brindado:</p>
+                      <p className="text-[10px] text-gray-800 bg-white border border-black p-2 rounded-lg italic font-bold">
+                        &quot;{statusInfo.rejection_reason || 'Datos inválidos en Roblox/TikTok.'}&quot;
                       </p>
                     </div>
-                  )}
 
-                  {/* PENDING INTERVIEW STATUS */}
-                  {session && !loadingStatus && statusInfo.status === 'pending' && (
-                    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
-                      <div className="w-12 h-12 bg-yellow-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                        <Clock className="w-6 h-6 text-yellow-600 stroke-[3] animate-pulse" />
+                    <button
+                      onClick={() => {
+                        setRobloxUser(statusInfo.roblox_user || '');
+                        setTiktokUser(statusInfo.tiktok_user || '');
+                        setIsReturning(false);
+                        setIsRescheduling(true);
+                      }}
+                      className="w-full py-3 bg-[#ea580c] hover:bg-orange-600 text-white font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                    >
+                      Corregir y Re-agendar
+                    </button>
+                  </div>
+                )}
+
+                {/* THE INTERACTIVE CALENDAR FOR BOOKING */}
+                {session && !loadingStatus && showBookingForm && (
+                  <div className="bg-white border-4 border-black rounded-3xl p-5 shadow-[6px_6px_0_0_#000] space-y-4">
+                    
+                    <div className="border-b-2 border-black pb-2 text-left">
+                      <h3 className="font-display font-extrabold text-sm uppercase flex items-center gap-1.5 text-black">
+                        📅 ENTREVISTAS DE ADMISIÓN
+                      </h3>
+                      <p className="font-sans text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Todos los viernes</p>
+                    </div>
+
+                    <p className="font-sans text-xs text-gray-600 leading-relaxed text-left border-b border-gray-100 pb-2">
+                      Agenda tu entrevista para conocer al equipo y formar parte de la comunidad.
+                    </p>
+
+                    {formSuccess && (
+                      <div className="bg-green-50 border-2 border-black p-4 rounded-xl text-center space-y-2">
+                        <Check className="w-7 h-7 text-green-600 mx-auto stroke-[3]" />
+                        <p className="font-display font-extrabold text-sm text-green-800 uppercase leading-none">¡Reservado!</p>
+                        <p className="font-sans text-xs text-green-700 font-medium">Tu entrevista fue registrada. Recargá la página si no ves tu horario.</p>
+                        <button 
+                          onClick={() => { setFormSuccess(false); setSelectedDate(null); setSelectedSlotId(''); }} 
+                          className="font-display font-black text-[10px] underline cursor-pointer block mx-auto text-black"
+                        >
+                          VOLVER
+                        </button>
                       </div>
-                      <h3 className="font-display font-extrabold text-lg text-yellow-700 uppercase">Entrevista Agendada</h3>
-                      
-                      <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-2xl text-left space-y-1.5 font-sans text-xs">
-                        <p className="font-bold text-gray-700">
-                          📅 Fecha: <span className="font-black text-black">{statusInfo.interview_date ? formatDate(statusInfo.interview_date) : ''}</span>
-                        </p>
-                        <p className="font-bold text-gray-700">
-                          🕒 Hora: <span className="font-black text-black">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
-                        </p>
-                        <div className="border-t border-black/10 pt-1 text-[10px] text-gray-500">
-                          <p>• Roblox: @{statusInfo.roblox_user}</p>
-                          <p>• TikTok: @{statusInfo.tiktok_user}</p>
+                    )}
+
+                    {!formSuccess && (
+                      <div>
+                        {/* Calendar Month Header */}
+                        <div className="flex justify-between items-center font-display font-black text-xs uppercase px-2 mb-3 bg-gray-50 border border-gray-200 py-1 rounded-lg">
+                          <span className="text-gray-400">&lt;</span>
+                          <span className="text-black">{monthName} {currentYear}</span>
+                          <span className="text-gray-400">&gt;</span>
                         </div>
-                      </div>
-                      <p className="font-sans text-[10px] font-medium text-gray-400 leading-snug text-center">
-                        Milumon te llamará en su stream. Tené Roblox abierto y estate atento al directo.
-                      </p>
-                    </div>
-                  )}
 
-                  {/* REJECTED STATUS FOR GUESTS */}
-                  {session && !loadingStatus && statusInfo.status === 'rejected' && !isRescheduling && (
-                    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4 text-center">
-                      <div className="w-12 h-12 bg-red-100 border-2 border-black rounded-full flex items-center justify-center mx-auto">
-                        <AlertTriangle className="w-6 h-6 text-red-600 stroke-[3]" />
-                      </div>
-                      <h3 className="font-display font-extrabold text-lg text-red-700 uppercase">Solicitud Rechazada</h3>
-                      
-                      <div className="bg-red-50 border-2 border-black p-3 rounded-xl space-y-1.5 font-sans text-left">
-                        <p className="font-black text-red-700 text-[10px]">Motivo brindado:</p>
-                        <p className="text-[10px] text-gray-800 bg-white border border-black p-2 rounded-lg italic font-bold">
-                          &quot;{statusInfo.rejection_reason || 'Datos inválidos en Roblox/TikTok.'}&quot;
-                        </p>
-                      </div>
+                        {/* Calendar Grid */}
+                        <div className="grid grid-cols-7 gap-1 text-center font-sans text-[10px] font-bold text-gray-400 uppercase mb-2 border-b border-gray-100 pb-1">
+                          <div>Lun</div>
+                          <div>Mar</div>
+                          <div>Mié</div>
+                          <div>Jue</div>
+                          <div>Vie</div>
+                          <div>Sáb</div>
+                          <div>Dom</div>
+                        </div>
+                        
+                        <div className="grid grid-cols-7 gap-1.5">
+                          {calendarCells.map((cell, idx) => {
+                            if (!cell) {
+                              return <div key={`empty-${idx}`} className="aspect-square" />;
+                            }
+                            
+                            const cellDateStr = `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, '0')}-${String(cell.getDate()).padStart(2, '0')}`;
+                            const cellSlots = slots.filter(s => s.slot_date === cellDateStr);
+                            const hasSlots = cellSlots.length > 0;
+                            const isFriday = cell.getDay() === 5;
+                            const isSelected = selectedDate && selectedDate.getDate() === cell.getDate();
 
-                      <button
-                        onClick={() => {
-                          setRobloxUser(statusInfo.roblox_user || '');
-                          setTiktokUser(statusInfo.tiktok_user || '');
-                          setIsReturning(false);
-                          setIsRescheduling(true);
-                        }}
-                        className="w-full py-3 bg-[#ea580c] hover:bg-orange-600 text-white font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                      >
-                        Corregir y Re-agendar
-                      </button>
-                    </div>
-                  )}
+                            let cellBg = 'bg-white hover:bg-gray-50';
+                            let cellText = 'text-black';
+                            let cellBorder = 'border border-gray-200';
+                            
+                            if (isFriday) {
+                              cellBg = 'bg-yellow-400/20';
+                              cellBorder = 'border-2 border-[#FFD700]';
+                              if (hasSlots) {
+                                cellBg = 'bg-[#FFD700] hover:bg-yellow-300';
+                                cellBorder = 'border-2 border-black';
+                              }
+                            }
+                            
+                            if (isSelected) {
+                              cellBg = 'bg-black text-white';
+                              cellBorder = 'border-2 border-black';
+                              cellText = 'text-white';
+                            }
 
-                  {/* THE INTERACTIVE CALENDAR FOR BOOKING */}
-                  {session && !loadingStatus && showBookingForm && (
-                    <div className="bg-white border-4 border-black rounded-3xl p-5 shadow-[6px_6px_0_0_#000] space-y-4">
-                      
-                      <div className="border-b-2 border-black pb-2 text-left">
-                        <h3 className="font-display font-extrabold text-sm uppercase flex items-center gap-1.5 text-black">
-                          📅 ENTREVISTAS DE ADMISIÓN
-                        </h3>
-                        <p className="font-sans text-[10px] text-gray-400 font-bold uppercase leading-none mt-1">Todos los viernes</p>
-                      </div>
+                            return (
+                              <button
+                                key={`day-${cell.getDate()}`}
+                                type="button"
+                                disabled={!hasSlots}
+                                onClick={() => {
+                                  setSelectedDate(cell);
+                                  setSelectedSlotId(''); // reset slots
+                                }}
+                                className={`aspect-square rounded-lg flex flex-col items-center justify-center font-display font-extrabold text-xs transition-all active:scale-95 ${cellBg} ${cellText} ${cellBorder} ${hasSlots ? 'cursor-pointer' : 'opacity-40 cursor-default'}`}
+                              >
+                                <span>{cell.getDate()}</span>
+                                {hasSlots && (
+                                  <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white' : 'bg-black'}`} />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
 
-                      <p className="font-sans text-xs text-gray-600 leading-relaxed text-left border-b border-gray-100 pb-2">
-                        Agenda tu entrevista para conocer al equipo y formar parte de la comunidad.
-                      </p>
-
-                      {formSuccess && (
-                        <div className="bg-green-50 border-2 border-black p-4 rounded-xl text-center space-y-2">
-                          <Check className="w-7 h-7 text-green-600 mx-auto stroke-[3]" />
-                          <p className="font-display font-extrabold text-sm text-green-800 uppercase leading-none">¡Reservado!</p>
-                          <p className="font-sans text-xs text-green-700 font-medium">Tu entrevista fue registrada. Recargá la página si no ves tu horario.</p>
-                          <button 
-                            onClick={() => { setFormSuccess(false); setSelectedDate(null); setSelectedSlotId(''); }} 
-                            className="font-display font-black text-[10px] underline cursor-pointer block mx-auto text-black"
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSlotId('admission-help');
+                              setShowHowItWorks(prev => !prev);
+                            }}
+                            className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
                           >
-                            VOLVER
+                            AGENDAR ENTREVISTA
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowHowItWorks(prev => !prev);
+                            }}
+                            className="px-4 py-3 bg-white hover:bg-gray-50 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl active:scale-95 transition-all text-center cursor-pointer"
+                          >
+                            CÓMO FUNCIONA
                           </button>
                         </div>
-                      )}
 
-                      {!formSuccess && (
-                        <div>
-                          {/* Calendar Month Header */}
-                          <div className="flex justify-between items-center font-display font-black text-xs uppercase px-2 mb-3 bg-gray-50 border border-gray-200 py-1 rounded-lg">
-                            <span className="text-gray-400">&lt;</span>
-                            <span className="text-black">{monthName} {currentYear}</span>
-                            <span className="text-gray-400">&gt;</span>
+                        {/* How it works modal details */}
+                        {showHowItWorks && (
+                          <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-xl text-left font-sans text-xs mt-3 space-y-1.5 leading-snug">
+                            <p className="font-display font-black text-black">💡 GUÍA RÁPIDA:</p>
+                            <p>1. Seleccioná un día viernes resaltado en amarillo en el calendario.</p>
+                            <p>2. Elegí una de las horas libres listadas abajo.</p>
+                            <p>3. Completá tus nombres reales de Roblox y TikTok.</p>
+                            <p>4. Conectate el día acordado al vivo de Milumon en TikTok para tu charla 1:1.</p>
                           </div>
+                        )}
 
-                          {/* Calendar Grid */}
-                          <div className="grid grid-cols-7 gap-1 text-center font-sans text-[10px] font-bold text-gray-400 uppercase mb-2 border-b border-gray-100 pb-1">
-                            <div>Lun</div>
-                            <div>Mar</div>
-                            <div>Mié</div>
-                            <div>Jue</div>
-                            <div>Vie</div>
-                            <div>Sáb</div>
-                            <div>Dom</div>
-                          </div>
-                          
-                          <div className="grid grid-cols-7 gap-1.5">
-                            {calendarCells.map((cell, idx) => {
-                              if (!cell) {
-                                return <div key={`empty-${idx}`} className="aspect-square" />;
-                              }
-                              
-                              const cellDateStr = `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, '0')}-${String(cell.getDate()).padStart(2, '0')}`;
-                              const cellSlots = slots.filter(s => s.slot_date === cellDateStr);
-                              const hasSlots = cellSlots.length > 0;
-                              const isFriday = cell.getDay() === 5;
-                              const isSelected = selectedDate && selectedDate.getDate() === cell.getDate();
-
-                              let cellBg = 'bg-white hover:bg-gray-50';
-                              let cellText = 'text-black';
-                              let cellBorder = 'border border-gray-200';
-                              
-                              if (isFriday) {
-                                cellBg = 'bg-yellow-400/20';
-                                cellBorder = 'border-2 border-[#FFD700]';
-                                if (hasSlots) {
-                                  cellBg = 'bg-[#FFD700] hover:bg-yellow-300';
-                                  cellBorder = 'border-2 border-black';
-                                }
-                              }
-                              
-                              if (isSelected) {
-                                cellBg = 'bg-black text-white';
-                                cellBorder = 'border-2 border-black';
-                                cellText = 'text-white';
-                              }
-
-                              return (
-                                <button
-                                  key={`day-${cell.getDate()}`}
-                                  type="button"
-                                  disabled={!hasSlots}
-                                  onClick={() => {
-                                    setSelectedDate(cell);
-                                    setSelectedSlotId(''); // reset slots
-                                  }}
-                                  className={`aspect-square rounded-lg flex flex-col items-center justify-center font-display font-extrabold text-xs transition-all active:scale-95 ${cellBg} ${cellText} ${cellBorder} ${hasSlots ? 'cursor-pointer' : 'opacity-40 cursor-default'}`}
-                                >
-                                  <span>{cell.getDate()}</span>
-                                  {hasSlots && (
-                                    <span className={`w-1.5 h-1.5 rounded-full mt-0.5 ${isSelected ? 'bg-white' : 'bg-black'}`} />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedSlotId('admission-help');
-                                setShowHowItWorks(prev => !prev);
-                              }}
-                              className="w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all text-center cursor-pointer"
-                            >
-                              AGENDAR ENTREVISTA
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowHowItWorks(prev => !prev);
-                              }}
-                              className="px-4 py-3 bg-white hover:bg-gray-50 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl active:scale-95 transition-all text-center cursor-pointer"
-                            >
-                              CÓMO FUNCIONA
-                            </button>
-                          </div>
-
-                          {/* How it works modal details */}
-                          {showHowItWorks && (
-                            <div className="bg-yellow-50 border-2 border-black p-3.5 rounded-xl text-left font-sans text-xs mt-3 space-y-1.5 leading-snug">
-                              <p className="font-display font-black text-black">💡 GUÍA RÁPIDA:</p>
-                              <p>1. Seleccioná un día viernes resaltado en amarillo en el calendario.</p>
-                              <p>2. Elegí una de las horas libres listadas abajo.</p>
-                              <p>3. Completá tus nombres reales de Roblox y TikTok.</p>
-                              <p>4. Conectate el día acordado al vivo de Milumon en TikTok para tu charla 1:1.</p>
-                            </div>
-                          )}
-
-                          {/* Slots and booking forms */}
-                          {selectedDate && (
-                            <div className="mt-4 space-y-4 pt-4 border-t-2 border-dashed border-gray-200">
-                              <p className="font-sans text-[10px] font-black uppercase text-gray-400 text-left">
-                                Horarios disponibles ({activeDateSlots.length}):
-                              </p>
-                              
-                              {activeDateSlots.length === 0 ? (
-                                <p className="font-sans text-xs font-bold text-red-500 text-left">No hay horarios libres para esta fecha.</p>
-                              ) : (
-                                <div className="flex flex-wrap gap-2">
-                                  {activeDateSlots.map(s => {
-                                    const isSel = selectedSlotId === s.id;
-                                    return (
-                                      <button
-                                        key={s.id}
-                                        type="button"
-                                        onClick={() => setSelectedSlotId(s.id)}
-                                        className={`px-3 py-1.5 rounded-lg border-2 font-display font-extrabold text-[11px] transition-all active:scale-95 cursor-pointer ${isSel ? 'bg-black text-yellow-400 border-black' : 'bg-white hover:bg-gray-50 text-black border-gray-300'}`}
-                                      >
-                                        {formatTime(s.slot_time)}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {selectedSlotId && selectedSlotId !== 'admission-help' && (
-                                <form onSubmit={handleBook} className="space-y-4 pt-2">
-                                  <div className="flex border-2 border-black rounded-lg overflow-hidden text-center text-[10px] font-display font-black uppercase">
+                        {/* Slots and booking forms */}
+                        {selectedDate && (
+                          <div className="mt-4 space-y-4 pt-4 border-t-2 border-dashed border-gray-200">
+                            <p className="font-sans text-[10px] font-black uppercase text-gray-400 text-left">
+                              Horarios disponibles ({activeDateSlots.length}):
+                            </p>
+                            
+                            {activeDateSlots.length === 0 ? (
+                              <p className="font-sans text-xs font-bold text-red-500 text-left">No hay horarios libres para esta fecha.</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {activeDateSlots.map(s => {
+                                  const isSel = selectedSlotId === s.id;
+                                  return (
                                     <button
+                                      key={s.id}
                                       type="button"
-                                      onClick={() => { setIsReturning(false); setFormError(null); }}
-                                      className={`flex-grow py-1.5 ${!isReturning ? 'bg-yellow-400 text-black' : 'bg-white text-gray-400'}`}
+                                      onClick={() => setSelectedSlotId(s.id)}
+                                      className={`px-3 py-1.5 rounded-lg border-2 font-display font-extrabold text-[11px] transition-all active:scale-95 cursor-pointer ${isSel ? 'bg-black text-yellow-400 border-black' : 'bg-white hover:bg-gray-50 text-black border-gray-300'}`}
                                     >
-                                      Nuevo
+                                      {formatTime(s.slot_time)}
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => { setIsReturning(true); setFormError(null); }}
-                                      className={`flex-grow py-1.5 border-l-2 border-black ${isReturning ? 'bg-[#ea580c] text-white' : 'bg-white text-gray-400'}`}
-                                    >
-                                      Re-Ingreso
-                                    </button>
-                                  </div>
+                                  );
+                                })}
+                              </div>
+                            )}
 
-                                  <div className="space-y-2 text-left">
-                                    <div>
-                                      <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario Roblox</label>
-                                      <input
-                                        type="text"
-                                        value={robloxUser}
-                                        onChange={(e) => setRobloxUser(e.target.value)}
-                                        placeholder="Ej: MilumonRoblox"
-                                        className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario TikTok</label>
-                                      <input
-                                        type="text"
-                                        value={tiktokUser}
-                                        onChange={(e) => setTiktokUser(e.target.value)}
-                                        placeholder="Ej: @Milumon"
-                                        className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                                      />
-                                    </div>
-
-                                    {isReturning && (
-                                      <div className="space-y-2 pt-1 border-t border-gray-100">
-                                        <div>
-                                          <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Motivo del ban?</label>
-                                          <textarea
-                                            value={banReason}
-                                            onChange={(e) => setBanReason(e.target.value)}
-                                            rows={2}
-                                            className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Por qué deberías volver?</label>
-                                          <textarea
-                                            value={returnReason}
-                                            onChange={(e) => setReturnReason(e.target.value)}
-                                            rows={2}
-                                            className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
-                                          />
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {formError && (
-                                    <div className="bg-red-50 border-2 border-black p-2.5 rounded-lg flex items-start gap-1.5">
-                                      <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                                      <p className="font-sans text-[10px] font-bold text-red-700 leading-snug">{formError}</p>
-                                    </div>
-                                  )}
-
+                            {selectedSlotId && selectedSlotId !== 'admission-help' && (
+                              <form onSubmit={handleBook} className="space-y-4 pt-2">
+                                <div className="flex border-2 border-black rounded-lg overflow-hidden text-center text-[10px] font-display font-black uppercase">
                                   <button
-                                    type="submit"
-                                    disabled={submitting}
-                                    className={`w-full py-2.5 font-display font-black text-xs uppercase border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50 ${isReturning ? 'bg-orange-500 hover:bg-orange-400 text-white' : 'bg-yellow-400 hover:bg-yellow-300 text-black'}`}
+                                    type="button"
+                                    onClick={() => { setIsReturning(false); setFormError(null); }}
+                                    className={`flex-grow py-1.5 ${!isReturning ? 'bg-yellow-400 text-black' : 'bg-white text-gray-400'}`}
                                   >
-                                    {submitting ? 'Reservando...' : 'Confirmar Reserva'}
+                                    Nuevo
                                   </button>
-                                </form>
-                              )}
-                            </div>
-                          )}
+                                  <button
+                                    type="button"
+                                    onClick={() => { setIsReturning(true); setFormError(null); }}
+                                    className={`flex-grow py-1.5 border-l-2 border-black ${isReturning ? 'bg-[#ea580c] text-white' : 'bg-white text-gray-400'}`}
+                                  >
+                                    Re-Ingreso
+                                  </button>
+                                </div>
 
-                        </div>
-                      )}
+                                <div className="space-y-2 text-left">
+                                  <div>
+                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario Roblox</label>
+                                    <input
+                                      type="text"
+                                      value={robloxUser}
+                                      onChange={(e) => setRobloxUser(e.target.value)}
+                                      placeholder="Ej: MilumonRoblox"
+                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Usuario TikTok</label>
+                                    <input
+                                      type="text"
+                                      value={tiktokUser}
+                                      onChange={(e) => setTiktokUser(e.target.value)}
+                                      placeholder="Ej: @Milumon"
+                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                    />
+                                  </div>
 
-                    </div>
-                  )}
+                                  {isReturning && (
+                                    <div className="space-y-2 pt-1 border-t border-gray-100">
+                                      <div>
+                                        <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Motivo del ban?</label>
+                                        <textarea
+                                          value={banReason}
+                                          onChange={(e) => setBanReason(e.target.value)}
+                                          rows={2}
+                                          className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-display font-black uppercase mb-0.5">¿Por qué deberías volver?</label>
+                                        <textarea
+                                          value={returnReason}
+                                          onChange={(e) => setReturnReason(e.target.value)}
+                                          rows={2}
+                                          className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
 
-                </div>
-              )}
+                                {formError && (
+                                  <div className="bg-red-50 border-2 border-black p-2.5 rounded-lg flex items-start gap-1.5">
+                                    <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                                    <p className="font-sans text-[10px] font-bold text-red-700 leading-snug">{formError}</p>
+                                  </div>
+                                )}
 
-              {/* UPCOMING EVENT CARD */}
-              <div id="evento" className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-4">
-                <div className="flex justify-between items-center border-b-2 border-black pb-2">
-                  <h3 className="font-display font-extrabold text-sm uppercase flex items-center gap-1.5 text-black">
-                    ⭐ PRÓXIMO EVENTO
-                  </h3>
-                  <button
-                    onClick={() => alert('Próximamente calendario completo de streams.')}
-                    className="font-display font-black text-[10px] uppercase underline hover:text-orange-600 cursor-pointer"
-                  >
-                    VER CALENDARIO
-                  </button>
-                </div>
-                
-                <div className="flex items-stretch border-2 border-black rounded-2xl overflow-hidden shadow-[4px_4px_0_0_#000] bg-white">
-                  {/* Date Badge */}
-                  <div className="bg-black text-[#FFD700] w-20 flex flex-col justify-center items-center text-center p-2 shrink-0 select-none">
-                    <span className="font-display font-black text-[9px] uppercase leading-none mb-1">MAYO</span>
-                    <span className="font-display font-black text-3xl leading-none">24</span>
-                  </div>
-                  {/* Info */}
-                  <div className="flex-1 p-3.5 text-left flex flex-row items-center justify-between">
-                    <div>
-                      <h4 className="font-display font-extrabold text-sm uppercase text-black leading-tight">NOCHE DE JUEGOS</h4>
-                      <p className="font-sans text-[11px] text-gray-500 font-bold leading-normal mt-0.5">Con Milumon y la comunidad</p>
-                      
-                      <div className="mt-3 space-y-1 text-[10px] font-sans font-bold text-gray-800">
-                        <p className="flex items-center gap-1">🕒 Sábado 8:00 PM</p>
-                        <p className="flex items-center gap-1 text-[#9146ff]">📺 En vivo por Twitch</p>
+                                <button
+                                  type="submit"
+                                  disabled={submitting}
+                                  className={`w-full py-2.5 font-display font-black text-xs uppercase border-2 border-black rounded-lg shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all disabled:opacity-50 ${isReturning ? 'bg-orange-500 hover:bg-orange-400 text-white' : 'bg-yellow-400 hover:bg-yellow-300 text-black'}`}
+                                >
+                                  {submitting ? 'Reservando...' : 'Confirmar Reserva'}
+                                </button>
+                              </form>
+                            )}
+                          </div>
+                        )}
+
                       </div>
-                    </div>
-                    {/* Gamepad icon */}
-                    <div className="w-10 h-10 bg-black text-[#FFD700] rounded-xl flex items-center justify-center text-xl shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.15)]">
-                      🎮
-                    </div>
-                  </div>
-                </div>
-              </div>
+                    )}
 
+                  </div>
+                )}
+
+              </div>
+            )}
+          </section>
+
+          {/* SECCIÓN MIEMBROS OFICIALES */}
+          <section id="miembros" className="bg-white border-4 border-black rounded-3xl p-6 shadow-[6px_6px_0_0_#000] space-y-6 pt-8">
+            <div className="flex justify-between items-center border-b-2 border-black pb-2">
+              <h3 className="font-display font-extrabold text-xl uppercase flex items-center gap-2 text-black">
+                👥 MIEMBROS OFICIALES
+              </h3>
+              <button
+                onClick={() => alert('Próximamente grilla expandida con filtros.')}
+                className="px-3 py-1.5 bg-white hover:bg-gray-50 border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all font-display font-black text-[10px] uppercase cursor-pointer"
+              >
+                VER TODOS &gt;
+              </button>
             </div>
 
-          </div>
+            {loadingMembers ? (
+              <div className="flex justify-center items-center py-12">
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+                  <Loader className="w-8 h-8 text-black" />
+                </motion.div>
+              </div>
+            ) : members.length === 0 ? (
+              <div className="text-center py-12 bg-yellow-50 rounded-2xl border-2 border-dashed border-gray-300">
+                <p className="font-sans text-xs font-bold text-gray-500 uppercase">
+                  No hay miembros oficiales registrados aún. ¡Sé el primero!
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[360px] overflow-y-auto pr-1.5 scrollbar-thin">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 p-1">
+                  {sortedMembers.map((member) => {
+                    const role = getMemberRole(member.roblox_user);
+                    
+                    return (
+                      <motion.div
+                        key={member.roblox_user}
+                        whileHover={{ scale: 1.03, y: -2 }}
+                        className="border-2 border-black p-4 rounded-2xl text-center flex flex-col items-center justify-between shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] bg-white transition-all relative"
+                      >
+                        <span className="absolute top-2.5 right-2.5 text-xs select-none">
+                          ⭐
+                        </span>
+                        
+                        <div className="w-16 h-16 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center mb-3 shadow-[2px_2px_0_0_#000]">
+                          {member.roblox_avatar_url ? (
+                            <img
+                              src={member.roblox_avatar_url}
+                              alt={member.roblox_display_name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-2xl">🐣</span>
+                          )}
+                        </div>
+                        
+                        <p className="font-display font-extrabold text-xs uppercase text-black leading-none truncate max-w-full">
+                          {member.roblox_display_name}
+                        </p>
+                        <p className="font-sans text-[10px] text-gray-500 font-semibold mt-1 truncate max-w-full">
+                          @{member.roblox_user}
+                        </p>
+
+                        <span className={`mt-3 font-display font-extrabold text-[8px] uppercase tracking-wider px-2 py-0.5 rounded shadow-[1px_1px_0_0_#000] border-2 border-black block ${getRoleColor(role)}`}>
+                          {role}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+
         </div>
       </div>
+
+      {/* MODAL DE REGLAS COMPLETAS */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white border-4 border-black rounded-3xl p-6 max-w-lg w-full shadow-[8px_8px_0_0_#000] relative">
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="absolute top-4 right-4 bg-white hover:bg-red-100 border-2 border-black rounded-lg w-8 h-8 flex items-center justify-center font-display font-black text-sm active:scale-90 transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+            <h3 className="font-display font-black text-xl uppercase mb-6 border-b-2 border-black pb-2 flex items-center gap-2 text-black">
+              📋 REGLAMENTO COMPLETO
+            </h3>
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+              {[
+                { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
+                { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
+                { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos o discusiones agresivas.' },
+                { id: '04', title: 'Sigue al staff', desc: 'Escucha y respeta las indicaciones de moderadores y administradores.' },
+                { id: '05', title: 'Diviértete', desc: 'Disfruta al máximo, apoya a los demás y pásala de 10.' }
+              ].map(rule => (
+                <div key={rule.id} className="border-2 border-black p-3.5 rounded-xl flex items-center gap-4 bg-white shadow-[2px_2px_0_0_#000]">
+                  <div className="bg-[#FFD700] text-black font-display font-black text-sm border-2 border-black rounded-lg px-2.5 py-1.5 shadow-[2px_2px_0_0_#000] shrink-0">
+                    {rule.id}
+                  </div>
+                  <div className="text-left font-sans">
+                    <h4 className="font-display font-extrabold text-sm uppercase text-black leading-none mb-1">{rule.title}</h4>
+                    <p className="font-medium text-xs text-gray-500 leading-snug">{rule.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowRulesModal(false)}
+              className="mt-6 w-full py-3 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-extrabold text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+            >
+              ENTENDIDO
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* FOOTER BRUTALISTA */}
       <footer className="mt-16 bg-[#FFD700] text-black border-t-4 border-black py-8 px-6 text-center select-none shrink-0 shadow-[0_-4px_0_0_#000]">
