@@ -956,67 +956,7 @@ export default function ComunidadPage() {
           {/* ADMISIÓN / VIP SECTION */}
           <section id="admision" className="pt-8">
             {session && !loadingStatus && statusInfo.status === 'approved' ? (
-              /* ================= VIP PROFILE PANEL ================= */
-              <div className="max-w-3xl mx-auto w-full">
-                <div className="bg-[#121212] border-4 border-[#FFD700] rounded-3xl p-8 shadow-[8px_8px_0_0_#FFD700] text-center space-y-6 relative overflow-hidden">
-                  {/* Destellos dorados / Estrellas */}
-                  <div className="absolute top-4 left-6 text-2xl animate-pulse">✨</div>
-                  <div className="absolute bottom-6 right-8 text-3xl animate-bounce">👑</div>
-                  <div className="absolute top-8 right-6 text-xl animate-pulse">✨</div>
-                  <div className="absolute bottom-8 left-8 text-xl animate-bounce">⭐</div>
-
-                  <div className="w-16 h-16 bg-[#FFD700] border-3 border-black rounded-2xl flex items-center justify-center mx-auto text-4xl shadow-[4px_4px_0_0_#000]">
-                    👑
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <span className="inline-block bg-[#FFD700] text-black border-2 border-black rounded-full px-4 py-1 text-xs font-display font-black uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
-                      🔒 ACCESO VIP
-                    </span>
-                    <h3 className="font-display font-black text-2xl uppercase text-white tracking-tight mt-3">
-                      ¡Eres Miembro Oficial del Team Pollito!
-                    </h3>
-                    <p className="font-sans text-xs font-semibold text-gray-300 leading-relaxed max-w-lg mx-auto">
-                      Tu vinculación está activa en el sistema. Tienes acceso completo a la consola en vivo para interactuar en el stream.
-                    </p>
-                  </div>
-
-                  {/* Tarjeta de perfil vinculada */}
-                  <div className="max-w-md mx-auto bg-neutral-900 border-2 border-neutral-700 p-4 rounded-2xl flex items-center gap-4 shadow-[4px_4px_0_0_rgba(0,0,0,0.5)]">
-                    <div className="w-12 h-12 rounded-xl bg-neutral-800 border-2 border-[#FFD700] overflow-hidden flex items-center justify-center shrink-0">
-                      {statusInfo.avatar_url ? (
-                        <img
-                          src={statusInfo.avatar_url}
-                          alt={statusInfo.roblox_user}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-xl">🐣</span>
-                      )}
-                    </div>
-                    <div className="text-left min-w-0 font-sans">
-                      <span className="bg-[#ea580c] text-white border border-black rounded px-2 py-0.5 text-[8px] font-black uppercase tracking-wider">
-                        MEMBER VIP
-                      </span>
-                      <p className="font-display font-black text-sm uppercase text-white leading-none mt-1 truncate">
-                        @{statusInfo.roblox_user}
-                      </p>
-                      <p className="text-[10px] text-gray-400 font-bold mt-1 truncate">
-                        TikTok: @{statusInfo.tiktok_user}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-neutral-800 flex justify-center">
-                    <Link
-                      href="/console"
-                      className="flex items-center justify-center gap-2 w-full max-w-sm py-4 bg-[#FFD700] hover:bg-yellow-300 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[4px_4px_0_0_#fff] active:translate-y-0.5 active:shadow-none transition-all decoration-transparent"
-                    >
-                      ✓ IR A LA CONSOLA VIP
-                    </Link>
-                  </div>
-                </div>
-              </div>
+              null
             ) : (
               /* ================= ADMISSIONS CALENDAR / BOOKING ================= */
               <div className="max-w-3xl mx-auto w-full">
