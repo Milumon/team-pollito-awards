@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      console.error('DEBUG AUTH ERROR in my-status:', authError);
+      return NextResponse.json({ error: 'Unauthorized', details: authError?.message || 'No user found' }, { status: 401 });
     }
 
     // 2. Check profiles link_status first

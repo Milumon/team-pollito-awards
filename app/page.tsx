@@ -162,13 +162,17 @@ export default function ComunidadPage() {
       });
       if (res.ok) {
         const data = await res.json();
+        console.log('DEBUG: /api/interviews/my-status devolvió:', data);
         setStatusInfo(data);
         if (data.testimonial) {
           setUserTestimonial(data.testimonial);
         }
+      } else {
+        const errText = await res.text();
+        console.error('DEBUG ERROR: /api/interviews/my-status falló con status:', res.status, errText);
       }
     } catch (err) {
-      console.error('Error fetching interview status:', err);
+      console.error('DEBUG ERROR: Excepción en fetchUserStatus:', err);
     } finally {
       setLoadingStatus(false);
     }
