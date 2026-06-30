@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
       isReturning,
       banReason,
       returnReason,
+      testimonial,
     } = body;
 
     if (!slotId || !robloxUsername || !tiktokUsername) {
@@ -143,6 +144,32 @@ export async function POST(request: NextRequest) {
         .eq('id', slotId);
 
       return NextResponse.json({ error: historyError.message }, { status: 500 });
+    }
+
+    // Upsert profile with usernames and optional testimonial
+    const { error: profileUpsertError } = await supabaseAdmin
+      .from('profiles')
+      .upsert({
+        id: user.id,
+        roblox_user: normalizedRoblox,
+        roblox_display_name: normalizedRoblox,
+        tiktok_user: normalizedTiktok,
+        link_status: 'pending',
+        testimonial: testimonial ? String(testimonial).trim() : null,
+        testimonial_approved: false
+      }, { onConflict: 'id' });
+
+    if (profileUpsertError) {
+      // rollback slot booking if profile update fails
+      await supabaseAdmin
+        .from('interview_slots')
+        .update({
+          is_booked: false,
+          booked_by_user_id: null,
+        })
+        .eq('id', slotId);
+
+      return NextResponse.json({ error: profileUpsertError.message }, { status: 500 });
     }
 
     return NextResponse.json({

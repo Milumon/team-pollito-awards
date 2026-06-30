@@ -39,6 +39,8 @@ type InterviewStatus = {
   return_reason?: string;
   rejection_reason?: string;
   avatar_url?: string | null;
+  testimonial?: string | null;
+  testimonial_approved?: boolean;
 };
 
 type Testimonial = {
@@ -87,6 +89,7 @@ export default function ComunidadPage() {
   const [testimonialSubmitting, setTestimonialSubmitting] = useState(false);
   const [testimonialSuccess, setTestimonialSuccess] = useState(false);
   const [testimonialError, setTestimonialError] = useState<string | null>(null);
+  const [isEditingTestimonial, setIsEditingTestimonial] = useState(false);
 
   // Modal Rules State
   const [showRulesModal, setShowRulesModal] = useState(false);
@@ -160,6 +163,9 @@ export default function ComunidadPage() {
       if (res.ok) {
         const data = await res.json();
         setStatusInfo(data);
+        if (data.testimonial) {
+          setUserTestimonial(data.testimonial);
+        }
       }
     } catch (err) {
       console.error('Error fetching interview status:', err);
@@ -211,7 +217,12 @@ export default function ComunidadPage() {
       }
 
       setTestimonialSuccess(true);
-      setUserTestimonial('');
+      setIsEditingTestimonial(false);
+      setStatusInfo(prev => ({
+        ...prev,
+        testimonial: userTestimonial.trim(),
+        testimonial_approved: false
+      }));
       fetchTestimonials();
     } catch {
       setTestimonialError('Error de red al enviar el testimonio.');
@@ -269,7 +280,8 @@ export default function ComunidadPage() {
           tiktokUsername: tiktokUser.trim(),
           isReturning,
           banReason: isReturning ? banReason.trim() : null,
-          returnReason: isReturning ? returnReason.trim() : null
+          returnReason: isReturning ? returnReason.trim() : null,
+          testimonial: userTestimonial.trim() || null
         })
       });
 
@@ -492,58 +504,134 @@ export default function ComunidadPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
             {/* Left Col: Info */}
             <div className="md:col-span-7 space-y-6">
-              <div className="flex items-start gap-4">
-                <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
-                  BIENVENIDO A <br />
-                  <span className="font-display font-black text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter">
-                    MILUMON COMMUNITY
-                  </span>
-                </h2>
-                <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
-              </div>
-              <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
-                La comunidad donde los verdaderos Pollitos juegan, compiten y aparecen en los streams de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo legendario en Roblox y TikTok.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <button
-                  onClick={handleJoinClick}
-                  className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                >
-                  <Users className="w-4 h-4" />
-                  Únete a la comunidad
-                </button>
-                <button
-                  onClick={() => scrollToSection('reglas')}
-                  className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
-                >
-                  Reglas
-                </button>
-              </div>
+              {session && statusInfo.status === 'approved' ? (
+                <>
+                  <div className="flex items-start gap-4">
+                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
+                      ¡BIENVENIDO AL TEAM, <br />
+                      <span className="font-display font-black text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#ea580c]">
+                        @{statusInfo.roblox_user || 'POLLITO'}!
+                      </span>
+                    </h2>
+                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">👑</span>
+                  </div>
+                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
+                    Tu vinculación está activa. Ya eres Miembro Oficial (VIP). Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <Link
+                      href="/console"
+                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all decoration-transparent"
+                    >
+                      ✓ IR A LA CONSOLA VIP
+                    </Link>
+                    <button
+                      onClick={() => scrollToSection('testimonios')}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      Dejar testimonio
+                    </button>
+                  </div>
+                </>
+              ) : session && statusInfo.status === 'pending' ? (
+                <>
+                  <div className="flex items-start gap-4">
+                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
+                      ¡HOLA, <br />
+                      <span className="font-display font-black text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#ea580c]">
+                        @{statusInfo.roblox_user || 'POLLITO'}!
+                      </span>
+                    </h2>
+                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">📅</span>
+                  </div>
+                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
+                    Tu entrevista de admisión ya está programada. Consulta los detalles de la fecha y horario de stream de Milumon para participar en vivo.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <button
+                      onClick={() => scrollToSection('admision')}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      Ver mi entrevista
+                    </button>
+                    <button
+                      onClick={() => scrollToSection('reglas')}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      Reglas
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-4">
+                    <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl uppercase tracking-tight leading-none text-black text-left">
+                      BIENVENIDO A <br />
+                      <span className="font-display font-black text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter">
+                        MILUMON COMMUNITY
+                      </span>
+                    </h2>
+                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
+                  </div>
+                  <p className="font-sans text-sm sm:text-base font-medium text-slate-700 max-w-xl leading-relaxed text-left">
+                    La comunidad oficial para fans de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo legendario en Roblox y TikTok.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <button
+                      onClick={handleJoinClick}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-[#FFD700] hover:bg-yellow-300 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      <Users className="w-4 h-4" />
+                      Únete a la comunidad
+                    </button>
+                    <button
+                      onClick={() => scrollToSection('reglas')}
+                      className="flex items-center gap-2 px-6 py-3.5 bg-white hover:bg-gray-100 text-black font-display text-xs uppercase font-extrabold border-2 border-black rounded-xl shadow-[4px_4px_0_0_#000] active:translate-y-1 active:shadow-none transition-all cursor-pointer"
+                    >
+                      Reglas
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Right Col: Mascot Frame */}
+            {/* Right Col: Mascot Frame or Avatar Frame */}
             <div className="md:col-span-5 flex justify-center">
-              <div className="relative w-full max-w-sm aspect-square bg-[#ff9f1c] border-4 border-black rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden flex items-center justify-center p-4">
-                <img
-                  src="/images/hero-chick.png"
-                  alt="Milumon Chick Mascot"
-                  className="w-full h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,0.55)]"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const parent = e.currentTarget.parentElement;
-                    if (parent) {
-                      const div = document.createElement('div');
-                      div.className = 'text-center space-y-2';
-                      div.innerHTML = `
-                        <div class='text-9xl animate-bounce'>🐣</div>
-                        <div class='font-display font-black text-lg uppercase bg-white border-2 border-black rounded-lg px-3 py-1 shadow-[2px_2px_0_0_#000]'>MILUMON</div>
-                        <div class='font-sans text-[9px] text-black font-bold'>Colocá tu imagen en public/images/hero-chick.png</div>
-                      `;
-                      parent.appendChild(div);
-                    }
-                  }}
-                />
-              </div>
+              {session && statusInfo.status === 'approved' && statusInfo.avatar_url ? (
+                <div className="relative w-full max-w-sm aspect-square bg-[#121212] border-4 border-[#FFD700] rounded-3xl shadow-[8px_8px_0_0_#FFD700] overflow-hidden flex items-center justify-center p-4">
+                  {/* Destellos dorados decorativos */}
+                  <div className="absolute top-3 left-4 text-[#FFD700] text-xl animate-pulse">✨</div>
+                  <div className="absolute bottom-3 right-4 text-[#FFD700] text-2xl animate-bounce">👑</div>
+                  <div className="absolute top-4 right-4 text-[#FFD700] text-sm animate-pulse">✨</div>
+                  <img
+                    src={statusInfo.avatar_url}
+                    alt={statusInfo.roblox_user}
+                    className="w-[85%] h-[85%] object-cover drop-shadow-[0_8px_16px_rgba(255,215,0,0.25)] border-3 border-[#FFD700] rounded-2xl bg-neutral-900"
+                  />
+                </div>
+              ) : (
+                <div className="relative w-full max-w-sm aspect-square bg-[#ff9f1c] border-4 border-black rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden flex items-center justify-center p-4">
+                  <img
+                    src="/images/hero-chick.png"
+                    alt="Milumon Chick Mascot"
+                    className="w-full h-full object-contain drop-shadow-[4px_4px_0_rgba(0,0,0,0.55)]"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const parent = e.currentTarget.parentElement;
+                      if (parent) {
+                        const div = document.createElement('div');
+                        div.className = 'text-center space-y-2';
+                        div.innerHTML = `
+                          <div class='text-9xl animate-bounce'>🐣</div>
+                          <div class='font-display font-black text-lg uppercase bg-white border-2 border-black rounded-lg px-3 py-1 shadow-[2px_2px_0_0_#000]'>MILUMON</div>
+                          <div class='font-sans text-[9px] text-black font-bold'>Colocá tu imagen en public/images/hero-chick.png</div>
+                        `;
+                        parent.appendChild(div);
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -748,11 +836,11 @@ export default function ComunidadPage() {
               ) : testimonials.length === 0 ? (
                 <div className="text-center py-12 bg-yellow-50/50 rounded-2xl border-2 border-dashed border-gray-300">
                   <p className="font-sans text-xs font-bold text-gray-500 uppercase">
-                    No hay testimonios aprobados aún. ¡Sé el primero en dejar tu opinión!
+                    No hay testimonios aprobados aún.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1.5 scrollbar-thin">
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1.5 scrollbar-thin">
                   {testimonials.map((t, idx) => (
                     <div key={idx} className="border-2 border-black p-4 rounded-xl flex items-start gap-4 bg-white shadow-[3px_3px_0_0_#000]">
                       <div className="w-12 h-12 rounded-full border-2 border-black bg-gray-50 overflow-hidden flex items-center justify-center shrink-0 shadow-[1px_1px_0_0_#000]">
@@ -776,6 +864,86 @@ export default function ComunidadPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* LÓGICA DE DEJAR / EDITAR TESTIMONIO */}
+              {session && statusInfo.status === 'approved' && (
+                <div className="border-t-2 border-black pt-6 space-y-4 text-left">
+                  {statusInfo.testimonial && !isEditingTestimonial ? (
+                    <div className="bg-yellow-50/50 border-2 border-black p-4 rounded-2xl shadow-[2px_2px_0_0_#000] space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-display font-black text-xs uppercase text-black">Tu testimonio enviado:</span>
+                        <span className={`font-display font-black text-[9px] uppercase px-2 py-0.5 border-2 border-black rounded shadow-[1px_1px_0_0_#000] ${statusInfo.testimonial_approved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {statusInfo.testimonial_approved ? '✓ Aprobado' : '⏳ Pendiente de moderación'}
+                        </span>
+                      </div>
+                      <p className="font-sans text-xs text-gray-600 italic border-l-4 border-yellow-400 pl-3">
+                        &quot;{statusInfo.testimonial}&quot;
+                      </p>
+                      <button
+                        onClick={() => {
+                          setUserTestimonial(statusInfo.testimonial || '');
+                          setIsEditingTestimonial(true);
+                        }}
+                        className="py-1.5 px-4 bg-black hover:bg-white text-white hover:text-black font-display font-extrabold text-[10px] uppercase border-2 border-black rounded-lg shadow-[2px_2px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                      >
+                        Editar testimonio
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border-2 border-black p-4 rounded-2xl shadow-[2px_2px_0_0_#000] space-y-3">
+                      <div className="space-y-1">
+                        <h4 className="font-display font-black text-xs uppercase text-black">
+                          {isEditingTestimonial ? 'Editar tu testimonio' : '¿Qué opinas de la comunidad?'}
+                        </h4>
+                        <p className="text-[10px] text-gray-500 leading-normal">
+                          Deja tu testimonio (máx. 150 caracteres). Aparecerá en la Landing Page una vez que el administrador lo apruebe.
+                        </p>
+                      </div>
+
+                      <form onSubmit={handleSendTestimonial} className="space-y-3">
+                        <textarea
+                          value={userTestimonial}
+                          onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                          placeholder="Tu opinión aquí..."
+                          rows={2}
+                          maxLength={150}
+                          className="w-full px-3 py-2 bg-white border-2 border-black text-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                        />
+                        
+                        {testimonialError && (
+                          <p className="text-red-500 font-sans text-[10px] font-bold">✕ {testimonialError}</p>
+                        )}
+                        {testimonialSuccess && (
+                          <p className="text-green-600 font-sans text-[10px] font-bold">✓ Testimonio enviado con éxito. Pendiente de moderación.</p>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={testimonialSubmitting || !userTestimonial.trim() || userTestimonial.trim() === statusInfo.testimonial}
+                            className="py-2 px-4 bg-[#FFD700] hover:bg-yellow-300 disabled:opacity-50 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#000] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
+                          >
+                            {testimonialSubmitting ? 'Guardando...' : 'Guardar Testimonio'}
+                          </button>
+                          {isEditingTestimonial && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUserTestimonial(statusInfo.testimonial || '');
+                                setIsEditingTestimonial(false);
+                                setTestimonialError(null);
+                              }}
+                              className="py-2 px-4 bg-white hover:bg-gray-100 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl active:scale-95 transition-all cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -833,42 +1001,6 @@ export default function ComunidadPage() {
                         TikTok: @{statusInfo.tiktok_user}
                       </p>
                     </div>
-                  </div>
-
-                  {/* Testimonio opcional formulario */}
-                  <div className="max-w-md mx-auto border-t border-neutral-800 pt-6 space-y-4">
-                    <div className="text-left font-sans">
-                      <h4 className="font-display font-extrabold text-xs uppercase text-[#FFD700]">¿Qué opinas de la comunidad?</h4>
-                      <p className="text-[10px] text-neutral-400 mt-1 leading-normal">
-                        Deja tu testimonio (máx. 150 caracteres). Aparecerá en la Landing Page una vez que el administrador lo apruebe.
-                      </p>
-                    </div>
-
-                    <form onSubmit={handleSendTestimonial} className="space-y-3">
-                      <textarea
-                        value={userTestimonial}
-                        onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
-                        placeholder="Tu opinión aquí..."
-                        rows={2}
-                        maxLength={150}
-                        className="w-full px-3 py-2 bg-neutral-900 border-2 border-neutral-700 text-white rounded-lg font-sans text-xs focus:outline-none focus:border-[#FFD700]"
-                      />
-                      
-                      {testimonialError && (
-                        <p className="text-red-500 font-sans text-[10px] font-bold text-left">✕ {testimonialError}</p>
-                      )}
-                      {testimonialSuccess && (
-                        <p className="text-green-500 font-sans text-[10px] font-bold text-left">✓ Testimonio enviado con éxito. Pendiente de moderación.</p>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={testimonialSubmitting || !userTestimonial.trim()}
-                        className="w-full py-2.5 bg-[#FFD700] hover:bg-yellow-300 disabled:opacity-50 text-black font-display font-black text-xs uppercase border-2 border-black rounded-xl shadow-[3px_3px_0_0_#fff] active:translate-y-0.5 active:shadow-none transition-all cursor-pointer"
-                      >
-                        {testimonialSubmitting ? 'Enviando...' : 'Enviar Testimonio'}
-                      </button>
-                    </form>
                   </div>
 
                   <div className="pt-4 border-t border-neutral-800 flex justify-center">
@@ -1169,6 +1301,17 @@ export default function ComunidadPage() {
                                       value={tiktokUser}
                                       onChange={(e) => setTiktokUser(e.target.value)}
                                       placeholder="Ej: @Milumon"
+                                      className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-display font-black uppercase mb-0.5">Testimonio de la comunidad (Opcional)</label>
+                                    <textarea
+                                      value={userTestimonial}
+                                      onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                                      placeholder="Cuéntanos brevemente qué opinas del Team (Máx. 150 caracteres)"
+                                      rows={2}
+                                      maxLength={150}
                                       className="w-full px-2.5 py-1.5 border-2 border-black rounded-lg font-sans text-xs focus:outline-none focus:ring-1 focus:ring-yellow-400"
                                     />
                                   </div>
