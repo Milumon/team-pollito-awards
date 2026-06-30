@@ -1,8 +1,18 @@
+﻿"use client";
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import Link from 'next/link';
 import { CATEGORIES } from '@/src/data/categories';
 import { Category } from '@/src/types';
-import { RefreshCw, Save, Search, Shield, Sparkles, Trash2, Users, BarChart3, Award, Mail, Check, LogOut, X } from 'lucide-react';
+import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { convertAudioToMp3 } from '@/lib/audioConverter';
+import { Header } from '@/components/ui/Header';
+import { NavBar } from '@/components/ui/NavBar';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 
 type AdminNominee = {
   id: string;
@@ -49,6 +59,7 @@ type AdminUser = {
   votedCount: number;
   totalCategories: number;
   votedPercentage: number;
+  isAdmin: boolean;
   votes: { categoryId: number; nomineeName: string }[];
 };
 
@@ -77,22 +88,42 @@ type AdminStats = {
   categoryStats: AdminStatsCategory[];
 };
 
-type CategoryStatNominee = {
-  id: string;
-  nickname: string;
-  profile_image_url: string | null;
-  roblox_user: string | null;
-  votes: number;
-};
-
 type StreamSettings = {
   id: number;
   is_muted: boolean;
   global_cooldown_seconds: number;
   personal_cooldown_seconds: number;
+  overlay_active_at: string | null;
 };
 
-const ADMIN_TOKEN_STORAGE_KEY = 'pollitos-admin-token';
+type AuditLog = {
+  id: string;
+  admin_email: string;
+  action: string;
+  details: Record<string, any>;
+  created_at: string;
+};
+
+type SoundItem = {
+  id: string;
+  name: string;
+  url: string;
+  created_at: string;
+};
+
+const getSoundColor = (soundId: string) => {
+  switch (soundId) {
+    case 'risa': return { text: 'text-[#FFC200]', badge: 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/20' };
+    case 'bocina': return { text: 'text-red-500', badge: 'bg-red-500/10 text-red-400 border-red-500/20' };
+    case 'grito': return { text: 'text-pink-500', badge: 'bg-pink-500/10 text-pink-400 border-pink-500/20' };
+    case 'aplausos': return { text: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' };
+    case 'suspenso': return { text: 'text-fuchsia-400', badge: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20' };
+    case 'sorpresa': return { text: 'text-orange-500', badge: 'bg-orange-500/10 text-orange-400 border-orange-500/20' };
+    case 'fallo': return { text: 'text-slate-400', badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
+    case 'victoria': return { text: 'text-sky-400', badge: 'bg-sky-500/10 text-sky-400 border-sky-400/20' };
+    default: return { text: 'text-yellow-400', badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' };
+  }
+};
 
 const readApiPayload = async (response: Response) => {
   const contentType = response.headers.get('content-type') || '';
@@ -134,8 +165,12 @@ function formatDate(dateStr: string) {
 }
 
 export default function AdminPage() {
-  const [adminToken, setAdminToken] = useState('');
-  const [tokenInput, setTokenInput] = useState('');
+  // Auth states
+  const [session, setSession] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Core entities
   const [nominees, setNominees] = useState<AdminNominee[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -149,8 +184,21 @@ export default function AdminPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [inspectingUser, setInspectingUser] = useState<AdminUser | null>(null);
 
-  // New Dashboard Tab & Stats States
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream'>('nominees');
+  // Active Nominee Drawer State
+  const [editingNominee, setEditingNominee] = useState<AdminNominee | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Mobile menu states
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // User pagination
+  const [userPage, setUserPage] = useState(1);
+  const USERS_PER_PAGE = 12;
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'soundboard' | 'stream-status'>('nominees');
+  
+  // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [newSlotDate, setNewSlotDate] = useState('');
@@ -163,55 +211,150 @@ export default function AdminPage() {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [statsPhase, setStatsPhase] = useState(2);
 
-  // Stream Settings States
+  // Stream Settings & Services Status
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
   const [loadingStreamSettings, setLoadingStreamSettings] = useState(false);
   const [updatingStreamSettings, setUpdatingStreamSettings] = useState(false);
+  const [vmStatus, setVmStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  const [pingingVM, setPingingVM] = useState(false);
 
-  useEffect(() => {
-    const storedToken = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) || '';
-    if (storedToken) {
-      Promise.resolve().then(() => {
-        setAdminToken(storedToken);
-        setTokenInput(storedToken);
-      });
+  // Soundboard states
+  const [sounds, setSounds] = useState<SoundItem[]>([]);
+  const [loadingSounds, setLoadingSounds] = useState(false);
+  const [soundName, setSoundName] = useState('');
+  const [soundFile, setSoundFile] = useState<File | null>(null);
+  const [submittingSound, setSubmittingSound] = useState(false);
+
+  // Audit Logs
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+
+  // Calculated properties
+  const totalWithNickname = useMemo(() => nominees.filter(n => n.nickname).length, [nominees]);
+  const visibleNominees = useMemo(() => nominees.filter(n => n.is_visible).length, [nominees]);
+
+  const isOverlayOnline = useMemo(() => {
+    if (!streamSettings?.overlay_active_at) return false;
+    try {
+      const lastActive = new Date(streamSettings.overlay_active_at).getTime();
+      return (Date.now() - lastActive) < 30000;
+    } catch {
+      return false;
     }
+  }, [streamSettings]);
+
+  const filteredNominees = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+    if (!needle) return nominees;
+    return nominees.filter((n) =>
+      [n.roblox_user, n.display_name || '', n.nickname || '', String(n.roblox_user_id || '')]
+        .join(' ')
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [nominees, searchTerm]);
+
+  const filteredUsers = useMemo(() => {
+    if (!stats?.users) return [];
+    const needle = userSearchTerm.trim().toLowerCase();
+    if (!needle) return stats.users;
+    return stats.users.filter((u) =>
+      [u.email || '', u.robloxUser || '', u.robloxDisplayName || '', u.id || '']
+        .some((val) => val.toLowerCase().includes(needle))
+    );
+  }, [stats, userSearchTerm]);
+
+  // Paginated users
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (userPage - 1) * USERS_PER_PAGE;
+    return filteredUsers.slice(startIndex, startIndex + USERS_PER_PAGE);
+  }, [filteredUsers, userPage]);
+
+  const totalUserPages = useMemo(() => {
+    return Math.ceil(filteredUsers.length / USERS_PER_PAGE) || 1;
+  }, [filteredUsers]);
+
+  // Reset pagination on search change
+  useEffect(() => {
+    setUserPage(1);
+  }, [userSearchTerm]);
+
+  // Auth initialization
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      checkAdminRole(initialSession);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      checkAdminRole(newSession);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
+  const checkAdminRole = async (currentSession: any) => {
+    if (!currentSession?.user) {
+      setIsAdmin(false);
+      setCheckingAuth(false);
+      return;
+    }
+
+    try {
+      if (currentSession.user.email === 'kpopxfull@gmail.com') {
+        setIsAdmin(true);
+        setCheckingAuth(false);
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', currentSession.user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setIsAdmin(!!profile?.is_admin);
+    } catch (err) {
+      console.error('Error checking admin role:', err);
+      setIsAdmin(false);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   const apiFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    const token = currentSession?.access_token;
+
     const response = await fetch(input, {
       ...init,
       headers: {
         'content-type': 'application/json',
-        'x-admin-token': adminToken,
+        'Authorization': `Bearer ${token || ''}`,
         ...(init.headers || {}),
       },
     });
 
     if (response.status === 401) {
-      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-      setAdminToken('');
-      throw new Error('Token de admin inválido o faltante');
+      setIsAdmin(false);
+      throw new Error('No autorizado para realizar esta acción');
     }
 
     return response;
-  }, [adminToken]);
+  }, []);
 
   const loadNominees = useCallback(async () => {
-    if (!adminToken) {
-      return;
-    }
-
+    if (!isAdmin) return;
     setLoading(true);
     setError(null);
-
     try {
       const response = await apiFetch('/api/admin/nominees');
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudieron cargar los nominados');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Error al cargar nominados');
       setNominees(
         Array.isArray(data.nominees)
           ? data.nominees.map((nominee: AdminNominee) => ({
@@ -225,76 +368,112 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminToken, apiFetch]);
+  }, [isAdmin, apiFetch]);
 
   const loadStats = useCallback(async (phase = statsPhase) => {
-    if (!adminToken) {
-      return;
-    }
-
+    if (!isAdmin) return;
     setLoadingStats(true);
     setError(null);
-
     try {
       const response = await apiFetch(`/api/admin/stats?phase=${phase}`);
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudieron cargar las estadísticas');
-      }
+      if (!response.ok) throw new Error(data.error || 'Error al cargar estadísticas');
       setStats(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar estadísticas');
     } finally {
       setLoadingStats(false);
     }
-  }, [adminToken, apiFetch, statsPhase]);
+  }, [isAdmin, apiFetch, statsPhase]);
 
   const loadInterviewSlots = useCallback(async () => {
-    if (!adminToken) {
-      return;
-    }
-
+    if (!isAdmin) return;
     setLoadingSlots(true);
     setError(null);
-
     try {
       const response = await apiFetch('/api/admin/interviews');
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudieron cargar los slots');
-      }
+      if (!response.ok) throw new Error(data.error || 'Error al cargar slots');
       setSlots(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar slots');
     } finally {
       setLoadingSlots(false);
     }
-  }, [adminToken, apiFetch]);
+  }, [isAdmin, apiFetch]);
 
   const loadStreamSettings = useCallback(async () => {
-    if (!adminToken) return;
+    if (!isAdmin) return;
     setLoadingStreamSettings(true);
     setError(null);
     try {
       const response = await apiFetch('/api/stream/settings');
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudieron cargar los ajustes de stream');
-      }
+      if (!response.ok) throw new Error(data.error || 'Error al cargar ajustes');
       setStreamSettings(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar ajustes de stream');
+      setError(err instanceof Error ? err.message : 'Error al cargar ajustes');
     } finally {
       setLoadingStreamSettings(false);
     }
-  }, [adminToken, apiFetch]);
+  }, [isAdmin, apiFetch]);
+
+  const loadSounds = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingSounds(true);
+    try {
+      const response = await apiFetch('/api/admin/sounds');
+      const data = await readApiPayload(response);
+      if (response.ok) {
+        setSounds(Array.isArray(data.sounds) ? data.sounds : []);
+      }
+    } catch (err) {
+      console.error('Error al cargar la botonera de sonidos:', err);
+    } finally {
+      setLoadingSounds(false);
+    }
+  }, [isAdmin, apiFetch]);
+
+  const loadAuditLogs = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingAuditLogs(true);
+    try {
+      const response = await apiFetch('/api/admin/logs');
+      const data = await readApiPayload(response);
+      if (response.ok) {
+        setAuditLogs(Array.isArray(data.logs) ? data.logs : []);
+      }
+    } catch (err) {
+      console.error('Error al cargar logs de auditoría:', err);
+    } finally {
+      setLoadingAuditLogs(false);
+    }
+  }, [isAdmin, apiFetch]);
+
+  const pingAlexaVM = useCallback(async () => {
+    if (!isAdmin) return;
+    setPingingVM(true);
+    try {
+      const response = await apiFetch('/api/admin/ping-vm');
+      const data = await readApiPayload(response);
+      if (response.ok && data.status === 'online') {
+        setVmStatus('online');
+      } else {
+        setVmStatus('offline');
+      }
+    } catch {
+      setVmStatus('offline');
+    } finally {
+      setPingingVM(false);
+    }
+  }, [isAdmin, apiFetch]);
 
   const handleUpdateStreamSettings = async (updates: {
     isMuted?: boolean;
     globalCooldown?: number;
     personalCooldown?: number;
   }) => {
-    if (!adminToken) return;
+    if (!isAdmin) return;
     setUpdatingStreamSettings(true);
     setError(null);
     setStatus(null);
@@ -304,9 +483,7 @@ export default function AdminPage() {
         body: JSON.stringify(updates),
       });
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudieron guardar los ajustes');
-      }
+      if (!response.ok) throw new Error(data.error || 'Error al guardar ajustes');
       setStreamSettings(data.settings);
       setStatus('Ajustes de stream actualizados con éxito.');
       setTimeout(() => setStatus(null), 3000);
@@ -318,38 +495,64 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (activeTab === 'agenda') {
-      Promise.resolve().then(() => {
-        void loadInterviewSlots();
-      });
-    }
-  }, [activeTab, loadInterviewSlots]);
+    if (!isAdmin) return;
+
+    void loadNominees();
+    void loadStats();
+    void loadInterviewSlots();
+    void loadStreamSettings();
+    void loadSounds();
+    void loadAuditLogs();
+    void pingAlexaVM();
+
+    const channel = supabase
+      .channel('admin_audit_logs_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'admin_audit_logs' },
+        (payload) => {
+          setAuditLogs((prev) => [payload.new as AuditLog, ...prev]);
+        }
+      )
+      .subscribe();
+
+    const interval = setInterval(() => {
+      void pingAlexaVM();
+      void loadStreamSettings();
+    }, 15000);
+
+    return () => {
+      void channel.unsubscribe();
+      clearInterval(interval);
+    };
+  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
 
   useEffect(() => {
-    if (activeTab === 'stream') {
-      Promise.resolve().then(() => {
-        void loadStreamSettings();
-      });
+    if (!isAdmin) return;
+    if (activeTab === 'agenda') {
+      void loadInterviewSlots();
+    } else if (activeTab === 'stream') {
+      void loadStreamSettings();
+    } else if (activeTab === 'soundboard') {
+      void loadSounds();
     }
-  }, [activeTab, loadStreamSettings]);
+  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
     setVerifyingUserId(userId);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/verify', {
         method: 'POST',
         body: JSON.stringify({ userId, action, rejectionReason })
       });
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al procesar la vinculación');
-      }
+      if (!response.ok) throw new Error(data.error || 'Error al procesar vinculación');
       setStatus(`Vinculación procesada con éxito (${action === 'approve' ? 'aprobada' : action === 'reject' ? 'rechazada' : 'revocada'}).`);
       await loadStats();
       await loadNominees();
+      await loadAuditLogs();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al verificar vinculación');
     } finally {
@@ -362,11 +565,9 @@ export default function AdminPage() {
       setError('Ingresá una fecha y hora para el slot.');
       return;
     }
-
     setCreatingSlot(true);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/interviews', {
         method: 'POST',
@@ -376,13 +577,9 @@ export default function AdminPage() {
           slot_time: newSlotTime
         })
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo crear el slot');
-      }
-
-      setStatus('Nuevo slot de entrevista para viernes creado.');
+      if (!response.ok) throw new Error(data.error || 'Error al crear slot');
+      setStatus('Nuevo slot de entrevista creado.');
       setNewSlotDate('');
       setNewSlotTime('');
       await loadInterviewSlots();
@@ -394,26 +591,17 @@ export default function AdminPage() {
   };
 
   const handleRescheduleSlot = async (slotId: string) => {
-    const confirmed = window.confirm('¿Reprogramar esta entrevista? El slot se liberará y se le notificará al candidato para volver a elegir.');
+    const confirmed = window.confirm('¿Reprogramar esta entrevista? Se liberará el horario y se le notificará al candidato.');
     if (!confirmed) return;
-
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/interviews', {
         method: 'POST',
-        body: JSON.stringify({
-          action: 'reschedule',
-          slotId
-        })
+        body: JSON.stringify({ action: 'reschedule', slotId })
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo reprogramar la entrevista');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Error al reprogramar');
       setStatus('Entrevista reprogramada. Se liberó el horario.');
       await loadInterviewSlots();
       await loadStats();
@@ -425,24 +613,15 @@ export default function AdminPage() {
   const handleDeleteSlot = async (slotId: string) => {
     const confirmed = window.confirm('¿Borrar este slot? Si tiene reserva, se cancelará la entrevista del candidato.');
     if (!confirmed) return;
-
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/interviews', {
         method: 'POST',
-        body: JSON.stringify({
-          action: 'delete',
-          slotId
-        })
+        body: JSON.stringify({ action: 'delete', slotId })
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo borrar el slot');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Error al eliminar slot');
       setStatus('Slot de entrevista eliminado.');
       await loadInterviewSlots();
       await loadStats();
@@ -451,82 +630,106 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => {
-    if (!adminToken) {
-      return;
-    }
-
-    Promise.resolve().then(() => {
-      void loadNominees();
-      void loadStats(statsPhase);
-      void loadStreamSettings();
-    });
-  }, [adminToken, loadNominees, loadStats, statsPhase, loadStreamSettings]);
-
-  const filteredNominees = useMemo(() => {
-    const needle = searchTerm.trim().toLowerCase();
-    if (!needle) {
-      return nominees;
-    }
-
-    return nominees.filter((nominee) => {
-      return [nominee.roblox_user, nominee.display_name || '', nominee.nickname || '', String(nominee.roblox_user_id || '')]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle);
-    });
-  }, [nominees, searchTerm]);
-
-  // Filter users for Users tab
-  const filteredUsers = useMemo(() => {
-    if (!stats?.users) return [];
-    const needle = userSearchTerm.trim().toLowerCase();
-    if (!needle) return stats.users;
-    return stats.users.filter((u: AdminUser) => {
-      return [
-        u.email || '',
-        u.robloxUser || '',
-        u.robloxDisplayName || '',
-        u.id || ''
-      ].some(val => val.toLowerCase().includes(needle));
-    });
-  }, [stats, userSearchTerm]);
-
-  const handleSaveToken = async () => {
-    const nextToken = tokenInput.trim();
-    if (!nextToken) {
-      setError('Por favor, ingresá el token.');
-      return;
-    }
-
-    setLoading(true);
+  const handleToggleAdminRole = async (targetUserId: string, currentIsAdmin: boolean) => {
     setError(null);
     setStatus(null);
-
     try {
-      const response = await fetch('/api/admin/nominees', {
-        method: 'GET',
-        headers: {
-          'x-admin-token': nextToken,
-        },
+      const response = await apiFetch('/api/admin/roles', {
+        method: 'POST',
+        body: JSON.stringify({ userId: targetUserId, isAdmin: !currentIsAdmin }),
       });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo cambiar el rol');
+      setStatus(`Rol de administrador actualizado con éxito.`);
+      await loadStats();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar rol');
+    }
+  };
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Token de administrador inválido.');
-        }
-        throw new Error('Error al validar el token de administrador.');
+  const handlePlaySound = async (soundId: string) => {
+    try {
+      const response = await apiFetch('/api/stream/events', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'sound',
+          content: soundId
+        }),
+      });
+      if (!response.ok) throw new Error('No se pudo reproducir el sonido');
+      await loadAuditLogs();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteSound = async (soundId: string) => {
+    if (!window.confirm('¿Borrar este sonido de la botonera?')) return;
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/admin/sounds/${soundId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('No se pudo borrar el sonido');
+      await loadSounds();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al borrar el sonido');
+    }
+  };
+
+  const handleUploadSound = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!soundFile || !soundName.trim()) {
+      setError('Por favor, ingresá un nombre y elegí un archivo de sonido.');
+      return;
+    }
+    setSubmittingSound(true);
+    setError(null);
+    try {
+      let processedFile: File | Blob = soundFile;
+      if (soundFile.type !== 'audio/mpeg' && !soundFile.name.endsWith('.mp3')) {
+        setStatus('Convirtiendo audio a MP3...');
+        processedFile = await convertAudioToMp3(soundFile);
       }
 
-      // Token is valid!
-      window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, nextToken);
-      setAdminToken(nextToken);
-      setStatus('Token verificado. Cargando panel...');
+      const soundId = soundName.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+
+      if (!soundId) throw new Error('El nombre del sonido no contiene caracteres válidos.');
+
+      const fileExt = 'mp3';
+      const fileName = `${soundId}-${Date.now()}.${fileExt}`;
+      
+      setStatus('Subiendo archivo...');
+      
+      const formData = new FormData();
+      formData.append('file', processedFile, fileName);
+      formData.append('name', soundName.trim());
+      formData.append('id', soundId);
+
+      const response = await apiFetch('/api/admin/sounds', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al registrar el sonido');
+
+      setStatus('Sonido agregado a la botonera.');
+      setSoundName('');
+      setSoundFile(null);
+      await loadSounds();
+      await loadAuditLogs();
+      setTimeout(() => setStatus(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido al validar el token.');
-      window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      setError(err instanceof Error ? err.message : 'Error al subir sonido');
     } finally {
-      setLoading(false);
+      setSubmittingSound(false);
     }
   };
 
@@ -534,58 +737,38 @@ export default function AdminPage() {
     setSyncing(true);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/sync', {
         method: 'POST',
         body: JSON.stringify({}),
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo sincronizar');
-      }
+      if (!response.ok) throw new Error(data.error || 'No se pudo sincronizar');
 
       if (data.jobId) {
         setStatus('Sincronización iniciada en la VM. Esperando progreso...');
-
         let latest = data;
         while (!latest?.job || latest.job.status === 'queued' || latest.job.status === 'running') {
           await new Promise((resolve) => setTimeout(resolve, 2500));
-
-          const statusResponse = await apiFetch(`/api/admin/sync?jobId=${encodeURIComponent(data.jobId)}`, {
-            method: 'GET',
-          });
-
+          const statusResponse = await apiFetch(`/api/admin/sync?jobId=${encodeURIComponent(data.jobId)}`);
           latest = await readApiPayload(statusResponse);
-          if (!statusResponse.ok) {
-            throw new Error(latest.error || 'No se pudo leer el estado del job');
-          }
+          if (!statusResponse.ok) throw new Error(latest.error || 'Error de estado');
 
           const jobStatus = latest?.job?.status;
           const progress = latest?.job?.progress ?? 0;
           const total = latest?.job?.total ?? 0;
 
           if (jobStatus === 'running' || jobStatus === 'queued') {
-            setStatus(`Sincronizando en la VM: ${progress}/${total || '?'} nominados procesados...`);
+            setStatus(`Sincronizando: ${progress}/${total || '?'} nominados...`);
             continue;
           }
-
-          if (jobStatus === 'failed') {
-            throw new Error(latest?.job?.error || latest?.job?.message || 'La sincronización falló');
-          }
-
-          if (jobStatus === 'cancelled') {
-            throw new Error(latest?.job?.message || 'La sincronización fue cancelada');
-          }
-
+          if (jobStatus === 'failed') throw new Error(latest?.job?.error || 'Sincronización falló');
+          if (jobStatus === 'cancelled') throw new Error('Sincronización cancelada');
           break;
         }
-
-        const finalJob = latest?.job;
-        setStatus(finalJob?.message || `Sincronizado ${finalJob?.result?.upserted || 0} nominados.`);
+        setStatus(latest?.job?.message || 'Sincronización finalizada.');
       } else {
-        setStatus(`Sincronizado ${data.upserted || 0} nominados y asignados a ${data.categories || CATEGORIES.length} categorías.`);
+        setStatus(`Sincronizado ${data.upserted || 0} nominados.`);
       }
       await loadNominees();
       await loadStats();
@@ -602,25 +785,16 @@ export default function AdminPage() {
       setError('Ingresá un friendId válido');
       return;
     }
-
     setManualAdding(true);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/nominees', {
         method: 'POST',
-        body: JSON.stringify({
-          friendId,
-          nickname: manualNickname,
-        }),
+        body: JSON.stringify({ friendId, nickname: manualNickname }),
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo crear el nominado manual');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'No se pudo agregar manual');
       setStatus(`Nominado manual ${data.created ? 'creado' : 'actualizado'} correctamente.`);
       setManualFriendId('');
       setManualNickname('');
@@ -637,27 +811,15 @@ export default function AdminPage() {
     setSavingId(nominee.id);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/nominees', {
         method: 'PATCH',
-        body: JSON.stringify({
-          id: nominee.id,
-          nickname: nominee.nickname,
-          isVisible: nominee.is_visible,
-        }),
+        body: JSON.stringify({ id: nominee.id, nickname: nominee.nickname, isVisible: nominee.is_visible }),
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo guardar');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Error al guardar');
       setNominees((current) => current.map((item) => {
-        if (item.id !== nominee.id) {
-          return item;
-        }
-
+        if (item.id !== nominee.id) return item;
         return {
           ...item,
           ...data.nominee,
@@ -668,6 +830,9 @@ export default function AdminPage() {
       }));
       setStatus('Cambios guardados.');
       await loadStats();
+      if (editingNominee?.id === nominee.id) {
+        setEditingNominee(prev => prev ? { ...prev, nickname: nominee.nickname, is_visible: nominee.is_visible } : null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -677,27 +842,23 @@ export default function AdminPage() {
 
   const handleDeleteNominee = async (nomineeId: string) => {
     const confirmed = window.confirm('¿Eliminar este nominado? Esta acción no se puede deshacer.');
-    if (!confirmed) {
-      return;
-    }
-
+    if (!confirmed) return;
     setDeletingId(nomineeId);
     setError(null);
     setStatus(null);
-
     try {
       const response = await apiFetch('/api/admin/nominees', {
         method: 'DELETE',
         body: JSON.stringify({ id: nomineeId }),
       });
-
       const data = await readApiPayload(response);
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo eliminar');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'No se pudo eliminar');
       setNominees((current) => current.filter((item) => item.id !== nomineeId));
       setStatus('Nominado eliminado.');
+      if (editingNominee?.id === nomineeId) {
+        setDrawerOpen(false);
+        setEditingNominee(null);
+      }
       await loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -706,1328 +867,1480 @@ export default function AdminPage() {
     }
   };
 
-  const totalWithNickname = nominees.filter((nominee) => Boolean((nominee.nickname || '').trim())).length;
-  const visibleNominees = nominees.filter((nominee) => nominee.is_visible).length;
-
-  if (!adminToken) {
-    return (
-      <div className="min-h-screen bg-[#ffd54d] text-black flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white border-4 border-black rounded-[2rem] p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.15)]">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-black text-yellow-400 flex items-center justify-center border-2 border-black">
-              <Shield className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="font-black text-2xl uppercase leading-none">Admin Pollitos</h1>
-              <p className="text-xs uppercase tracking-widest font-bold text-gray-500">Panel de Control</p>
-            </div>
-          </div>
-
-          <p className="text-sm font-medium text-gray-700 mb-4">
-            Ingresá el token de admin para acceder a la gestión de nominados, votos y usuarios.
+  const renderOverview = () => (
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
+      <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div>
+          <span className="text-[10px] text-gray-500 tracking-wide">Nominados</span>
+          <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Pool Global</h2>
+          <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
+            Sincroniza y gestiona el listado de amigos con el polo del Team Pollito.
           </p>
+        </div>
 
-          {error && (
-            <div className="bg-red-50 border-4 border-black rounded-2xl p-3 mb-4 text-xs font-bold text-red-700">
-              ⚠️ {error}
-            </div>
-          )}
+        <button
+          type="button"
+          onClick={handleSync}
+          disabled={syncing}
+          className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97]"
+        >
+          <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Sincronizando...' : 'Sincronizar Polo'}
+        </button>
 
-          {status && (
-            <div className="bg-emerald-50 border-4 border-black rounded-2xl p-3 mb-4 text-xs font-bold text-emerald-700">
-              {status}
-            </div>
-          )}
+        <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-3 ">
+          <h3 className="font-display font-semibold text-xs text-gray-300">Alta Manual</h3>
+          
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Roblox User ID</span>
+            <input
+              value={manualFriendId}
+              onChange={(e) => setManualFriendId(e.target.value)}
+              placeholder="7332526030"
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
 
-          <input
-            type="password"
-            value={tokenInput}
-            onChange={(event) => setTokenInput(event.target.value)}
-            placeholder="ADMIN_PANEL_TOKEN"
-            className="w-full bg-yellow-50 border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 animate-pulse-once"
-          />
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Nickname Opcional</span>
+            <input
+              value={manualNickname}
+              onChange={(e) => setManualNickname(e.target.value)}
+              placeholder="Se usará Display Name"
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
 
           <button
             type="button"
-            onClick={handleSaveToken}
-            disabled={loading}
-            className="mt-4 w-full py-3 bg-black text-yellow-400 font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-neutral-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={handleManualAddNominee}
+            disabled={manualAdding}
+            className="w-full py-2 bg-[#35373d] hover:bg-neutral-600/40 text-gray-200 border border-neutral-700/60 font-display font-medium text-sm rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
           >
-            {loading ? 'Validando...' : 'Entrar al panel'}
+            {manualAdding ? 'Agregando...' : 'Agregar Manual'}
           </button>
+        </div>
 
-          <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
-            Este token se guarda sólo en esta sesión del navegador.
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+            <p className="text-[10px] font-medium text-gray-500">Nickname</p>
+            <p className="text-base font-mono font-black text-white mt-1">{totalWithNickname}/{nominees.length}</p>
+          </div>
+          <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+            <p className="text-[10px] font-medium text-gray-500">Visibles</p>
+            <p className="text-base font-mono font-black text-white mt-1">{visibleNominees}</p>
+          </div>
+        </div>
+
+        <label className="block space-y-2">
+          <span className="text-xs text-gray-500">Buscar Nominado</span>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Usuario, ID o apodo"
+              className="w-full pl-9 pr-3 py-2 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium "
+            />
+          </div>
+        </label>
+      </aside>
+
+      <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Listado Activo</span>
+            <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Nominados Registrados</h2>
+          </div>
+          <span className="text-[10px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 rounded-2xl px-3 py-1">
+            {filteredNominees.length} Nominados
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando nominados...</div>
+        ) : filteredNominees.length === 0 ? (
+          <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+            <p className="font-bold text-white text-sm">Sin registros de nominados</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">Sincroniza el Polo o agrega uno manualmente.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredNominees.map((nominee) => (
+              <article key={nominee.id} className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between gap-4 shadow-[0_2px_8px_rgba(0,0,0,.4)] hover:scale-[1.01] hover:shadow-[0_6px_16px_rgba(0,0,0,.5)] transition-all">
+                <div className="flex gap-3">
+                  <div className="w-12 h-12 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] overflow-hidden flex items-center justify-center shrink-0 ">
+                    {nominee.profile_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={nominee.profile_image_url} alt={nominee.roblox_user} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl">🐣</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-white text-xs truncate" title={nominee.nickname || nominee.display_name || nominee.roblox_user}>
+                      {nominee.nickname || nominee.display_name || nominee.roblox_user}
+                    </h3>
+                    <p className="text-[10px] text-gray-400 font-medium truncate">@{nominee.roblox_user}</p>
+                    
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`h-1.5 w-1.5 rounded-full ${nominee.is_visible ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                      <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                        {nominee.is_visible ? 'Visible' : 'Oculto'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-black/20 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingNominee(nominee);
+                      setDrawerOpen(true);
+                    }}
+                    className="flex-1 py-1.5 bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1 active:scale-[0.97]"
+                  >
+                    <Edit className="w-3 h-3 text-[#FFC200]" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNominee(nominee.id)}
+                    disabled={deletingId === nominee.id}
+                    className="py-1.5 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-2xl border border-neutral-700/60 transition-colors cursor-pointer  active:scale-[0.97]"
+                  >
+                    {deletingId === nominee.id ? '...' : <Trash2 className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+
+  const renderVotes = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div>
+          <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Recuento</span>
+          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Resultados Parciales</h2>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Votos acumulados en tiempo real por cada categoría activa.</p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-[#2b2d31] border border-neutral-700/60 p-1 rounded-2xl shrink-0 ">
+          <button
+            type="button"
+            onClick={() => setStatsPhase(1)}
+            className={`px-3 py-1.5 font-display font-black text-xs uppercase rounded-2xl border border-transparent transition-all cursor-pointer ${
+              statsPhase === 1 ? 'bg-[#FFC200] text-black border-black ' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Fase 1 (Votables)
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatsPhase(2)}
+            className={`px-3 py-1.5 font-display font-black text-xs uppercase rounded-2xl border border-transparent transition-all cursor-pointer ${
+              statsPhase === 2 ? 'bg-[#FFC200] text-black border-black ' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Fase 2 (Finalistas)
+          </button>
         </div>
       </div>
-    );
-  }
 
-  // Fallback / default values for stats summary
-  const summary = stats?.summary || {
-    totalUsers: 0,
-    verifiedUsers: 0,
-    totalVotes: 0,
-    completedVoters: 0,
-  };
-
-  return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#fffbe0_0%,_#fff4b8_45%,_#ffe97a_100%)] text-black px-4 py-6 md:px-8 lg:px-10">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header and Summary Panel */}
-        <section className="bg-black text-yellow-400 rounded-[2rem] border-4 border-black p-6 md:p-8 shadow-[12px_12px_0_0_rgba(0,0,0,0.18)] overflow-hidden relative">
-          <div className="absolute inset-0 pointer-events-none opacity-10" style={{ backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.35) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.35) 75%, transparent 75%, transparent)', backgroundSize: '18px 18px' }} />
-          <div className="relative flex flex-col gap-6">
-            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.35em] font-bold text-yellow-200/80 mb-2">The Pollitos Awards</p>
-                <h1 className="text-4xl md:text-5xl font-black uppercase leading-none">Panel Admin</h1>
-                <p className="mt-3 max-w-2xl text-sm md:text-base text-yellow-100/90">
-                  Control global del evento: gestioná nominados, supervisá los votos de los usuarios en tiempo real y auditá las cuentas registradas.
-                </p>
-              </div>
-
-              {/* Dynamic Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 min-w-0 lg:min-w-[560px]">
-                <div className="bg-white text-black rounded-2xl p-4 border-4 border-black">
-                  <p className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Registrados</p>
-                  <p className="font-black text-2xl leading-tight mt-1">
-                    {loadingStats ? '...' : summary.totalUsers}
-                  </p>
-                </div>
-                <div className="bg-white text-black rounded-2xl p-4 border-4 border-black">
-                  <p className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-600" /> Roblox Verif.</p>
-                  <p className="font-black text-2xl leading-tight mt-1">
-                    {loadingStats ? '...' : summary.verifiedUsers}
-                  </p>
-                </div>
-                <div className="bg-white text-black rounded-2xl p-4 border-4 border-black">
-                  <p className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5 text-blue-600" /> Votos Cast</p>
-                  <p className="font-black text-2xl leading-tight mt-1">
-                    {loadingStats ? '...' : summary.totalVotes}
-                  </p>
-                </div>
-                <div className="bg-white text-black rounded-2xl p-4 border-4 border-black">
-                  <p className="text-[10px] uppercase font-bold text-gray-500 flex items-center gap-1"><Award className="w-3.5 h-3.5 text-amber-500" /> Completados</p>
-                  <p className="font-black text-2xl leading-tight mt-1">
-                    {loadingStats ? '...' : summary.completedVoters}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Tab Selector */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveTab('nominees')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'nominees'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              👥 Nominados
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('votes')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'votes'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              📊 Recuento de Votos
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('users')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'users'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              👑 Usuarios
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('applications')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'applications'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              📝 Postulaciones
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('agenda')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'agenda'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              📅 Agenda Viernes
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('stream')}
-              className={`px-5 py-3 font-black uppercase text-xs md:text-sm tracking-wider rounded-2xl border-4 border-black transition-all flex items-center gap-2 ${
-                activeTab === 'stream'
-                  ? 'bg-black text-yellow-400 shadow-[4px_4px_0_0_rgba(0,0,0,1)] -translate-x-[2px] -translate-y-[2px]'
-                  : 'bg-white text-black hover:bg-yellow-50'
-              }`}
-            >
-              📺 Interacción Stream
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1.5 bg-yellow-50 p-1.5 rounded-2xl border-4 border-black h-[52px] items-center shrink-0 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-              <button
-                type="button"
-                onClick={() => setStatsPhase(1)}
-                className={`px-3 py-1.5 font-black uppercase text-[10px] md:text-xs rounded-xl border-2 border-black transition-all cursor-pointer ${
-                  statsPhase === 1
-                    ? 'bg-black text-yellow-400'
-                    : 'bg-white text-black hover:bg-gray-100'
-                }`}
-              >
-                Fase 1
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatsPhase(2)}
-                className={`px-3 py-1.5 font-black uppercase text-[10px] md:text-xs rounded-xl border-2 border-black transition-all cursor-pointer ${
-                  statsPhase === 2
-                    ? 'bg-black text-yellow-400'
-                    : 'bg-white text-black hover:bg-gray-100'
-                }`}
-              >
-                Fase 2
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={async () => {
-                await loadNominees();
-                await loadStats();
-                setStatus('Datos actualizados manualmente.');
-                setTimeout(() => setStatus(null), 3000);
-              }}
-              disabled={loading || loadingStats}
-              className="p-3 bg-white hover:bg-gray-100 border-4 border-black rounded-2xl flex items-center justify-center gap-2 shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all cursor-pointer"
-              title="Recargar todos los datos"
-            >
-              <RefreshCw className={`w-5 h-5 ${(loading || loadingStats) ? 'animate-spin' : ''}`} />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-                setAdminToken('');
-                setTokenInput('');
-                setStatus(null);
-                setError(null);
-              }}
-              className="p-3 bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-wider rounded-2xl border-4 border-black flex items-center justify-center gap-2 shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all px-4 cursor-pointer text-xs md:text-sm"
-              title="Cerrar sesión de administrador"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
+      {loadingStats ? (
+        <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando resultados...</div>
+      ) : !stats?.categoryStats || stats.categoryStats.length === 0 ? (
+        <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,.3)]">
+          <p className="font-bold text-white text-sm">Sin estadísticas registradas</p>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Los votos se procesan automáticamente cuando los usuarios participan.</p>
         </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          {stats.categoryStats.map((cat) => {
+            const maxVotes = Math.max(...cat.nominees.map((n) => n.votes), 1);
+            return (
+              <section key={cat.id} className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+                <h3 className="font-display font-semibold text-base text-white flex items-center gap-2">
+                  <span>{cat.emoji || '🏆'}</span>
+                  <span>{cat.title}</span>
+                  <span className="text-[10px] bg-black border border-neutral-700/60 text-[#FFC200] rounded-2xl px-2.5 py-0.5 ml-auto font-mono ">
+                    Total: {cat.totalVotes}
+                  </span>
+                </h3>
 
-        {/* Global Notifications */}
-        {error && (
-          <div className="bg-red-50 border-4 border-black rounded-2xl p-4 text-sm font-bold text-red-700 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-            {error}
-          </div>
-        )}
-
-        {status && (
-          <div className="bg-emerald-50 border-4 border-black rounded-2xl p-4 text-sm font-bold text-emerald-700 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-            {status}
-          </div>
-        )}
-
-        {/* Dynamic Views based on Tab */}
-        {activeTab === 'nominees' && (
-          <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] items-start">
-            {/* Nominados Left Panel */}
-            <aside className="bg-white rounded-[2rem] border-4 border-black p-5 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4 lg:sticky lg:top-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Control</p>
-                <h2 className="font-black text-2xl uppercase leading-none mt-1">Pool global</h2>
-                <p className="text-sm text-gray-600 mt-2 leading-relaxed">
-                  Importá amigos con el polo del Team Pollito, decidí cuáles quedan visibles y editá nicknames del pool.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSync}
-                disabled={syncing}
-                className="w-full py-3.5 bg-black text-yellow-400 font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-neutral-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Sincronizando...' : 'Importar amigos con polo'}
-              </button>
-
-              <div className="border-4 border-black rounded-2xl p-4 bg-white space-y-3">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Alta manual</p>
-                  <h3 className="font-black text-xl uppercase leading-none mt-1">Agregar por friendId</h3>
-                </div>
-
-                <label className="block space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">friendId</span>
-                  <input
-                    value={manualFriendId}
-                    onChange={(event) => setManualFriendId(event.target.value)}
-                    placeholder="7332526030"
-                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Nickname opcional</span>
-                  <input
-                    value={manualNickname}
-                    onChange={(event) => setManualNickname(event.target.value)}
-                    placeholder="Se usará Display Name si se deja vacío"
-                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={handleManualAddNominee}
-                  disabled={manualAdding}
-                  className="w-full py-3 bg-orange-500 text-white font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-orange-600 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {manualAdding ? 'Creando...' : 'Agregar nominado manual'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Nickname</p>
-                  <p className="text-lg font-black">{totalWithNickname}/{nominees.length || 1}</p>
-                </div>
-                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Visibles</p>
-                  <p className="text-lg font-black">{visibleNominees}</p>
-                </div>
-              </div>
-
-              <label className="block space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Buscar Nominado</span>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="usuario, id o nickname"
-                    className="w-full pl-10 pr-4 py-3 bg-white border-4 border-black rounded-2xl outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                  />
-                </div>
-              </label>
-            </aside>
-
-            {/* Nominados Main List */}
-            <main className="bg-white rounded-[2rem] border-4 border-black p-4 md:p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)]">
-              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Lista activa</p>
-                  <h2 className="font-black text-2xl uppercase leading-none mt-1">Nominados</h2>
-                </div>
-                <div className="inline-flex items-center gap-2 bg-yellow-100 border-4 border-black rounded-full px-4 py-2 font-black text-sm">
-                  <Sparkles className="w-4 h-4" /> {filteredNominees.length} registros
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="py-16 text-center text-gray-500 font-bold uppercase tracking-wider">Cargando nominados...</div>
-              ) : filteredNominees.length === 0 ? (
-                <div className="py-16 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
-                  <p className="font-black text-xl uppercase">Sin nominados todavía</p>
-                  <p className="text-sm text-gray-600 mt-2">Usá la sincronización para traer amigos con el polo o probá otro filtro de búsqueda.</p>
-                </div>
-              ) : (
                 <div className="space-y-3">
-                  {filteredNominees.map((nominee) => (
-                    <article key={nominee.id} className="grid gap-4 lg:grid-cols-[110px_minmax(0,1fr)_minmax(260px,320px)] items-start bg-[#fffdf0] border-4 border-black rounded-[1.75rem] p-4 md:p-5">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-20 h-20 rounded-3xl border-4 border-black bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-[5px_5px_0_0_rgba(0,0,0,0.08)]">
-                          {nominee.profile_image_url ? (
-                            <img src={nominee.profile_image_url} alt={nominee.roblox_user} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-2xl">🐣</span>
-                          )}
-                        </div>
-
-                        <span className={`inline-flex items-center justify-center rounded-full border-2 border-black px-3 py-1 text-[10px] font-black uppercase tracking-wider ${nominee.is_visible ? 'bg-emerald-200' : 'bg-gray-200'}`}>
-                          {nominee.is_visible ? 'Visible' : 'Oculto'}
-                        </span>
-                      </div>
-
-                      <div className="min-w-0 space-y-3">
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Pool global</p>
-                          <h3 className="font-black text-2xl leading-tight truncate">{nominee.nickname || nominee.display_name || nominee.roblox_user}</h3>
-                          <p className="text-sm font-semibold text-emerald-700 mt-1 truncate">
-                            Display name: {nominee.display_name || 'No disponible'}
-                          </p>
-                          <p className="text-sm font-semibold text-gray-600 mt-1 truncate">@{nominee.roblox_user}</p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 text-xs font-bold text-gray-700">
-                          <span className="bg-white border-2 border-black rounded-full px-3 py-1">ID: {String(nominee.roblox_user_id || 'sin-id')}</span>
-                          <span className="bg-white border-2 border-black rounded-full px-3 py-1">
-                            {nominee.category_id ? categoryLabel(nominee.category_id) : 'Votable en todas las categorías'}
-                          </span>
-                          <span className={`border-2 border-black rounded-full px-3 py-1 ${nominee.is_visible ? 'bg-emerald-200' : 'bg-gray-200'}`}>
-                            {nominee.is_visible ? 'Se muestra al público' : 'Oculto al público'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="block space-y-1">
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Nickname editable</span>
-                          <input
-                            value={nominee.nickname || ''}
-                            onChange={(event) => {
-                              const nextValue = event.target.value;
-                              setNominees((current) => current.map((item) => (item.id === nominee.id ? { ...item, nickname: nextValue } : item)));
-                            }}
-                            className="w-full bg-white border-4 border-black rounded-2xl px-4 py-3 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                          />
-                          <p className="text-[11px] text-gray-500 font-medium leading-tight">
-                            Display name inicial de Roblox; si lo vaciás y guardás, volverá al valor original.
-                          </p>
-                        </label>
-
-                        <label className="flex items-center justify-between gap-3 bg-white border-4 border-black rounded-2xl px-4 py-3 font-black uppercase text-[11px] tracking-wider cursor-pointer select-none">
-                          <span>Visible en el panel público</span>
-                          <input
-                            type="checkbox"
-                            checked={nominee.is_visible}
-                            onChange={(event) => {
-                              const nextValue = event.target.checked;
-                              setNominees((current) => current.map((item) => (item.id === nominee.id ? { ...item, is_visible: nextValue } : item)));
-                            }}
-                            className="w-5 h-5 accent-black"
-                          />
-                        </label>
-
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleSaveNominee(nominee)}
-                            disabled={savingId === nominee.id}
-                            className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-black text-yellow-400 rounded-2xl border-4 border-black font-black uppercase text-xs tracking-wider hover:bg-neutral-900 transition-all disabled:opacity-60"
-                          >
-                            <Save className="w-4 h-4" />
-                            {savingId === nominee.id ? 'Guardando...' : 'Guardar'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteNominee(nominee.id)}
-                            disabled={deletingId === nominee.id}
-                            className="inline-flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-white text-black rounded-2xl border-4 border-black font-black uppercase text-xs tracking-wider hover:bg-gray-100 transition-all disabled:opacity-60"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            {deletingId === nominee.id ? '...' : 'Borrar'}
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </main>
-          </section>
-        )}
-
-        {activeTab === 'votes' && (
-          <section className="space-y-6">
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-8 h-8 text-black" />
-                <div>
-                  <h2 className="font-black text-2xl uppercase leading-none">Resultados de la Votación</h2>
-                  <p className="text-sm text-gray-600 mt-1 font-medium">Recuento de votos por categoría en tiempo real (excluye nominados ocultos).</p>
-                </div>
-              </div>
-            </div>
-
-            {loadingStats ? (
-              <div className="py-16 text-center text-gray-500 font-bold uppercase tracking-wider bg-white rounded-[2rem] border-4 border-black">
-                Procesando votos...
-              </div>
-            ) : !stats?.categoryStats || stats.categoryStats.length === 0 ? (
-              <div className="py-16 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[2rem]">
-                <p className="font-black text-xl uppercase">No hay votos registrados aún</p>
-                <p className="text-sm text-gray-600 mt-2">Los resultados aparecerán apenas los usuarios empiecen a enviar sus planillas.</p>
-              </div>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2">
-                {stats.categoryStats.map((cat: AdminStatsCategory) => (
-                  <article key={cat.id} className="bg-white border-4 border-black rounded-[2rem] p-5 shadow-[8px_8px_0_0_rgba(0,0,0,1)] flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-4 mb-4 border-b-4 border-black pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-3xl">{cat.emoji || '🏆'}</span>
-                          <div>
-                            <h3 className="font-black text-xl uppercase leading-tight">{cat.title}</h3>
-                            <p className="text-xs font-bold text-gray-500">Categoría ID: {cat.id}</p>
-                          </div>
-                        </div>
-                        <div className="bg-black text-yellow-400 border-2 border-black rounded-xl px-3 py-1 text-xs font-black uppercase shrink-0">
-                          {cat.totalVotes} votos
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        {cat.nominees.slice(0, 5).map((nom: CategoryStatNominee, index: number) => {
-                          const percentage = cat.totalVotes > 0 ? Math.round((nom.votes / cat.totalVotes) * 100) : 0;
-                          
-                          // Custom rank medal/emoji
-                          let rankBadge = (
-                            <span className="w-7 h-7 flex items-center justify-center font-black text-xs border-2 border-black rounded-full bg-gray-100 shrink-0">
-                              {index + 1}
-                            </span>
-                          );
-                          if (index === 0 && nom.votes > 0) {
-                            rankBadge = (
-                              <span className="w-7 h-7 flex items-center justify-center font-black text-xs border-2 border-black rounded-full bg-amber-400 shrink-0" title="1° Puesto">
-                                👑
-                              </span>
-                            );
-                          } else if (index === 1 && nom.votes > 0) {
-                            rankBadge = (
-                              <span className="w-7 h-7 flex items-center justify-center font-black text-xs border-2 border-black rounded-full bg-slate-300 shrink-0" title="2° Puesto">
-                                🥈
-                              </span>
-                            );
-                          } else if (index === 2 && nom.votes > 0) {
-                            rankBadge = (
-                              <span className="w-7 h-7 flex items-center justify-center font-black text-xs border-2 border-black rounded-full bg-amber-700 text-white shrink-0" title="3° Puesto">
-                                🥉
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <div key={nom.id} className="space-y-1">
-                              <div className="flex items-center justify-between gap-3 text-sm">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {rankBadge}
-                                  <div className="w-7 h-7 rounded-lg border-2 border-black bg-white overflow-hidden shrink-0">
-                                    {nom.profile_image_url ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img src={nom.profile_image_url} alt={nom.nickname} className="w-full h-full object-cover" />
-                                    ) : (
-                                      <span className="text-xs flex items-center justify-center w-full h-full">🐣</span>
-                                    )}
-                                  </div>
-                                  <span className="font-bold truncate" title={nom.nickname}>
-                                    {nom.nickname}
-                                  </span>
-                                  <span className="text-xs font-semibold text-gray-500 truncate">@{nom.roblox_user}</span>
-                                </div>
-                                <span className="font-black shrink-0">{nom.votes} {nom.votes === 1 ? 'voto' : 'votos'}</span>
-                              </div>
-
-                              {/* Progress bar */}
-                              <div className="w-full bg-gray-100 border-2 border-black rounded-full h-5 overflow-hidden relative">
-                                <div
-                                  className={`h-full border-r-2 border-black transition-all duration-500 ${
-                                    index === 0 && nom.votes > 0
-                                      ? 'bg-amber-400'
-                                      : index === 1 && nom.votes > 0
-                                      ? 'bg-slate-300'
-                                      : 'bg-yellow-200'
-                                  }`}
-                                  style={{ width: `${percentage}%` }}
-                                />
-                                <span className="absolute inset-0 flex items-center justify-end pr-2 font-black text-[10px] text-gray-700">
-                                  {percentage}%
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {cat.nominees.length > 5 && (
-                          <details className="mt-2 group">
-                            <summary className="font-black text-xs uppercase cursor-pointer hover:underline text-gray-600 outline-none select-none list-none flex items-center gap-1">
-                              <span>▶ Ver otros {cat.nominees.length - 5} nominados</span>
-                            </summary>
-                            <div className="mt-3 space-y-4 pt-3 border-t-2 border-dashed border-black">
-                              {cat.nominees.slice(5).map((nom: CategoryStatNominee, index: number) => {
-                                const percentage = cat.totalVotes > 0 ? Math.round((nom.votes / cat.totalVotes) * 100) : 0;
-                                return (
-                                  <div key={nom.id} className="space-y-1">
-                                    <div className="flex items-center justify-between gap-3 text-xs">
-                                      <div className="flex items-center gap-2 min-w-0">
-                                        <span className="w-6 h-6 flex items-center justify-center font-black text-[10px] border-2 border-black rounded-full bg-gray-100 shrink-0">
-                                          {index + 6}
-                                        </span>
-                                        <span className="font-bold truncate">{nom.nickname}</span>
-                                        <span className="text-[10px] text-gray-500 truncate">@{nom.roblox_user}</span>
-                                      </div>
-                                      <span className="font-black shrink-0">{nom.votes} v</span>
-                                    </div>
-                                    <div className="w-full bg-gray-100 border-2 border-black rounded-full h-4 overflow-hidden relative">
-                                      <div
-                                        className="h-full bg-yellow-100 border-r-2 border-black"
-                                        style={{ width: `${percentage}%` }}
-                                      />
-                                      <span className="absolute inset-0 flex items-center justify-end pr-2 font-black text-[9px] text-gray-600">
-                                        {percentage}%
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeTab === 'users' && (
-          <section className="space-y-6">
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-black" />
-                <div>
-                  <h2 className="font-black text-2xl uppercase leading-none">Usuarios Registrados</h2>
-                  <p className="text-sm text-gray-600 mt-1 font-medium">Lista de votantes registrados, cuentas de Supabase y progreso de votación.</p>
-                </div>
-              </div>
-
-              {/* User search bar */}
-              <div className="relative w-full md:max-w-xs shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  value={userSearchTerm}
-                  onChange={(event) => setUserSearchTerm(event.target.value)}
-                  placeholder="Buscar por email o roblox..."
-                  className="w-full pl-10 pr-4 py-2 bg-white border-4 border-black rounded-2xl outline-none focus:ring-4 focus:ring-yellow-300 text-sm font-semibold"
-                />
-              </div>
-            </div>
-
-            {loadingStats ? (
-              <div className="py-16 text-center text-gray-500 font-bold uppercase tracking-wider bg-white rounded-[2rem] border-4 border-black">
-                Obteniendo cuentas de usuarios...
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="py-16 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[2rem]">
-                <p className="font-black text-xl uppercase">Sin usuarios encontrados</p>
-                <p className="text-sm text-gray-600 mt-2">No se encontraron registros que coincidan con la búsqueda.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredUsers.map((u: AdminUser) => {
-                  const isCompleted = u.votedCount >= u.totalCategories;
-                  
-                  return (
-                    <article
-                      key={u.id}
-                      className={`border-4 border-black rounded-[2rem] p-5 shadow-[6px_6px_0_0_rgba(0,0,0,1)] flex flex-col justify-between transition-all ${
-                        isCompleted ? 'bg-emerald-50/50' : 'bg-white'
-                      }`}
-                    >
-                      <div className="space-y-4">
-                        {/* Header: Roblox info */}
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-2xl border-4 border-black bg-white overflow-hidden flex items-center justify-center shrink-0 shadow-[4px_4px_0_0_rgba(0,0,0,0.08)]">
-                            {u.robloxAvatarUrl ? (
-                              <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'Roblox Avatar'} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-2xl">🐣</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            {u.hasVerifiedRoblox ? (
-                              <>
-                                <h3 className="font-black text-lg truncate leading-tight flex items-center gap-1" title={u.robloxDisplayName || undefined}>
-                                  {u.robloxDisplayName}
-                                  <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 rounded px-1 py-0.2 shrink-0">✓</span>
-                                </h3>
-                                <p className="text-xs font-semibold text-gray-500 truncate">@{u.robloxUser}</p>
-                              </>
-                            ) : (
-                              <>
-                                <h3 className="font-black text-lg truncate leading-tight text-gray-400">Sin Verificar</h3>
-                                <p className="text-xs font-bold text-red-500 uppercase tracking-wider">No vinculó Roblox</p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Middle Info: Email & Dates */}
-                        <div className="space-y-1.5 border-t-2 border-dashed border-black pt-3 text-xs">
-                          <p className="flex items-center gap-1.5 font-bold text-gray-700 truncate" title={u.email}>
-                            <Mail className="w-3.5 h-3.5 shrink-0" />
-                            {u.email}
-                          </p>
-                          <p className="text-gray-500 font-medium">
-                            <span className="font-bold">Registro:</span> {formatDate(u.createdAt)}
-                          </p>
-                          <p className="text-gray-500 font-medium">
-                            <span className="font-bold">Último Login:</span> {formatDate(u.lastSignInAt)}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Footer: Voting Progress */}
-                      <div className="mt-4 border-t-4 border-black pt-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-black uppercase">
-                          <span>Progreso de Voto</span>
-                          <span className={isCompleted ? 'text-emerald-700' : 'text-gray-700'}>
-                            {u.votedCount}/{u.totalCategories} Categorías
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-100 border-2 border-black rounded-full h-5 overflow-hidden relative">
-                          <div
-                            className={`h-full border-r-2 border-black transition-all duration-500 ${
-                              isCompleted ? 'bg-emerald-400' : u.votedCount > 0 ? 'bg-yellow-400' : 'bg-gray-300'
-                            }`}
-                            style={{ width: `${u.votedPercentage}%` }}
-                          />
-                          <span className="absolute inset-0 flex items-center justify-center font-black text-[10px] text-gray-800">
-                            {u.votedPercentage}%
-                          </span>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setInspectingUser(u)}
-                          className={`w-full mt-3 py-2.5 px-3 border-4 border-black rounded-xl text-center font-black uppercase text-xs tracking-wider cursor-pointer select-none outline-none flex items-center justify-center gap-2 shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99 transition-all ${
-                            isCompleted ? 'bg-emerald-200 text-emerald-900 hover:bg-emerald-300' : 'bg-yellow-100 text-black hover:bg-yellow-200'
-                          }`}
-                        >
-                          {isCompleted ? '👑 Ver Planilla Completada' : `📋 Ver Planilla (${u.votedCount}/${u.totalCategories})`}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {activeTab === 'applications' && (
-          <section className="grid gap-6 lg:grid-cols-2 items-start animate-fade-in">
-            {/* COLUMN 1: PENDING LINK REQUESTS */}
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Revisión de cuentas</p>
-                <h2 className="font-black text-2xl uppercase leading-none mt-1">Postulaciones Pendientes</h2>
-                <p className="text-sm text-gray-600 mt-2 font-medium">
-                  Solicitudes de vinculación en espera de aprobación.
-                </p>
-              </div>
-
-              {loadingStats ? (
-                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando postulaciones...</div>
-              ) : filteredUsers.filter((u: AdminUser) => u.linkStatus === 'pending').length === 0 ? (
-                <div className="py-12 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
-                  <p className="font-black text-lg uppercase">Sin solicitudes pendientes</p>
-                  <p className="text-xs text-gray-500 mt-1">No hay postulaciones de vinculación esperando revisión.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredUsers.filter((u: AdminUser) => u.linkStatus === 'pending').map((u: AdminUser) => (
-                    <article key={u.id} className="border-4 border-black rounded-[1.5rem] p-4 bg-[#fffdf0] flex flex-col justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-xl border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
-                          {u.robloxAvatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xl flex items-center justify-center h-full">🐣</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-black text-base leading-tight truncate">{u.robloxDisplayName || 'Usuario'}</h3>
-                          <p className="text-xs font-semibold text-emerald-700 truncate">Roblox: @{u.robloxUser}</p>
-                          {u.tiktokUser && (
-                            <a 
-                              href={`https://www.tiktok.com/@${u.tiktokUser}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="inline-flex items-center text-xs font-black text-black underline hover:text-neutral-700 mt-1"
-                            >
-                              TikTok: @{u.tiktokUser} ↗
-                            </a>
-                          )}
-                          <p className="text-[10px] text-gray-400 truncate mt-1">Email: {u.email}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 border-t-2 border-dashed border-black pt-3">
-                        <button
-                          type="button"
-                          onClick={() => handleVerifyLink(u.id, 'approve')}
-                          disabled={verifyingUserId === u.id}
-                          className="flex-1 py-2 bg-emerald-200 text-black font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-emerald-300 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
-                        >
-                          Aprobar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const reason = window.prompt('Motivo del rechazo:', 'Los datos brindados no coinciden en Roblox/TikTok.');
-                            if (reason !== null) {
-                              void handleVerifyLink(u.id, 'reject', reason);
-                            }
-                          }}
-                          disabled={verifyingUserId === u.id}
-                          className="flex-1 py-2 bg-red-200 text-black font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-red-300 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
-                        >
-                          Rechazar
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* COLUMN 2: APPROVED OFFICIAL MEMBERS */}
-            <div className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.35em] font-bold text-gray-500">Miembros activos</p>
-                <h2 className="font-black text-2xl uppercase leading-none mt-1">Miembros Oficiales</h2>
-                <p className="text-sm text-gray-600 mt-2 font-medium">
-                  Comunidad oficial con permisos VIP en la Consola en Vivo.
-                </p>
-              </div>
-
-              {loadingStats ? (
-                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando miembros...</div>
-              ) : filteredUsers.filter((u: AdminUser) => u.linkStatus === 'approved').length === 0 ? (
-                <div className="py-12 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
-                  <p className="font-black text-lg uppercase">Sin miembros oficiales</p>
-                  <p className="text-xs text-gray-500 mt-1">Aún no se han verificado miembros oficiales.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredUsers.filter((u: AdminUser) => u.linkStatus === 'approved').map((u: AdminUser) => (
-                    <article key={u.id} className="border-4 border-black rounded-[1.5rem] p-4 bg-[#f8fff8] flex flex-col justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-xl border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
-                          {u.robloxAvatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xl flex items-center justify-center h-full">🐣</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-black text-base leading-tight truncate flex items-center gap-1">
-                            {u.robloxDisplayName || 'Usuario'}
-                            <span className="text-xs bg-emerald-100 text-emerald-800 border border-emerald-300 rounded px-1 shrink-0">✓</span>
-                          </h3>
-                          <p className="text-xs font-semibold text-gray-600 truncate">Roblox: @{u.robloxUser}</p>
-                          {u.tiktokUser && (
-                            <a 
-                              href={`https://www.tiktok.com/@${u.tiktokUser}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="inline-flex items-center text-xs font-semibold text-black underline hover:text-neutral-700 mt-1"
-                            >
-                              TikTok: @{u.tiktokUser} ↗
-                            </a>
-                          )}
-                          <p className="text-[10px] text-gray-400 truncate mt-1">Email: {u.email}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex border-t-2 border-dashed border-black pt-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const reason = window.prompt('Motivo de revocación:', 'Membresía revocada por el administrador.');
-                            if (reason !== null) {
-                              void handleVerifyLink(u.id, 'revoke', reason);
-                            }
-                          }}
-                          disabled={verifyingUserId === u.id}
-                          className="w-full py-2 bg-red-600 text-white font-black uppercase text-xs rounded-xl border-2 border-black hover:bg-red-700 transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:scale-101 active:scale-99"
-                        >
-                          Revocar Membresía
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'agenda' && (
-          <section className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)] items-start animate-fade-in">
-            {/* SIDEBAR: CREATE SLOTS */}
-            <aside className="bg-white rounded-[2rem] border-4 border-black p-5 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-4 lg:sticky lg:top-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Gestión de Turnos</p>
-                <h2 className="font-black text-2xl uppercase leading-none mt-1">Alta de Slots</h2>
-                <p className="text-sm text-gray-600 mt-2 leading-relaxed font-medium">
-                  Creá nuevos horarios disponibles para los viernes. Los candidatos los verán en tiempo real.
-                </p>
-              </div>
-
-              <div className="border-4 border-black rounded-2xl p-4 bg-[#fffdf0] space-y-4">
-                <label className="block space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Fecha (Solo Viernes)</span>
-                  <input
-                    type="date"
-                    value={newSlotDate}
-                    onChange={(e) => setNewSlotDate(e.target.value)}
-                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-2.5 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                  />
-                </label>
-
-                <label className="block space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Hora</span>
-                  <input
-                    type="time"
-                    value={newSlotTime}
-                    onChange={(e) => setNewSlotTime(e.target.value)}
-                    className="w-full bg-white border-4 border-black rounded-2xl px-4 py-2.5 font-semibold outline-none focus:ring-4 focus:ring-yellow-300 text-sm"
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={handleCreateSlot}
-                  disabled={creatingSlot}
-                  className="w-full py-3 bg-yellow-400 text-black font-black uppercase tracking-wider rounded-2xl border-4 border-black hover:bg-yellow-300 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {creatingSlot ? 'Creando...' : 'Crear Slot Viernes'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Total Slots</p>
-                  <p className="text-lg font-black">{slots.length}</p>
-                </div>
-                <div className="bg-yellow-100 border-4 border-black rounded-2xl p-3">
-                  <p className="text-[10px] uppercase tracking-wider font-black text-gray-500">Reservados</p>
-                  <p className="text-lg font-black">{slots.filter((s) => s.is_booked).length}</p>
-                </div>
-              </div>
-            </aside>
-
-            {/* MAIN LIST OF SLOTS */}
-            <main className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)]">
-              <div className="flex items-center justify-between gap-3 mb-5 border-b-4 border-black pb-4">
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Calendario</p>
-                  <h2 className="font-black text-2xl uppercase leading-none mt-1">Horarios Agendados</h2>
-                </div>
-                <div className="bg-yellow-100 border-4 border-black rounded-full px-4 py-1.5 font-black text-xs">
-                  {slots.length} Slots Totales
-                </div>
-              </div>
-
-              {loadingSlots ? (
-                <div className="py-16 text-center text-gray-500 font-bold uppercase">Cargando turnos de agenda...</div>
-              ) : slots.length === 0 ? (
-                <div className="py-16 text-center bg-yellow-50 border-4 border-dashed border-black rounded-[1.5rem]">
-                  <p className="font-black text-xl uppercase">No hay slots creados</p>
-                  <p className="text-sm text-gray-600 mt-2">Definí un horario los viernes en el panel lateral para iniciar.</p>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {slots.map((slot) => {
-                    const slotDateTime = new Date(`${slot.slot_date}T${slot.slot_time}`);
-                    const isPast = slotDateTime.getTime() < now;
-                    
+                  {cat.nominees.map((nominee) => {
+                    const percentage = cat.totalVotes > 0 ? (nominee.votes / cat.totalVotes) * 100 : 0;
+                    const isWinner = nominee.votes === maxVotes && nominee.votes > 0;
                     return (
-                      <article key={slot.id} className={`border-4 border-black rounded-[1.5rem] p-4 flex flex-col justify-between gap-4 ${
-                        slot.is_booked ? 'bg-[#fffcf0]' : 'bg-white'
-                      } ${isPast ? 'opacity-75' : ''}`}>
-                        <div>
-                          {/* Slot Header */}
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-black text-lg bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl">
-                              {slot.slot_time.substring(0, 5)} hs
-                            </span>
-                            <span className={`text-[10px] font-black uppercase tracking-wider border-2 border-black rounded-full px-2.5 py-0.5 ${
-                              slot.is_booked ? 'bg-orange-400' : 'bg-emerald-200'
-                            }`}>
-                              {slot.is_booked ? 'Reservado' : 'Libre'}
-                            </span>
-                          </div>
-
-                          <p className="font-bold text-xs text-gray-600 mt-2">
-                            📅 {slot.slot_date}
-                          </p>
-
-                          {/* Candidate details if booked */}
-                          {slot.is_booked && slot.user && (
-                            <div className="mt-4 border-t-2 border-dashed border-black pt-3 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-lg border-2 border-black bg-white overflow-hidden shrink-0 shadow-[2px_2px_0_0_rgba(0,0,0,0.08)]">
-                                  {slot.user.roblox_avatar_url ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={slot.user.roblox_avatar_url} alt={slot.user.roblox_user} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-sm flex items-center justify-center h-full">🐣</span>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-black truncate">{slot.user.roblox_display_name}</p>
-                                  <p className="text-[10px] font-semibold text-gray-500 truncate">@{slot.user.roblox_user}</p>
-                                </div>
-                              </div>
-                              <p className="text-[10px] font-semibold text-gray-700">TikTok: @{slot.user.tiktok_user}</p>
-                              <p className="text-[10px] font-semibold text-gray-500 truncate">Email: {slot.user.email}</p>
-
-                              {/* Ban/Return reason details */}
-                              {(slot.user.ban_reason || slot.user.return_reason) && (
-                                <div className="bg-red-50 border-2 border-black rounded-xl p-2.5 text-[10px] space-y-1.5 mt-2 shadow-[2px_2px_0_0_rgba(0,0,0,0.05)]">
-                                  <p className="font-black text-red-700 uppercase tracking-wide">⚠️ Re-ingreso (Baneado)</p>
-                                  <p className="text-gray-800"><span className="font-bold text-black">Motivo Baneo:</span> {slot.user.ban_reason}</p>
-                                  <p className="text-gray-800"><span className="font-bold text-black">Explicación Retorno:</span> {slot.user.return_reason}</p>
-                                </div>
+                      <article key={nominee.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3space-y-2 ">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-2xl bg-[#2b2d31] border border-neutral-700/60 overflow-hidden flex items-center justify-center shrink-0">
+                              {nominee.profile_image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={nominee.profile_image_url} alt={nominee.nickname || 'Nominee'} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-sm">🐣</span>
                               )}
                             </div>
-                          )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                {nominee.nickname || nominee.roblox_user}
+                                {isWinner && <span className="text-xs text-[#FFC200]" title="Líder actual">👑</span>}
+                              </p>
+                              <p className="text-[10px] text-gray-500 font-medium truncate">@{nominee.roblox_user}</p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-bold text-white font-mono">{nominee.votes} votos</span>
+                            <p className="text-[9px] text-gray-500 font-mono mt-0.5">{percentage.toFixed(1)}%</p>
+                          </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2 border-t-2 border-black pt-3">
-                          {slot.is_booked ? (
-                            <button
-                              type="button"
-                              onClick={() => handleRescheduleSlot(slot.id)}
-                              className="flex-1 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-black font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer shadow-[2px_2px_0_0_rgba(0,0,0,1)] active:translate-y-0.5 active:shadow-none"
-                            >
-                              Reprogramar
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSlot(slot.id)}
-                            className="py-1.5 px-3 bg-red-100 hover:bg-red-200 text-black font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
-                          >
-                            Eliminar
-                          </button>
+                        <div className="h-2 bg-[#111318] border border-black rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${isWinner ? 'bg-[#FFC200]' : 'bg-gray-600'}`}
+                            style={{ width: `${percentage}%` }}
+                          />
                         </div>
                       </article>
                     );
                   })}
                 </div>
-              )}
-            </main>
-          </section>
-        )}
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
-        {activeTab === 'stream' && (
-          <section className="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)] items-start animate-fade-in">
-            {/* PANEL LATERAL: ESTADO Y PANEL DE PÁNICO */}
-            <aside className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-6 lg:sticky lg:top-4">
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Mute General</p>
-                <h2 className="font-black text-2xl uppercase leading-none mt-1">Panic Button</h2>
-                <p className="text-sm text-gray-600 mt-2 leading-relaxed font-medium">
-                  Silenciá instantáneamente todas las interacciones de sonido y TTS del stream. Limpiará la cola de reproducción en OBS de forma inmediata.
-                </p>
+  const renderUsers = () => (
+    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral-700/60 pb-4">
+        <div>
+          <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Padrón Electoral</span>
+          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Usuarios de la Comunidad</h2>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Administra accesos y supervisa el progreso de votaciones individuales.</p>
+        </div>
+
+        <div className="relative w-full sm:w-64 shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input
+            value={userSearchTerm}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
+            placeholder="Buscar por usuario, email o id..."
+            className="w-full pl-9 pr-3 py-2 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium "
+          />
+        </div>
+      </div>
+
+      {loadingStats ? (
+        <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando usuarios...</div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+          <p className="font-bold text-white text-sm">Sin usuarios encontrados</p>
+          <p className="text-xs text-gray-400 mt-1 font-medium">Prueba con otro término de búsqueda.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-neutral-700/60 text-gray-400 uppercase tracking-wider font-semibold">
+                  <th className="py-3 px-2">Usuario Roblox</th>
+                  <th className="py-3 px-2">Detalles</th>
+                  <th className="py-3 px-2">Estado</th>
+                  <th className="py-3 px-2 text-center">Progreso</th>
+                  <th className="py-3 px-2 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/10">
+                {paginatedUsers.map((u: AdminUser) => (
+                  <tr key={u.id} className="hover:bg-[#2b2d31] transition-colors">
+                    <td className="py-3 px-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] overflow-hidden shrink-0 flex items-center justify-center ">
+                          {u.robloxAvatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm">🐣</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-white truncate flex items-center gap-1 text-xs">
+                            {u.robloxDisplayName || 'Usuario'}
+                            {u.robloxUser && <span className="text-[10px] text-emerald-400">✓</span>}
+                          </h4>
+                          <p className="text-[10px] text-gray-500 font-medium truncate">@{u.robloxUser || 'no-vinculado'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-2 text-gray-400 font-medium">
+                      <p className="truncate max-w-[160px]">{u.email}</p>
+                      {u.tiktokUser && <p className="text-[10px] text-gray-500">TikTok: @{u.tiktokUser}</p>}
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className={`inline-flex items-center rounded-2xl px-1.5 py-0.5 text-[9px] font-semibold border ${
+                        u.linkStatus === 'approved' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : u.linkStatus === 'pending'
+                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                          : u.linkStatus === 'rejected'
+                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                          : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                      }`}>
+                        {u.linkStatus.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2 text-center font-semibold">
+                      <span className="text-white">{u.votedCount}/{u.totalCategories}</span>
+                      <span className="text-gray-500 text-[10px] block font-mono">({u.votedPercentage}%)</span>
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <div className="inline-flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setInspectingUser(u)}
+                          className="px-2.5 py-1.5 bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 text-white rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97]"
+                        >
+                          Votos
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => handleToggleAdminRole(u.id, u.isAdmin)}
+                          className={`px-2.5 py-1.5 border rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97] ${
+                            u.isAdmin
+                              ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20'
+                              : 'bg-[#FFC200] text-black border-black'
+                          }`}
+                        >
+                          {u.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalUserPages > 1 && (
+            <div className="flex items-center justify-between border-t border-neutral-700/60 pt-4 text-xs font-semibold">
+              <span className="text-gray-400">
+                Mostrando usuarios <strong className="text-white">{(userPage - 1) * USERS_PER_PAGE + 1}</strong> a <strong className="text-white">{Math.min(userPage * USERS_PER_PAGE, filteredUsers.length)}</strong> de <strong className="text-white">{filteredUsers.length}</strong>
+              </span>
+
+              <div className="inline-flex items-center gap-1.5 bg-[#2b2d31] border border-neutral-700/60 p-1 rounded-2xl ">
+                <button
+                  type="button"
+                  disabled={userPage === 1}
+                  onClick={() => setUserPage(prev => Math.max(prev - 1, 1))}
+                  className="p-1.5 hover:bg-neutral-800 text-white rounded-2xl border border-transparent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-2 font-mono font-bold text-white text-[10px]">
+                  PAG {userPage} / {totalUserPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={userPage === totalUserPages}
+                  onClick={() => setUserPage(prev => Math.min(prev + 1, totalUserPages))}
+                  className="p-1.5 hover:bg-neutral-800 text-white rounded-2xl border border-transparent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
-              {loadingStreamSettings ? (
-                <div className="py-6 text-center text-gray-500 font-bold uppercase">Cargando estado...</div>
-              ) : streamSettings ? (
-                <div className="space-y-4">
-                  <div className={`border-4 border-black rounded-2xl p-5 text-center transition-all ${
-                    streamSettings.is_muted ? 'bg-red-100' : 'bg-emerald-100'
-                  }`}>
-                    <span className="text-4xl block mb-2">{streamSettings.is_muted ? '🚫' : '🔊'}</span>
-                    <h3 className="font-black text-xl uppercase">
-                      {streamSettings.is_muted ? 'Stream Silenciado' : 'Consola Activa'}
-                    </h3>
-                    <p className="text-xs text-gray-600 mt-1 font-semibold">
-                      {streamSettings.is_muted 
-                        ? 'Ningún VIP puede reproducir sonidos o TTS.' 
-                        : 'Los VIPs pueden enviar sonidos y mensajes.'}
-                    </p>
+  const renderApplications = () => {
+    const pendingUsers = stats?.users?.filter((u) => u.linkStatus === 'pending') || [];
+    return (
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in">
+        <div>
+          <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Moderación</span>
+          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Postulaciones Pendientes</h2>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Autoriza o rechaza postulantes para acceder al rol de VIP (Onboarding de comunidad).</p>
+        </div>
+
+        {loadingStats ? (
+          <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando postulaciones...</div>
+        ) : pendingUsers.length === 0 ? (
+          <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+            <p className="font-bold text-white text-sm">No hay postulaciones pendientes</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">Todo al día. Las nuevas solicitudes aparecerán aquí automáticamente.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {pendingUsers.map((u: AdminUser) => (
+              <article key={u.id} className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between gap-4 shadow-[0_4px_8px_rgba(0,0,0,.2)]">
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] overflow-hidden flex items-center justify-center shrink-0 ">
+                    {u.robloxAvatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl">🐣</span>
+                    )}
                   </div>
-
-                  <button
-                    type="button"
-                    disabled={updatingStreamSettings}
-                    onClick={() => handleUpdateStreamSettings({ isMuted: !streamSettings.is_muted })}
-                    className={`w-full py-4 rounded-2xl border-4 border-black font-black uppercase tracking-wider text-sm transition-all shadow-[4px_4px_0_0_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[2px_2px_0_0_rgba(0,0,0,1)] cursor-pointer text-center ${
-                      streamSettings.is_muted 
-                        ? 'bg-emerald-400 hover:bg-emerald-500 text-black' 
-                        : 'bg-red-600 hover:bg-red-700 text-white'
-                    }`}
-                  >
-                    {updatingStreamSettings 
-                      ? 'Procesando...' 
-                      : streamSettings.is_muted 
-                      ? '🔊 Reactivar Consola' 
-                      : '🚨 BOTÓN DE PÁNICO: MUTEAR'}
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-white text-sm truncate">{u.robloxDisplayName || u.robloxUser}</h3>
+                    <p className="text-xs text-gray-400 font-medium truncate">@{u.robloxUser}</p>
+                    {u.tiktokUser && <p className="text-[10px] text-gray-400 font-medium truncate mt-1">TikTok: @{u.tiktokUser}</p>}
+                    <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">{u.email}</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center font-bold text-gray-500 py-4">Sin datos de configuración</div>
-              )}
 
-              <div className="border-4 border-black rounded-2xl p-4 bg-yellow-50 space-y-2">
-                <h4 className="font-black text-xs uppercase">Enlaces Rápidos del Stream</h4>
-                <p className="text-[10px] text-gray-500 font-bold leading-tight">
-                  Usá estos links para el Overlay en OBS y para testear la consola.
-                </p>
-                <div className="space-y-2 pt-2">
+                <div className="flex gap-2 pt-2 border-t border-black/20">
                   <a
-                    href={`/overlay?token=${encodeURIComponent(adminToken)}`}
+                    href={`https://www.roblox.com/users/${u.robloxUser || ''}/profile`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-full py-2 bg-black hover:bg-neutral-900 text-[#FFD700] text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                    className="flex-1 py-1.5 bg-[#2b2d31] hover:bg-[#20242D] text-white border border-neutral-700/60 text-center font-display font-medium text-xs rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
                   >
-                    Abrir Overlay en OBS ↗
+                    Ver Perfil ↗
                   </a>
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyLink(u.id, 'approve')}
+                    className="flex-1 py-1.5 bg-[#FFC200] hover:bg-[#ffe359] text-black border border-neutral-700/60 font-display font-medium text-xs rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
+                  >
+                    Aceptar
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const url = `${window.location.origin}/overlay?token=${encodeURIComponent(adminToken)}`;
-                      navigator.clipboard.writeText(url);
-                      alert('¡URL del Overlay copiada al portapapeles!');
+                      const reason = window.prompt('Motivo de rechazo:');
+                      if (reason !== null) handleVerifyLink(u.id, 'reject', reason);
                     }}
-                    className="block w-full py-2 bg-white hover:bg-gray-100 text-black text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
+                    className="py-1.5 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-neutral-700/60 font-display font-medium text-xs rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
                   >
-                    Copiar URL del Overlay
+                    Rechazar
                   </button>
-                  <a
-                    href="/console"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-2 bg-[#ea580c] hover:bg-orange-600 text-white text-center font-black uppercase text-[10px] rounded-lg border-2 border-black transition-all cursor-pointer"
-                  >
-                    Probar Consola VIP (Miembros) ↗
-                  </a>
                 </div>
-              </div>
-            </aside>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
-            {/* SECCIÓN PRINCIPAL: CONFIGURACIÓN DE COOLDOWNS */}
-            <main className="bg-white rounded-[2rem] border-4 border-black p-6 shadow-[10px_10px_0_0_rgba(0,0,0,0.12)] space-y-6">
-              <div className="flex items-center justify-between border-b-4 border-black pb-4">
+  const renderAgenda = () => (
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
+      <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div>
+          <span className="text-[10px] text-gray-500 tracking-wide">Agenda Viernes</span>
+          <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Crear Horario</h2>
+          <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
+            Habilita nuevos slots de entrevista para el directo.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Fecha</span>
+            <input
+              type="date"
+              value={newSlotDate}
+              onChange={(e) => setNewSlotDate(e.target.value)}
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Hora</span>
+            <input
+              type="time"
+              value={newSlotTime}
+              onChange={(e) => setNewSlotTime(e.target.value)}
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={handleCreateSlot}
+            disabled={creatingSlot}
+            className="w-full py-3 bg-[#FFC200] hover:bg-[#ffe359] text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50"
+          >
+            {creatingSlot ? 'Creando...' : 'Crear Slot'}
+          </button>
+        </div>
+      </aside>
+
+      <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Calendario</span>
+            <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Slots de Entrevistas</h2>
+          </div>
+          <span className="text-[10px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 rounded-2xl px-3 py-1">
+            {slots.length} Slots totales
+          </span>
+        </div>
+
+        {loadingSlots ? (
+          <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando slots...</div>
+        ) : slots.length === 0 ? (
+          <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+            <p className="font-bold text-white text-sm">No hay slots creados</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">Crea un slot a la izquierda para comenzar.</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+            {slots.map((slot) => {
+              const isPast = new Date(`${slot.slot_date}T${slot.slot_time}`).getTime() < now;
+              return (
+                <article key={slot.id} className={`bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-[0_4px_8px_rgba(0,0,0,.2)] ${
+                  isPast ? 'opacity-50' : ''
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2.5 py-0.5 rounded-2xl">
+                        {slot.slot_time.substring(0, 5)}
+                      </span>
+                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-2xl border ${
+                        slot.is_booked 
+                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      }`}>
+                        {slot.is_booked ? 'Reservado' : 'Libre'}
+                      </span>
+                    </div>
+
+                    <p className="text-[10px] text-gray-400 font-bold mt-2">
+                      📅 {slot.slot_date}
+                    </p>
+
+                    {slot.is_booked && slot.user && (
+                      <div className="mt-3 border-t border-neutral-700/60/25 pt-2 space-y-1">
+                        <p className="text-xs font-bold text-white truncate">{slot.user.roblox_display_name}</p>
+                        <p className="text-[10px] text-gray-400 font-semibold truncate">@{slot.user.roblox_user}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{slot.user.email}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1.5 pt-2 border-t border-black/25 mt-1">
+                    {slot.is_booked && (
+                      <button
+                        type="button"
+                        onClick={() => handleRescheduleSlot(slot.id)}
+                        className="flex-1 py-1 bg-[#2b2d31] hover:bg-[#1c1f27] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl cursor-pointer  active:scale-[0.97]"
+                      >
+                        Liberar
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSlot(slot.id)}
+                      className="py-1 px-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-2xl border border-neutral-700/60 cursor-pointer  active:scale-[0.97]"
+                    >
+                      Borrar
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+
+  const renderStreamSettingsTab = () => (
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
+      <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div>
+          <span className="text-[10px] uppercase tracking-wider font-medium text-red-400">Mute General</span>
+          <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Panic Button</h2>
+          <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
+            Silencia instantáneamente las interacciones de sonido y TTS del stream.
+          </p>
+        </div>
+
+        {loadingStreamSettings ? (
+          <div className="py-6 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando estado...</div>
+        ) : streamSettings ? (
+          <div className="space-y-4">
+            <div className={`border border-neutral-700/60 rounded-2xl p-4 text-center transition-all shadow-[0_4px_8px_rgba(0,0,0,.2)] ${
+              streamSettings.is_muted ? 'bg-red-950/20 border-red-500/25' : 'bg-emerald-950/20 border-emerald-500/25'
+            }`}>
+              <span className="text-3xl block mb-2">{streamSettings.is_muted ? '🚫' : '🔊'}</span>
+              <h3 className={`font-display font-black text-sm uppercase ${streamSettings.is_muted ? 'text-red-400' : 'text-emerald-400'}`}>
+                {streamSettings.is_muted ? 'Stream Silenciado' : 'Consola Activa'}
+              </h3>
+              <p className="text-[10px] text-gray-400 mt-1 font-semibold leading-normal">
+                {streamSettings.is_muted 
+                  ? 'Ningún VIP puede reproducir sonidos o TTS.' 
+                  : 'Los VIPs pueden enviar sonidos y mensajes.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={updatingStreamSettings}
+              onClick={() => handleUpdateStreamSettings({ isMuted: !streamSettings.is_muted })}
+              className={`w-full py-3 rounded-2xl border border-neutral-700/60 font-display font-black uppercase tracking-wider text-xs transition-colors cursor-pointer text-center shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] ${
+                streamSettings.is_muted 
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-black border-black' 
+                  : 'bg-red-600 hover:bg-red-500 text-white'
+              }`}
+            >
+              {updatingStreamSettings 
+                ? 'Procesando...' 
+                : streamSettings.is_muted 
+                ? '🔊 Reactivar Consola' 
+                : '🚨 BOTÓN DE PÁNICO: MUTEAR'}
+            </button>
+          </div>
+        ) : (
+          <div className="text-center text-xs text-gray-500 py-4 font-bold">Sin datos de configuración</div>
+        )}
+      </aside>
+
+      <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Stream Control</span>
+            <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Cooldowns del Stream</h2>
+          </div>
+          <span className="text-[10px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 rounded-2xl px-3 py-1">
+            Ajustes en vivo
+          </span>
+        </div>
+
+        {loadingStreamSettings ? (
+          <div className="py-12 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando cooldowns...</div>
+        ) : streamSettings ? (
+          <div className="space-y-6">
+            <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-3 ">
+              <div className="flex justify-between items-start gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-gray-500">Temporizadores</p>
-                  <h2 className="font-black text-2xl uppercase leading-none mt-1">Límites de Cooldown</h2>
+                  <h3 className="font-display font-semibold text-sm text-white">⏳ Cooldown Global</h3>
+                  <p className="text-[10px] text-gray-400 mt-1 font-semibold">
+                    Espera mínima entre CUALQUIER sonido/TTS en el overlay (evita spam masivo).
+                  </p>
                 </div>
-                <span className="bg-yellow-100 border-2 border-black rounded-full px-3 py-1 font-black text-xs">
-                  Ajustes en vivo
+                <span className="text-xs font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2.5 py-1 rounded-2xl ">
+                  {streamSettings.global_cooldown_seconds}s
                 </span>
               </div>
 
-              {loadingStreamSettings ? (
-                <div className="py-12 text-center text-gray-500 font-bold uppercase">Cargando configuraciones...</div>
-              ) : streamSettings ? (
-                <div className="space-y-6">
-                  {/* COOLDOWN GLOBAL */}
-                  <div className="border-4 border-black rounded-2xl p-5 bg-[#fffdf0] space-y-4">
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <h3 className="font-black text-lg uppercase flex items-center gap-1.5">
-                          ⏳ Cooldown Global
-                        </h3>
-                        <p className="text-xs text-gray-500 font-semibold mt-1">
-                          Tiempo mínimo que debe pasar entre CUALQUIER sonido/TTS en el stream. Evita el spam masivo consecutivo.
-                        </p>
-                      </div>
-                      <span className="font-mono font-black text-xl bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl shrink-0">
-                        {streamSettings.global_cooldown_seconds}s
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <input
-                        type="range"
-                        min="5"
-                        max="180"
-                        step="5"
-                        value={streamSettings.global_cooldown_seconds}
-                        disabled={updatingStreamSettings}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setStreamSettings((prev: StreamSettings | null) => prev ? { ...prev, global_cooldown_seconds: val } : null);
-                        }}
-                        className="w-full accent-black cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[10px] text-gray-400 font-bold">
-                        <span>5 segundos</span>
-                        <span>3 minutos</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={updatingStreamSettings}
-                      onClick={() => handleUpdateStreamSettings({ globalCooldown: streamSettings.global_cooldown_seconds })}
-                      className="py-2.5 px-4 bg-black hover:bg-neutral-900 text-yellow-400 font-black uppercase text-xs rounded-xl border-2 border-black transition-all cursor-pointer"
-                    >
-                      Guardar Cooldown Global
-                    </button>
-                  </div>
-
-                  {/* COOLDOWN PERSONAL */}
-                  <div className="border-4 border-black rounded-2xl p-5 bg-[#fffdf0] space-y-4">
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <h3 className="font-black text-lg uppercase flex items-center gap-1.5">
-                          👤 Cooldown Personal (TTS)
-                        </h3>
-                        <p className="text-xs text-gray-500 font-semibold mt-1">
-                          Tiempo de espera para un mismo usuario antes de poder enviar otro mensaje de voz (TTS).
-                        </p>
-                      </div>
-                      <span className="font-mono font-black text-xl bg-yellow-200 border-2 border-black px-3 py-1 rounded-xl shrink-0">
-                        {Math.floor(streamSettings.personal_cooldown_seconds / 60)} min
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <input
-                        type="range"
-                        min="60"
-                        max="1200"
-                        step="60"
-                        value={streamSettings.personal_cooldown_seconds}
-                        disabled={updatingStreamSettings}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setStreamSettings((prev: StreamSettings | null) => prev ? { ...prev, personal_cooldown_seconds: val } : null);
-                        }}
-                        className="w-full accent-black cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[10px] text-gray-400 font-bold">
-                        <span>1 minuto</span>
-                        <span>20 minutos</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={updatingStreamSettings}
-                      onClick={() => handleUpdateStreamSettings({ personalCooldown: streamSettings.personal_cooldown_seconds })}
-                      className="py-2.5 px-4 bg-black hover:bg-neutral-900 text-yellow-400 font-black uppercase text-xs rounded-xl border-2 border-black transition-all cursor-pointer"
-                    >
-                      Guardar Cooldown Personal
-                    </button>
-                  </div>
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min="5"
+                  max="180"
+                  step="5"
+                  value={streamSettings.global_cooldown_seconds}
+                  disabled={updatingStreamSettings}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setStreamSettings((prev: any) => prev ? { ...prev, global_cooldown_seconds: val } : null);
+                  }}
+                  className="w-full accent-[#FFC200] cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-gray-500 font-mono font-bold">
+                  <span>5 segundos</span>
+                  <span>3 minutos</span>
                 </div>
-              ) : (
-                <div className="text-center font-bold text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
-              )}
-            </main>
-          </section>
+              </div>
+
+              <button
+                type="button"
+                disabled={updatingStreamSettings}
+                onClick={() => handleUpdateStreamSettings({ globalCooldown: streamSettings.global_cooldown_seconds })}
+                className="py-2 px-3 bg-[#2b2d31] hover:bg-[#1a1c23] border border-neutral-700/60 text-xs font-display font-black uppercase rounded-2xl transition-colors cursor-pointer  active:scale-[0.97]"
+              >
+                Guardar Cooldown Global
+              </button>
+            </div>
+
+            <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-3 ">
+              <div className="flex justify-between items-start gap-3">
+                <div>
+                  <h3 className="font-display font-semibold text-sm text-white">👤 Cooldown Personal (TTS)</h3>
+                  <p className="text-[10px] text-gray-400 mt-1 font-semibold">
+                    Espera para un mismo usuario antes de enviar otro mensaje de voz (TTS).
+                  </p>
+                </div>
+                <span className="text-xs font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2.5 py-1 rounded-2xl ">
+                  {Math.floor(streamSettings.personal_cooldown_seconds / 60)} min
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min="60"
+                  max="1200"
+                  step="60"
+                  value={streamSettings.personal_cooldown_seconds}
+                  disabled={updatingStreamSettings}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setStreamSettings((prev: any) => prev ? { ...prev, personal_cooldown_seconds: val } : null);
+                  }}
+                  className="w-full accent-[#FFC200] cursor-pointer"
+                />
+                <div className="flex justify-between text-[9px] text-gray-500 font-mono font-bold">
+                  <span>1 minuto</span>
+                  <span>20 minutos</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={updatingStreamSettings}
+                onClick={() => handleUpdateStreamSettings({ personalCooldown: streamSettings.personal_cooldown_seconds })}
+                className="py-2 px-3 bg-[#2b2d31] hover:bg-[#1a1c23] text-white border border-neutral-700/60 text-xs font-display font-black uppercase rounded-2xl transition-colors cursor-pointer  active:scale-[0.97]"
+              >
+                Guardar Cooldown Personal
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
         )}
+      </main>
+    </div>
+  );
+
+  const renderSoundboardTab = () => (
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
+      <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div>
+          <span className="text-[10px] text-gray-500 tracking-wide">Botonera</span>
+          <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Agregar Sonido</h2>
+          <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
+            Sube un archivo de audio (MP3, WAV, etc.) a la botonera de los VIPs. Se convertirá automáticamente a MP3 en el cliente.
+          </p>
+        </div>
+
+        <form onSubmit={handleUploadSound} className="space-y-4">
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Nombre del sonido</span>
+            <input
+              type="text"
+              value={soundName}
+              onChange={(e) => setSoundName(e.target.value)}
+              placeholder="Ej: Risitas, Fail, Woohoo"
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Archivo de Audio</span>
+            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center ">
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => setSoundFile(e.target.files?.[0] || null)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
+              <p className="text-[10px] text-gray-400 font-bold truncate">
+                {soundFile ? soundFile.name : 'Elegir archivo audio'}
+              </p>
+            </div>
+          </label>
+
+          <button
+            type="submit"
+            disabled={submittingSound || !soundFile || !soundName.trim()}
+            className="w-full py-3 bg-[#FFC200] hover:bg-[#ffe359] text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {submittingSound ? 'Subiendo...' : 'Agregar Sonido'}
+          </button>
+        </form>
+      </aside>
+
+      <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Botonera VIP</span>
+            <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Sonidos Disponibles</h2>
+          </div>
+          <span className="text-[10px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 rounded-2xl px-3 py-1">
+            {sounds.length} Sonidos
+          </span>
+        </div>
+
+        {loadingSounds ? (
+          <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando botonera...</div>
+        ) : sounds.length === 0 ? (
+          <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+            <p className="font-bold text-white text-sm">Consola de sonidos vacía</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">Sube un archivo de audio para habilitarlo.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+            {sounds.map((sound) => {
+              const soundStyles = getSoundColor(sound.id);
+              return (
+                <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3flex flex-col justify-between gap-3 group transition-all  hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSound(sound.id)}
+                    className="absolute top-2 right-2 p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-2xl border border-neutral-700/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer  active:scale-[0.97]"
+                    title="Borrar de la botonera"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <span className="text-2xl block mb-1">📢</span>
+                    <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
+                      {sound.name}
+                    </h3>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePlaySound(sound.id)}
+                    className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                    Testear OBS
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+
+  const renderStreamStatusMobileTab = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Diagnóstico</span>
+        <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Estado del Stream</h2>
+        <p className="text-xs text-gray-400 mt-1 font-semibold">Conectividad de servidores y servicios de automatización en tiempo real.</p>
       </div>
 
-      {/* USER VOTES INSPECTOR MODAL */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex items-center justify-between p-4 bg-[#2b2d31] rounded-2xl border border-neutral-700/60 ">
+          <span className="text-xs text-gray-300 font-bold">Supabase Database</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-[#2b2d31] rounded-2xl border border-neutral-700/60 ">
+          <span className="text-xs text-gray-300 font-bold">Supabase Storage</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-[#2b2d31] rounded-2xl border border-neutral-700/60 ">
+          <span className="text-xs text-gray-300 font-bold flex items-center gap-1.5">
+            Alexa VM (Roblox)
+            {pingingVM && <RefreshCw className="w-3.5 h-3.5 text-gray-500 animate-spin" />}
+          </span>
+          <span className={`h-2 w-2 rounded-full ${
+            vmStatus === 'online' 
+              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+              : vmStatus === 'checking'
+              ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
+              : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
+          }`} />
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-[#2b2d31] rounded-2xl border border-neutral-700/60 ">
+          <span className="text-xs text-gray-300 font-bold">OBS WebSocket (Overlay)</span>
+          <span className={`h-2 w-2 rounded-full ${
+            isOverlayOnline 
+              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+              : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
+          }`} />
+        </div>
+      </div>
+
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+        <h3 className="font-display font-semibold text-xs text-gray-300">Bitácora de Auditoría</h3>
+        
+        <div className="border border-neutral-700/60 bg-[#2b2d31] rounded-2xl p-4 space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin ">
+          {loadingAuditLogs ? (
+            <p className="text-xs text-gray-500 text-center uppercase tracking-wider py-4 animate-pulse">Cargando logs...</p>
+          ) : auditLogs.length === 0 ? (
+            <p className="text-xs text-gray-500 text-center uppercase tracking-wider py-4">Sin actividad reciente</p>
+          ) : (
+            auditLogs.map((log) => {
+              const time = formatDate(log.created_at);
+              return (
+                <div key={log.id} className="text-xs border-b border-black/20 pb-3 last:border-0 last:pb-0">
+                  <p className="font-bold text-[#FFC200] text-xs">{log.action}</p>
+                  <p className="text-gray-400 font-semibold mt-1 truncate">{log.admin_email}</p>
+                  <p className="text-gray-500 text-[10px] mt-1">{time}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderActiveTabContent = () => {
+    switch (activeTab) {
+      case 'nominees':
+        return renderOverview();
+      case 'votes':
+        return renderVotes();
+      case 'users':
+        return renderUsers();
+      case 'applications':
+        return renderApplications();
+      case 'agenda':
+        return renderAgenda();
+      case 'stream':
+        return renderStreamSettingsTab();
+      case 'soundboard':
+        return renderSoundboardTab();
+      case 'stream-status':
+        return renderStreamStatusMobileTab();
+      default:
+        return renderOverview();
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#2b2d31] text-gray-200 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Loader className="w-8 h-8 text-[#FFC200] animate-spin" />
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest animate-pulse">Validando permisos de administración...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-[#2b2d31] text-gray-200 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.25)] relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-[#FFC200]"></div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFC200] text-black flex items-center justify-center font-bold text-xl border border-neutral-700/60 ">
+              🛡️
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-lg text-white leading-none">MILUMON ADMIN</h1>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Consola de Control</p>
+            </div>
+          </div>
+
+          <p className="text-sm font-semibold text-gray-400 mb-6 leading-relaxed">
+            Inicia sesión con tu cuenta de administrador autorizada para acceder a la gestión del stream, nominados y usuarios.
+          </p>
+
+          {error && (
+            <div className="bg-red-950/40 border border-red-500/20 rounded-2xl p-3 mb-4 text-xs font-bold text-red-400">
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={async () => {
+              setError(null);
+              const { error: loginError } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                  redirectTo: window.location.origin + '/admin'
+                }
+              });
+              if (loginError) setError(loginError.message);
+            }}
+            className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97]"
+          >
+            Entrar con Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#2b2d31] text-gray-200 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 shadow-[0_8px_24px_rgba(0,0,0,.5)] relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-red-500"></div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center font-bold text-xl border border-neutral-700/60 ">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h1 className="font-display font-bold text-lg text-white leading-none">ACCESO RESTRINGIDO</h1>
+              <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Permisos Insuficientes</p>
+            </div>
+          </div>
+
+          <p className="text-sm font-semibold text-gray-400 mb-4 leading-relaxed">
+            Tu cuenta <strong className="text-white font-bold">{session.user.email}</strong> no posee rol de administrador. Si crees que esto es un error, por favor contacta al propietario del stream.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/"
+              className="w-full py-3 bg-[#2b2d31] hover:bg-[#20242D] text-white font-display font-medium text-sm rounded-xl border border-neutral-700/60 transition-all flex items-center justify-center gap-2 active:scale-[0.97]"
+            >
+              Volver al Inicio
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.reload();
+              }}
+              className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-display font-medium text-sm rounded-xl border border-neutral-700/60 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97]"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const renderSidebarContent = () => {
+    const navBtnClass = (tab: string) =>
+      `w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-display font-semibold transition-all cursor-pointer ${
+        activeTab === tab
+          ? 'bg-[#FFC200]/10 text-[#FFC200]'
+          : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+      }`;
+
+    return (
+      <>
+        <div className="space-y-5">
+          {/* Módulo: Comunidad */}
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Comunidad</p>
+            <button type="button" onClick={() => { setActiveTab('nominees'); setMobileMenuOpen(false); }} className={navBtnClass('nominees')}>
+              <span>👥</span> Overview Nominados
+            </button>
+            <button type="button" onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={navBtnClass('users')}>
+              <span>👑</span> Usuarios
+            </button>
+            <button type="button" onClick={() => { setActiveTab('applications'); setMobileMenuOpen(false); }} className={navBtnClass('applications')}>
+              <span>📝</span> Postulaciones
+            </button>
+          </div>
+
+          {/* Módulo: Awards */}
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Awards</p>
+            <button type="button" onClick={() => { setActiveTab('votes'); setMobileMenuOpen(false); }} className={navBtnClass('votes')}>
+              <span>📊</span> Recuento de Votos
+            </button>
+            <button type="button" onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }} className={navBtnClass('agenda')}>
+              <span>📅</span> Agenda Viernes
+            </button>
+          </div>
+
+          {/* Módulo: Stream */}
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Stream</p>
+            <button type="button" onClick={() => { setActiveTab('stream'); setMobileMenuOpen(false); }} className={navBtnClass('stream')}>
+              <span>📺</span> Ajustes de Cooldown
+            </button>
+            <button type="button" onClick={() => { setActiveTab('soundboard'); setMobileMenuOpen(false); }} className={navBtnClass('soundboard')}>
+              <span>🔊</span> Botonera OBS
+            </button>
+          </div>
+
+          {/* Módulo Móvil: Diagnóstico */}
+          <div className="space-y-0.5 block lg:hidden">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Diagnóstico</p>
+            <button type="button" onClick={() => { setActiveTab('stream-status'); setMobileMenuOpen(false); }} className={navBtnClass('stream-status')}>
+              <span>📡</span> Estado del Directo
+            </button>
+          </div>
+        </div>
+
+        {/* Sidebar footer */}
+        <div className="space-y-2 pt-4 border-t border-white/5 mt-auto">
+          <Link
+            href="/"
+            className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 hover:bg-white/8 rounded-xl text-sm font-display font-semibold text-gray-300 hover:text-white transition-colors decoration-transparent"
+          >
+            ← Volver al Landing
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.reload();
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 bg-red-500/10 hover:bg-red-500/15 text-red-400 rounded-xl text-sm font-display font-semibold transition-colors cursor-pointer"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </>
+    );
+  };
+  return (
+    <div className="min-h-screen bg-[#1e1f22] text-gray-200 font-sans flex flex-col antialiased">
+      {/* HEADER NAVBAR */}
+      <Header
+        session={session}
+        isAdmin={true}
+        onLogout={async () => {
+          await supabase.auth.signOut();
+          window.location.reload();
+        }}
+        panelName="Admin"
+        panelHref="/admin"
+        isMobileMenuOpen={mobileMenuOpen}
+        setIsMobileMenuOpen={setMobileMenuOpen}
+        theme="dark"
+      />
+
+      {/* 2. BODY CONTAINER */}
+      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+        
+        {/* DESKTOP SIDEBAR */}
+        <aside className="w-[260px] bg-[#24262b] hidden lg:flex flex-col justify-between shrink-0 p-4 select-none">
+          {renderSidebarContent()}
+        </aside>
+
+        {/* MOBILE DRAWER LATERAL (Con Framer Motion, estilo Discord) */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <>
+              {/* Backdrop de cierre */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.5 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileMenuOpen(false)}
+                className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs lg:hidden"
+              />
+
+              {/* Sidebar deslizable */}
+              <motion.aside
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                className="fixed top-0 left-0 h-full w-[260px] z-50 bg-[#24262b] p-4 shadow-xl flex flex-col justify-between select-none lg:hidden"
+              >
+                <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 shrink-0">
+                  <span className="text-xs font-semibold text-gray-400">Navegación</span>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex-1 flex flex-col justify-between overflow-y-auto scrollbar-none">
+                  {renderSidebarContent()}
+                </div>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* MAIN DISPLAY AREA */}
+        <main className="flex-grow overflow-y-auto bg-[#1e1f22] p-4 sm:p-6 min-w-0">
+          {error && (
+            <div className="bg-red-950/40 border border-neutral-700/60 rounded-2xl p-4 text-xs font-bold text-red-400 mb-6 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,.3)]">
+              <span>⚠️ {error}</span>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">✕</button>
+            </div>
+          )}
+          {status && (
+            <div className="bg-emerald-950/30 border border-neutral-700/60 rounded-2xl p-4 text-xs font-bold text-emerald-400 mb-6 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,.3)]">
+              <span>{status}</span>
+              <button onClick={() => setStatus(null)} className="text-emerald-400 hover:text-emerald-300">✕</button>
+            </div>
+          )}
+
+          {renderActiveTabContent()}
+        </main>
+
+        {/* 3. DESKTOP CONTROL COLUMN / STATUS (Oculto en móvil) */}
+        <aside className="w-[320px] bg-[#111318] border-l-4 border-black p-5 hidden lg:flex flex-col justify-between shrink-0 select-none">
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <h3 className="text-[11px] font-display font-medium text-gray-400 uppercase tracking-wider">Estado del Stream</h3>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
+                  <span className="text-xs text-gray-300 font-bold">Supabase Database</span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
+                  <span className="text-xs text-gray-300 font-bold">Supabase Storage</span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
+                  <span className="text-xs text-gray-300 font-bold flex items-center gap-1.5">
+                    Alexa VM (Roblox)
+                    {pingingVM && <RefreshCw className="w-3 h-3 text-gray-500 animate-spin" />}
+                  </span>
+                  <span className={`h-2 w-2 rounded-full ${
+                    vmStatus === 'online' 
+                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+                      : vmStatus === 'checking'
+                      ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
+                      : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
+                  }`} />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
+                  <span className="text-xs text-gray-300 font-bold">OBS WebSocket (Overlay)</span>
+                  <span className={`h-2 w-2 rounded-full ${
+                    isOverlayOnline 
+                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+                      : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
+                  }`} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 flex-grow flex flex-col min-h-0">
+              <h3 className="text-[11px] font-display font-medium text-gray-400 uppercase tracking-wider">Actividad Reciente</h3>
+              
+              <div className="flex-1 overflow-y-auto max-h-[360px] border border-neutral-700/60 bg-[#171A20] rounded-xl p-3 space-y-2.5 scrollbar-thin ">
+                {loadingAuditLogs ? (
+                  <p className="text-[10px] text-gray-500 text-center uppercase tracking-wider py-4 animate-pulse">Cargando bitácora...</p>
+                ) : auditLogs.length === 0 ? (
+                  <p className="text-[10px] text-gray-500 text-center uppercase tracking-wider py-4">Sin actividad registrada</p>
+                ) : (
+                  auditLogs.slice(0, 15).map((log) => {
+                    const time = formatDate(log.created_at);
+                    return (
+                      <div key={log.id} className="text-[10px] border-b border-black/40 pb-2 last:border-0 last:pb-0">
+                        <p className="font-bold text-[#FFC200]">{log.action}</p>
+                        <p className="text-gray-400 font-medium mt-0.5 truncate">{log.admin_email}</p>
+                        <p className="text-gray-500 text-[9px] mt-0.5">{time}</p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t-2 border-black text-center">
+            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+              Design specs by Milumon
+            </span>
+          </div>
+        </aside>
+      </div>
+
+      {/* DRAWER LATERAL INTERACTIVO PARA EDICIÓN DE NOMINADO */}
+      <AnimatePresence>
+        {drawerOpen && editingNominee && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setDrawerOpen(false);
+                setEditingNominee(null);
+              }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
+            />
+
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 h-full w-full max-w-[400px] z-50 bg-[#111318] border-l-4 border-black p-6 shadow-2xl flex flex-col justify-between"
+            >
+              <div className="space-y-6 flex-grow overflow-y-auto scrollbar-thin pr-1">
+                <div className="flex items-center justify-between border-b-2 border-black pb-4">
+                  <div>
+                    <span className="text-[10px] text-gray-500 tracking-wide">Editor del Nominado</span>
+                    <h3 className="font-display font-semibold text-base text-white mt-0.5 leading-none">Editar Nominación</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      setEditingNominee(null);
+                    }}
+                    className="p-1.5 border border-neutral-700/60 rounded-lg bg-[#171A20] text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center text-center p-4 bg-[#171A20] border border-neutral-700/60 rounded-xl ">
+                  <div className="w-20 h-20 rounded-2xl border border-neutral-700/60 bg-[#111318] overflow-hidden mb-3 ">
+                    {editingNominee.profile_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={editingNominee.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl flex items-center justify-center h-full">🐣</span>
+                    )}
+                  </div>
+                  <h4 className="font-bold text-white text-sm">{editingNominee.display_name || editingNominee.roblox_user}</h4>
+                  <p className="text-xs text-gray-400 font-medium">@{editingNominee.roblox_user}</p>
+                  <p className="text-[9px] text-gray-500 font-mono mt-1">ID de Roblox: {editingNominee.roblox_user_id || 'N/A'}</p>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-gray-500">Apodo en Votación (Nickname)</span>
+                    <input
+                      type="text"
+                      value={editingNominee.nickname || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingNominee(prev => prev ? { ...prev, nickname: val } : null);
+                        setNominees(curr => curr.map(item => item.id === editingNominee.id ? { ...item, nickname: val } : item));
+                      }}
+                      placeholder="Nickname visible para los usuarios"
+                      className="w-full bg-[#171A20] border border-neutral-700/60 rounded-xl px-3 py-2 text-xs text-white focus:border-[#FFC200] outline-none transition-colors font-medium "
+                    />
+                  </label>
+
+                  <div className="flex items-center justify-between bg-[#171A20] border border-neutral-700/60 rounded-xl p-3.5 ">
+                    <div>
+                      <h4 className="font-bold text-xs text-white">Visibilidad</h4>
+                      <p className="text-[9px] text-gray-400 font-medium mt-0.5">Determina si aparece en el listado para votar.</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editingNominee.is_visible}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setEditingNominee(prev => prev ? { ...prev, is_visible: val } : null);
+                        setNominees(curr => curr.map(item => item.id === editingNominee.id ? { ...item, is_visible: val } : item));
+                      }}
+                      className="w-4.5 h-4.5 accent-[#FFC200] cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t-2 border-black mt-4 space-y-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSaveNominee(editingNominee)}
+                  disabled={savingId === editingNominee.id}
+                  className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.97]"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {savingId === editingNominee.id ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('¿Seguro que deseas eliminar este nominado?')) {
+                      void handleDeleteNominee(editingNominee.id);
+                    }
+                  }}
+                  className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-display font-medium text-sm rounded-xl border border-neutral-700/60 transition-colors cursor-pointer active:scale-[0.97]"
+                >
+                  Eliminar Nominación
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* INSPECTOR DE VOTOS (MODAL) */}
       <AnimatePresence>
         {inspectingUser && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 font-sans animate-fade-in"
+            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4"
           >
             <motion.div
-              initial={{ scale: 0.9, y: 20 }}
+              initial={{ scale: 0.95, y: 10 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-white border-4 border-black rounded-[2rem] p-6 w-full max-w-md relative brutalist-shadow text-black flex flex-col max-h-[85vh] md:max-h-[80vh]"
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-[#111318] border border-neutral-700/60 rounded-2xl p-6 w-full max-w-md relative text-gray-200 flex flex-col max-h-[80vh] shadow-[0_8px_24px_rgba(0,0,0,.5)]"
             >
               <button
                 onClick={() => setInspectingUser(null)}
-                className="absolute top-4 right-4 text-black hover:scale-105 active:scale-95 transition-all w-8 h-8 flex items-center justify-center border-2 border-black rounded-lg bg-white cursor-pointer z-10"
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center border border-neutral-700/60 rounded-lg bg-[#171A20] cursor-pointer  active:scale-[0.97]"
               >
-                <X className="w-5 h-5 stroke-[3]" />
+                <X className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-3 mb-4 border-b-4 border-black pb-3 shrink-0">
-                <div className="w-12 h-12 rounded-xl border-2 border-black bg-yellow-100 overflow-hidden flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-3 mb-5 border-b-2 border-black pb-3 shrink-0">
+                <div className="w-11 h-11 rounded-lg border border-neutral-700/60 bg-[#171A20] overflow-hidden flex items-center justify-center shrink-0 ">
                   {inspectingUser.robloxAvatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={inspectingUser.robloxAvatarUrl} alt={inspectingUser.robloxUser || 'User'} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl">🐣</span>
+                    <span className="text-xl">🐣</span>
                   )}
                 </div>
                 <div className="min-w-0 pr-8">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Planilla de Votación</p>
-                  <h3 className="font-black text-xl uppercase leading-none truncate" title={inspectingUser.robloxDisplayName || inspectingUser.email}>
+                  <p className="text-[10px] text-gray-500 tracking-wide">Planilla de Votos</p>
+                  <h3 className="font-display font-semibold text-base text-white truncate" title={inspectingUser.robloxDisplayName || inspectingUser.email}>
                     {inspectingUser.robloxDisplayName || inspectingUser.email}
                   </h3>
                   {inspectingUser.robloxUser && (
-                    <p className="text-xs font-semibold text-gray-400 mt-1 truncate">@{inspectingUser.robloxUser}</p>
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">@{inspectingUser.robloxUser}</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex justify-between items-center bg-yellow-50 border-4 border-black p-3 rounded-2xl mb-4 font-black uppercase text-xs shrink-0">
-                <span>Progreso General</span>
-                <span className={inspectingUser.votedCount >= inspectingUser.totalCategories ? 'text-emerald-700 font-black' : 'text-orange-600 font-black'}>
+              <div className="flex justify-between items-center bg-[#171A20] border border-neutral-700/60 p-3 rounded-xl mb-4 font-display font-medium text-xs text-gray-400 shrink-0 ">
+                <span className="text-gray-300">Progreso General</span>
+                <span className={inspectingUser.votedCount >= inspectingUser.totalCategories ? 'text-[#FFC200]' : 'text-orange-400'}>
                   {inspectingUser.votedCount}/{inspectingUser.totalCategories} Categorías
                 </span>
               </div>
 
-              <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-2 mb-4">
+              <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-2.5 mb-4 max-h-[300px]">
                 {CATEGORIES.map((cat: Category) => {
                   const vote = inspectingUser.votes?.find((v: { categoryId: number; nomineeName: string }) => v.categoryId === cat.id);
-
                   return (
-                    <div key={cat.id} className={`border-2 border-black rounded-xl p-3 flex items-center justify-between gap-3 text-xs ${
-                      vote ? 'bg-white' : 'bg-red-50/70 border-dashed'
+                    <div key={cat.id} className={`border-2 rounded-xl p-3 flex items-center justify-between gap-3 text-xs  ${
+                      vote ? 'bg-[#171A20] border-black' : 'bg-red-500/5 border-dashed border-red-500/20'
                     }`}>
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg shrink-0">{cat.emoji || '🏆'}</span>
-                        <span className="font-bold text-gray-700 truncate" title={cat.title}>
+                        <span className="text-base shrink-0">{cat.emoji || '🏆'}</span>
+                        <span className="font-medium text-gray-300 truncate" title={cat.title}>
                           {cat.title}
                         </span>
                       </div>
                       
                       {vote ? (
-                        <span className="font-black text-black shrink-0 bg-yellow-100 border-2 border-black px-2.5 py-1 rounded-xl truncate max-w-[140px]" title={vote.nomineeName}>
+                        <span className="font-bold text-[#FFC200] shrink-0 bg-[#FFC200]/10 border border-[#FFC200]/20 px-2.5 py-0.5 rounded-lg truncate max-w-[120px]" title={vote.nomineeName}>
                           {vote.nomineeName}
                         </span>
                       ) : (
-                        <span className="font-black text-red-700 shrink-0 bg-red-100 border-2 border-red-400 px-2.5 py-1 rounded-xl uppercase text-[9px] tracking-wider animate-pulse">
-                          ❌ Sin Votar
+                        <span className="font-bold text-red-400 shrink-0 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-lg uppercase text-[9px] tracking-wider animate-pulse">
+                          Sin Votar
                         </span>
                       )}
                     </div>
@@ -2038,7 +2351,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setInspectingUser(null)}
-                className="w-full py-3 bg-black hover:bg-neutral-900 text-yellow-400 font-display font-black text-sm tracking-wider rounded-xl border-4 border-black active:translate-y-1 transition-all uppercase cursor-pointer focus:outline-none shrink-0"
+                className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-colors cursor-pointer shrink-0 active:scale-[0.97]"
               >
                 Cerrar Planilla
               </button>
@@ -2049,3 +2362,7 @@ export default function AdminPage() {
     </div>
   );
 }
+
+
+
+
