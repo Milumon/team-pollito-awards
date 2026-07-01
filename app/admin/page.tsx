@@ -251,7 +251,7 @@ export default function AdminPage() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'soundboard' | 'stream-status' | 'testimonials'>('nominees');
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'stream-status' | 'testimonials'>('nominees');
   
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -860,7 +860,7 @@ export default function AdminPage() {
       void (async () => {
         await loadInterviewSlots();
       })();
-    } else if (activeTab === 'stream') {
+    } else if (activeTab === 'stream' || activeTab === 'overlay-design') {
       void (async () => {
         await loadStreamSettings();
       })();
@@ -2161,9 +2161,7 @@ export default function AdminPage() {
   );
 
   const renderStreamSettingsTab = () => (
-    <div className="space-y-6 animate-fade-in">
-      {/* Fila 1: Panic Button + Cooldowns */}
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start">
+    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
       <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
         <div>
           <span className="text-[10px] uppercase tracking-wider font-medium text-red-400">Mute General</span>
@@ -2318,317 +2316,322 @@ export default function AdminPage() {
           <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
         )}
       </main>
-      </div>
+    </div>
+  );
 
-      {/* Fila 2: Diseñador del Pop-up — sección independiente ancho completo */}
-      {streamSettings && (
-      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden">
-            {/* CONFIGURACIÓN DE DISEÑO DEL OVERLAY — Split View */}
-              {/* Header */}
-              <div className="flex justify-between items-start gap-3 px-4 py-3 border-b border-neutral-700/60">
-                <div>
-                  <h3 className="font-display font-semibold text-sm text-white">🎨 Diseñador del Pop-up en Vivo</h3>
-                  <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">
-                    Modificá → Mirá el preview → Ajustá → Guardá → Probá en OBS
-                  </p>
+  const renderOverlayDesignTab = () => (
+    <div className="space-y-6 animate-fade-in">
+      {loadingStreamSettings ? (
+        <div className="py-12 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando diseñador...</div>
+      ) : streamSettings ? (
+        <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden">
+          {/* Header */}
+          <div className="flex justify-between items-start gap-3 px-4 py-3 border-b border-neutral-700/60">
+            <div>
+              <h3 className="font-display font-semibold text-sm text-white">🎨 Diseñador del Pop-up en Vivo</h3>
+              <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">
+                Modificá → Mirá el preview → Ajustá → Guardá → Probá en OBS
+              </p>
+            </div>
+            <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase shrink-0">
+              Ajuste Visual
+            </span>
+          </div>
+
+          {/* Split Layout: controles izquierda, preview derecha */}
+          <div className="flex flex-col lg:flex-row">
+
+            {/* ─── Preview OBS — en mobile va ARRIBA ─── */}
+            <div className="lg:hidden flex flex-col items-center gap-3 px-4 py-4 bg-neutral-900/40 border-b border-neutral-700/60">
+              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
+              <div className="relative w-[160px] h-[284px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[24px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+                <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[7px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
+                {simulatedEvent?.visible && (
+                  <div
+                    style={{
+                      top: `${(streamSettings.overlay_notification_top ?? 48) * 0.22}px`,
+                      width: `${(streamSettings.overlay_notification_width ?? 288) * 0.22}px`,
+                      maxWidth: '90%',
+                      transform: 'translateX(-50%)',
+                      position: 'absolute',
+                      left: '50%',
+                    }}
+                    className="bg-white border-2 border-black p-1.5 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1 z-20 animate-slide-in"
+                  >
+                    <div className="w-5 h-5 rounded bg-yellow-100 border border-black flex items-center justify-center text-[10px] shrink-0 select-none">
+                      {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
+                    </div>
+                    <div className="min-w-0 text-left flex-1 select-none">
+                      <span
+                        style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.55}px` }}
+                        className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
+                      >
+                        {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
+                      </span>
+                      <p
+                        style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.55}px` }}
+                        className="font-black text-black truncate leading-tight mt-0.5"
+                      >
+                        {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
+                      </p>
+                      <p
+                        style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.55}px` }}
+                        className="font-black text-gray-500 truncate leading-none mt-0.5"
+                      >
+                        Por: @{simulatedEvent.senderRobloxUser}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {simulatedAnimation && simulatedParticles.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+                    {simulatedParticles.map((p) => {
+                      const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size * 0.6}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
+                      if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.24}px`, height: `${p.size * 0.48}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
+                      return <div key={p.id} style={s}>{p.char}</div>;
+                    })}
+                  </div>
+                )}
+              </div>
+              {/* Botones de prueba rápida en mobile */}
+              <div className="flex gap-2 flex-wrap justify-center mt-3">
+                <button type="button" onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
+                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                  🔊 Sonido
+                </button>
+                <button type="button" onClick={() => triggerLocalTestEvent('tts', '¡Hola stream!')}
+                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                  🗣️ TTS
+                </button>
+                <button type="button" onClick={() => triggerLocalTestEvent('animation', 'confetti')}
+                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                  🎉 Confetti
+                </button>
+                <button type="button" onClick={() => triggerLocalTestEvent('animation', 'eggs')}
+                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                  🐣 Huevos
+                </button>
+              </div>
+            </div>
+
+            {/* ─── Controles (izquierda en desktop) ─── */}
+            <div className="flex-1 p-4 space-y-5">
+              {/* Grupo: Posición */}
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Posición</p>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Distancia Superior (Y)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
+                  </label>
+                  <input
+                    type="range" min="0" max="1000" step="10"
+                    value={streamSettings.overlay_notification_top ?? 48}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                    <span>0px (Arriba del todo)</span><span>1000px (Abajo)</span>
+                  </div>
                 </div>
-                <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase shrink-0">
-                  Ajuste Visual
-                </span>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Ancho del Pop-up</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
+                  </label>
+                  <input
+                    type="range" min="200" max="700" step="10"
+                    value={streamSettings.overlay_notification_width ?? 288}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                    <span>200px (compacto)</span><span>700px (ancho)</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Split Layout: controles izquierda, preview derecha */}
-              <div className="flex flex-col lg:flex-row">
-
-                {/* ─── Preview OBS — en mobile va ARRIBA ─── */}
-                <div className="lg:hidden flex flex-col items-center gap-3 px-4 py-4 bg-neutral-900/40 border-b border-neutral-700/60">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
-                  <div className="relative w-[160px] h-[284px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[24px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[7px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
-                    {simulatedEvent?.visible && (
-                      <div
-                        style={{
-                          top: `${(streamSettings.overlay_notification_top ?? 48) * 0.22}px`,
-                          width: `${(streamSettings.overlay_notification_width ?? 288) * 0.22}px`,
-                          maxWidth: '90%',
-                          transform: 'translateX(-50%)',
-                          position: 'absolute',
-                          left: '50%',
-                        }}
-                        className="bg-white border-2 border-black p-1.5 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1 z-20 animate-slide-in"
-                      >
-                        <div className="w-5 h-5 rounded bg-yellow-100 border border-black flex items-center justify-center text-[10px] shrink-0 select-none">
-                          {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
-                        </div>
-                        <div className="min-w-0 text-left flex-1 select-none">
-                          <span
-                            style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.55}px` }}
-                            className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
-                          >
-                            {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
-                          </span>
-                          <p
-                            style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.55}px` }}
-                            className="font-black text-black truncate leading-tight mt-0.5"
-                          >
-                            {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
-                          </p>
-                          <p
-                            style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.55}px` }}
-                            className="font-black text-gray-500 truncate leading-none mt-0.5"
-                          >
-                            Por: @{simulatedEvent.senderRobloxUser}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {simulatedAnimation && simulatedParticles.length > 0 && (
-                      <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                        {simulatedParticles.map((p) => {
-                          const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size * 0.6}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
-                          if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.24}px`, height: `${p.size * 0.48}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
-                          return <div key={p.id} style={s}>{p.char}</div>;
-                        })}
-                      </div>
-                    )}
+              {/* Grupo: Tipografía */}
+              <div className="space-y-3 pt-3 border-t border-neutral-700/40">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Tipografía</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-gray-400 font-bold flex justify-between">
+                      <span>Etiqueta (Badge)</span>
+                      <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
+                    </label>
+                    <input
+                      type="range" min="8" max="30" step="1"
+                      value={streamSettings.overlay_notification_badge_size ?? 10}
+                      disabled={updatingStreamSettings}
+                      onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: parseInt(e.target.value, 10) } : null)}
+                      className="w-full accent-[#FFC200] cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>30px</span></div>
                   </div>
-                  {/* Botones de prueba rápida en mobile */}
-                  <div className="flex gap-2 flex-wrap justify-center">
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-gray-400 font-bold flex justify-between">
+                      <span>Remitente</span>
+                      <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_sender_size ?? 11}px</span>
+                    </label>
+                    <input
+                      type="range" min="8" max="30" step="1"
+                      value={streamSettings.overlay_notification_sender_size ?? 11}
+                      disabled={updatingStreamSettings}
+                      onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_sender_size: parseInt(e.target.value, 10) } : null)}
+                      className="w-full accent-[#FFC200] cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>30px</span></div>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs text-gray-400 font-bold flex justify-between">
+                      <span>Mensaje (Contenido)</span>
+                      <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
+                    </label>
+                    <input
+                      type="range" min="8" max="40" step="1"
+                      value={streamSettings.overlay_notification_content_size ?? 14}
+                      disabled={updatingStreamSettings}
+                      onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: parseInt(e.target.value, 10) } : null)}
+                      className="w-full accent-[#FFC200] cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px (pequeño)</span><span>40px (grande)</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones Guardar + Pruebas en OBS */}
+              <div className="space-y-3 pt-3 border-t border-neutral-700/40">
+                <button
+                  type="button"
+                  disabled={updatingStreamSettings}
+                  onClick={() => handleUpdateStreamSettings({
+                    overlayNotificationTop: streamSettings.overlay_notification_top,
+                    overlayNotificationWidth: streamSettings.overlay_notification_width,
+                    overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
+                    overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
+                    overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
+                  })}
+                  className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
+                >
+                  {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
+                </button>
+
+                {/* Pruebas locales */}
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Pruebas locales (Preview)</p>
+                  <div className="grid gap-2 grid-cols-2">
                     <button type="button" onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
-                      className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🔊 Sonido
                     </button>
-                    <button type="button" onClick={() => triggerLocalTestEvent('tts', '¡Hola stream!')}
-                      className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                    <button type="button" onClick={() => triggerLocalTestEvent('tts', '¡Hola stream, este es un texto de prueba!')}
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🗣️ TTS
                     </button>
                     <button type="button" onClick={() => triggerLocalTestEvent('animation', 'confetti')}
-                      className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🎉 Confetti
                     </button>
                     <button type="button" onClick={() => triggerLocalTestEvent('animation', 'eggs')}
-                      className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🐣 Huevos
                     </button>
                   </div>
                 </div>
 
-                {/* ─── Controles (izquierda en desktop) ─── */}
-                <div className="flex-1 p-4 space-y-5">
-                  {/* Grupo: Posición */}
-                  <div className="space-y-3">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Posición</p>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-gray-400 font-bold flex justify-between">
-                        <span>Distancia Superior (Y)</span>
-                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
-                      </label>
-                      <input
-                        type="range" min="0" max="1000" step="10"
-                        value={streamSettings.overlay_notification_top ?? 48}
-                        disabled={updatingStreamSettings}
-                        onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: parseInt(e.target.value, 10) } : null)}
-                        className="w-full accent-[#FFC200] cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                        <span>0px (Arriba del todo)</span><span>1000px (Abajo)</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-gray-400 font-bold flex justify-between">
-                        <span>Ancho del Pop-up</span>
-                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
-                      </label>
-                      <input
-                        type="range" min="200" max="700" step="10"
-                        value={streamSettings.overlay_notification_width ?? 288}
-                        disabled={updatingStreamSettings}
-                        onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: parseInt(e.target.value, 10) } : null)}
-                        className="w-full accent-[#FFC200] cursor-pointer"
-                      />
-                      <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                        <span>200px (compacto)</span><span>700px (ancho)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Grupo: Tipografía */}
-                  <div className="space-y-3 pt-3 border-t border-neutral-700/40">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Tipografía</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-gray-400 font-bold flex justify-between">
-                          <span>Etiqueta (Badge)</span>
-                          <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
-                        </label>
-                        <input
-                          type="range" min="8" max="30" step="1"
-                          value={streamSettings.overlay_notification_badge_size ?? 10}
-                          disabled={updatingStreamSettings}
-                          onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: parseInt(e.target.value, 10) } : null)}
-                          className="w-full accent-[#FFC200] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>30px</span></div>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-gray-400 font-bold flex justify-between">
-                          <span>Remitente</span>
-                          <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_sender_size ?? 11}px</span>
-                        </label>
-                        <input
-                          type="range" min="8" max="30" step="1"
-                          value={streamSettings.overlay_notification_sender_size ?? 11}
-                          disabled={updatingStreamSettings}
-                          onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_sender_size: parseInt(e.target.value, 10) } : null)}
-                          className="w-full accent-[#FFC200] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>30px</span></div>
-                      </div>
-                      <div className="space-y-1.5 sm:col-span-2">
-                        <label className="text-xs text-gray-400 font-bold flex justify-between">
-                          <span>Mensaje (Contenido)</span>
-                          <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
-                        </label>
-                        <input
-                          type="range" min="8" max="40" step="1"
-                          value={streamSettings.overlay_notification_content_size ?? 14}
-                          disabled={updatingStreamSettings}
-                          onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: parseInt(e.target.value, 10) } : null)}
-                          className="w-full accent-[#FFC200] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px (pequeño)</span><span>40px (grande)</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botones Guardar + Pruebas en OBS */}
-                  <div className="space-y-3 pt-3 border-t border-neutral-700/40">
-                    <button
-                      type="button"
-                      disabled={updatingStreamSettings}
-                      onClick={() => handleUpdateStreamSettings({
-                        overlayNotificationTop: streamSettings.overlay_notification_top,
-                        overlayNotificationWidth: streamSettings.overlay_notification_width,
-                        overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
-                        overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
-                        overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
-                      })}
-                      className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
-                    >
-                      {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
+                {/* Pruebas en OBS en vivo */}
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Probar en OBS en vivo</p>
+                  <div className="flex gap-2">
+                    <button type="button" disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('sound', 'sorpresa')}
+                      className="flex-1 py-2 px-2 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      {sendingTestEvent ? 'Enviando...' : '📡 Sonido en OBS'}
                     </button>
-
-                    {/* Pruebas locales */}
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Pruebas locales (Preview)</p>
-                      <div className="grid gap-2 grid-cols-2">
-                        <button type="button" onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
-                          className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
-                          🔊 Sonido
-                        </button>
-                        <button type="button" onClick={() => triggerLocalTestEvent('tts', '¡Hola stream, este es un texto de prueba!')}
-                          className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
-                          🗣️ TTS
-                        </button>
-                        <button type="button" onClick={() => triggerLocalTestEvent('animation', 'confetti')}
-                          className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
-                          🎉 Confetti
-                        </button>
-                        <button type="button" onClick={() => triggerLocalTestEvent('animation', 'eggs')}
-                          className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
-                          🐣 Huevos
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Pruebas en OBS en vivo */}
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Probar en OBS en vivo</p>
-                      <div className="flex gap-2">
-                        <button type="button" disabled={sendingTestEvent}
-                          onClick={() => triggerLiveTestEvent('sound', 'sorpresa')}
-                          className="flex-1 py-2 px-2 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
-                          {sendingTestEvent ? 'Enviando...' : '📡 Sonido en OBS'}
-                        </button>
-                        <button type="button" disabled={sendingTestEvent}
-                          onClick={() => triggerLiveTestEvent('tts', 'Mensaje de prueba en vivo desde el panel de administración')}
-                          className="flex-1 py-2 px-2 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
-                          {sendingTestEvent ? 'Enviando...' : '📡 TTS en OBS'}
-                        </button>
-                      </div>
-                    </div>
+                    <button type="button" disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('tts', 'Mensaje de prueba en vivo desde el panel de administración')}
+                      className="flex-1 py-2 px-2 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      {sendingTestEvent ? 'Enviando...' : '📡 TTS en OBS'}
+                    </button>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {/* ─── Preview OBS — en desktop va a la DERECHA, sticky ─── */}
-                <div className="hidden lg:flex flex-col items-center gap-3 px-5 py-4 border-l border-neutral-700/60 bg-neutral-900/30 lg:sticky lg:top-6 lg:self-start">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
-                  <div className="relative w-[220px] h-[390px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[28px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[8px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
+            {/* ─── Preview OBS — en desktop va a la DERECHA, sticky ─── */}
+            <div className="hidden lg:flex flex-col items-center gap-3 px-5 py-4 border-l border-neutral-700/60 bg-neutral-900/30 lg:sticky lg:top-6 lg:self-start">
+              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
+              <div className="relative w-[220px] h-[390px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[28px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
+                <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[8px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
 
-                    {simulatedEvent?.visible && (
-                      <div
-                        style={{
-                          top: `${(streamSettings.overlay_notification_top ?? 48) * 0.30}px`,
-                          width: `${(streamSettings.overlay_notification_width ?? 288) * 0.30}px`,
-                          maxWidth: '90%',
-                          transform: 'translateX(-50%)',
-                          position: 'absolute',
-                          left: '50%',
-                        }}
-                        className="bg-white border-2 border-black p-2 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1.5 z-20 animate-slide-in"
+                {simulatedEvent?.visible && (
+                  <div
+                    style={{
+                      top: `${(streamSettings.overlay_notification_top ?? 48) * 0.30}px`,
+                      width: `${(streamSettings.overlay_notification_width ?? 288) * 0.30}px`,
+                      maxWidth: '90%',
+                      transform: 'translateX(-50%)',
+                      position: 'absolute',
+                      left: '50%',
+                    }}
+                    className="bg-white border-2 border-black p-2 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1.5 z-20 animate-slide-in"
+                  >
+                    <div className="w-6 h-6 rounded bg-yellow-100 border border-black flex items-center justify-center text-xs shrink-0 select-none">
+                      {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
+                    </div>
+                    <div className="min-w-0 text-left flex-1 select-none">
+                      <span
+                        style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.65}px` }}
+                        className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
                       >
-                        <div className="w-6 h-6 rounded bg-yellow-100 border border-black flex items-center justify-center text-xs shrink-0 select-none">
-                          {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
-                        </div>
-                        <div className="min-w-0 text-left flex-1 select-none">
-                          <span
-                            style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.65}px` }}
-                            className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
-                          >
-                            {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
-                          </span>
-                          <p
-                            style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.65}px` }}
-                            className="font-black text-black truncate leading-tight mt-0.5 animate-pulse"
-                          >
-                            {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
-                          </p>
-                          <p
-                            style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.65}px` }}
-                            className="font-black text-gray-500 truncate leading-none mt-0.5"
-                          >
-                            Por: @{simulatedEvent.senderRobloxUser}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {simulatedAnimation && simulatedParticles.length > 0 && (
-                      <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                        {simulatedParticles.map((p) => {
-                          const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
-                          if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.4}px`, height: `${p.size * 0.8}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
-                          return <div key={p.id} style={s}>{p.char}</div>;
-                        })}
-                      </div>
-                    )}
+                        {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
+                      </span>
+                      <p
+                        style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.65}px` }}
+                        className="font-black text-black truncate leading-tight mt-0.5 animate-pulse"
+                      >
+                        {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
+                      </p>
+                      <p
+                        style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.65}px` }}
+                        className="font-black text-gray-500 truncate leading-none mt-0.5"
+                      >
+                        Por: @{simulatedEvent.senderRobloxUser}
+                      </p>
+                    </div>
                   </div>
-                  <style>{`
-                    @keyframes fall-animation-sim {
-                      0% { top: -30px; transform: translateY(0) rotate(0deg); }
-                      100% { top: 450px; transform: translateY(450px) rotate(360deg); }
-                    }
-                  `}</style>
-                  <p className="text-[9px] text-gray-600 font-mono text-center max-w-[200px] leading-relaxed">
-                    Mové los sliders y presioná un botón de prueba para ver la animación aquí
-                  </p>
-                </div>
+                )}
 
-              </div>{/* ← cierra flex flex-col lg:flex-row */}
-      </div>
+                {simulatedAnimation && simulatedParticles.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+                    {simulatedParticles.map((p) => {
+                      const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
+                      if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.4}px`, height: `${p.size * 0.8}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
+                      return <div key={p.id} style={s}>{p.char}</div>;
+                    })}
+                  </div>
+                )}
+              </div>
+              <style>{`
+                @keyframes fall-animation-sim {
+                  0% { top: -30px; transform: translateY(0) rotate(0deg); }
+                  100% { top: 450px; transform: translateY(450px) rotate(360deg); }
+                }
+              `}</style>
+              <p className="text-[9px] text-gray-600 font-mono text-center max-w-[200px] leading-relaxed">
+                Mové los sliders y presioná un botón de prueba para ver la animación aquí
+              </p>
+            </div>
+
+          </div>{/* ← cierra flex flex-col lg:flex-row */}
+        </div>
+      ) : (
+        <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
       )}
     </div>
   );
@@ -3331,6 +3334,8 @@ export default function AdminPage() {
         return renderAgenda();
       case 'stream':
         return renderStreamSettingsTab();
+      case 'overlay-design':
+        return renderOverlayDesignTab();
       case 'soundboard':
         return renderSoundboardTab();
       case 'stream-status':
@@ -3485,6 +3490,9 @@ export default function AdminPage() {
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Stream</p>
             <button type="button" onClick={() => { setActiveTab('stream'); setMobileMenuOpen(false); }} className={navBtnClass('stream')}>
               <span>📺</span> Ajustes de Cooldown
+            </button>
+            <button type="button" onClick={() => { setActiveTab('overlay-design'); setMobileMenuOpen(false); }} className={navBtnClass('overlay-design')}>
+              <span>🎨</span> Diseño del Pop-up
             </button>
             <button type="button" onClick={() => { setActiveTab('soundboard'); setMobileMenuOpen(false); }} className={navBtnClass('soundboard')}>
               <span>🔊</span> Botonera OBS
