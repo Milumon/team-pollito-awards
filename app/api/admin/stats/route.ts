@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // 4. Fetch profiles
     const { data: profData, error: profError } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin');
+      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin, testimonial, testimonial_approved');
 
     const hasProfilesTable = !profError;
     
@@ -75,6 +75,8 @@ export async function GET(request: NextRequest) {
       link_status: 'none' | 'pending' | 'approved' | 'rejected';
       rejection_reason: string | null;
       is_admin: boolean;
+      testimonial: string | null;
+      testimonial_approved: boolean;
     }
 
     const categories = (catData || []) as DbCategory[];
@@ -154,6 +156,8 @@ export async function GET(request: NextRequest) {
           link_status: 'none',
           rejection_reason: null,
           is_admin: false,
+          testimonial: null,
+          testimonial_approved: false,
         };
       }
 
@@ -188,10 +192,12 @@ export async function GET(request: NextRequest) {
         linkStatus: robloxProfile?.link_status || 'none',
         rejectionReason: robloxProfile?.rejection_reason || null,
         isAdmin: robloxProfile?.is_admin || false,
-        alreadyInterviewed: historyItem?.already_interviewed || false,
+        testimonial: robloxProfile?.testimonial || null,
+        testimonialApproved: robloxProfile?.testimonial_approved || false,
+        alreadyInterviewed: !!historyItem?.already_interviewed,
         votedCount: votedCategoriesCount,
+        votedPercentage: categories.length > 0 ? Math.round((votedCategoriesCount / categories.length) * 100) : 0,
         totalCategories: categories.length,
-        votedPercentage: Math.round((votedCategoriesCount / categories.length) * 100),
         votes: userVotesDetail,
       };
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

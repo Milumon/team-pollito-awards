@@ -62,6 +62,8 @@ type AdminUser = {
   totalCategories: number;
   votedPercentage: number;
   isAdmin: boolean;
+  testimonial: string | null;
+  testimonialApproved: boolean;
   votes: { categoryId: number; nomineeName: string }[];
 };
 
@@ -198,7 +200,7 @@ export default function AdminPage() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'soundboard' | 'stream-status'>('nominees');
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'soundboard' | 'stream-status' | 'testimonials'>('nominees');
   
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -231,6 +233,7 @@ export default function AdminPage() {
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [moderatingTestimonial, setModeratingTestimonial] = useState<string | null>(null);
 
   // Calculated properties
   const totalWithNickname = useMemo(() => nominees.filter(n => n.nickname).length, [nominees]);
@@ -1357,6 +1360,101 @@ export default function AdminPage() {
     );
   };
 
+  const handleTestimonialAction = async (userId: string, action: 'approve' | 'reject') => {
+    setModeratingTestimonial(userId);
+    try {
+      const response = await apiFetch('/api/admin/testimonials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action })
+      });
+      if (response.ok) {
+        await loadStats(statsPhase);
+      } else {
+        const err = await response.json();
+        alert(`Error: ${err.error || 'No se pudo procesar el testimonio'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de red al moderar testimonio.');
+    } finally {
+      setModeratingTestimonial(null);
+    }
+  };
+
+  const renderTestimonials = () => {
+    const usersWithTestimonials = stats?.users?.filter(u => u.testimonial) || [];
+    
+    return (
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in text-white">
+        <div>
+          <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Moderación</span>
+          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Testimonios de la Comunidad</h2>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Aprueba o elimina los mensajes de agradecimiento y testimonios dejados por los usuarios.</p>
+        </div>
+
+        {usersWithTestimonials.length === 0 ? (
+          <div className="py-16 text-center border border-dashed border-[#FFC200]/45 rounded-2xl">
+            <p className="font-bold text-white text-sm">No hay testimonios registrados</p>
+            <p className="text-xs text-gray-400 mt-1 font-medium">Los usuarios aún no han escrito opiniones.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {usersWithTestimonials.map((u) => (
+              <div key={u.id} className="bg-[#232428] border border-neutral-700/50 p-4 rounded-xl flex flex-col justify-between space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#1e1f22] overflow-hidden shrink-0">
+                      {u.robloxAvatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={u.robloxAvatarUrl} alt={u.robloxUser || ''} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm">🐣</div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs">{u.robloxDisplayName || 'Usuario'}</h4>
+                      <p className="text-[10px] text-gray-500 font-medium">@{u.robloxUser || 'no-vinculado'}</p>
+                    </div>
+                    <span className={`ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                      u.testimonialApproved 
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    }`}>
+                      {u.testimonialApproved ? 'Aprobado' : 'Pendiente'}
+                    </span>
+                  </div>
+                  <p className="text-xs italic text-gray-300 font-sans leading-relaxed bg-[#1e1f22] p-3 rounded-lg border border-neutral-800">
+                    "{u.testimonial}"
+                  </p>
+                </div>
+
+                <div className="flex gap-2 justify-end pt-2 border-t border-neutral-800">
+                  <button
+                    disabled={moderatingTestimonial !== null}
+                    onClick={() => handleTestimonialAction(u.id, 'reject')}
+                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97] disabled:opacity-50"
+                  >
+                    Eliminar
+                  </button>
+                  {!u.testimonialApproved && (
+                    <button
+                      disabled={moderatingTestimonial !== null}
+                      onClick={() => handleTestimonialAction(u.id, 'approve')}
+                      className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 text-emerald-400 rounded-xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97] disabled:opacity-50"
+                    >
+                      Aprobar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderAgenda = () => (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
       <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
@@ -1843,6 +1941,8 @@ export default function AdminPage() {
         return renderSoundboardTab();
       case 'stream-status':
         return renderStreamStatusMobileTab();
+      case 'testimonials':
+        return renderTestimonials();
       default:
         return renderOverview();
     }
@@ -1969,6 +2069,9 @@ export default function AdminPage() {
             </button>
             <button type="button" onClick={() => { setActiveTab('applications'); setMobileMenuOpen(false); }} className={navBtnClass('applications')}>
               <span>📝</span> Postulaciones
+            </button>
+            <button type="button" onClick={() => { setActiveTab('testimonials'); setMobileMenuOpen(false); }} className={navBtnClass('testimonials')}>
+              <span>💬</span> Testimonios
             </button>
           </div>
 

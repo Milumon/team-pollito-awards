@@ -49,6 +49,7 @@ type InterviewStatus = {
   testimonial?: string | null;
   testimonial_approved?: boolean;
   is_admin?: boolean;
+  already_interviewed?: boolean;
 };
 
 type Testimonial = {
@@ -936,20 +937,42 @@ export default function ComunidadPage() {
                     <h3 className="font-display font-bold text-lg text-amber-600">Entrevista Agendada</h3>
                     
                     <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl text-left space-y-1.5 font-sans text-sm">
-                      <p className="text-gray-600">
-                        📅 Fecha: <span className="font-semibold text-[#2D3139]">{statusInfo.interview_date ? formatDate(statusInfo.interview_date) : ''}</span>
-                      </p>
-                      <p className="text-gray-600">
-                        🕒 Hora: <span className="font-semibold text-[#2D3139]">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
-                      </p>
+                      {statusInfo.interview_date ? (
+                        <>
+                          <p className="text-gray-600">
+                            📅 Fecha: <span className="font-semibold text-[#2D3139]">{formatDate(statusInfo.interview_date)}</span>
+                          </p>
+                          <p className="text-gray-600">
+                            🕒 Hora: <span className="font-semibold text-[#2D3139]">{statusInfo.interview_time ? formatTime(statusInfo.interview_time) : ''} hs</span>
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-[#2D3139] font-semibold text-xs flex items-center gap-1">
+                          ⚡ Aprobación manual pendiente (Ya pasaste entrevista)
+                        </p>
+                      )}
                       <div className="border-t border-amber-100 pt-2 text-xs text-gray-400">
                         <p>• Roblox: @{statusInfo.roblox_user}</p>
                         <p>• TikTok: @{statusInfo.tiktok_user}</p>
                       </div>
                     </div>
-                    <p className="font-sans text-sm text-gray-500 leading-snug">
-                      Milumon te llamará en su transmisión. Ten Roblox abierto y permanece atento al directo.
+                    <p className="font-sans text-xs text-gray-500 leading-snug">
+                      {statusInfo.interview_date 
+                        ? 'Milumon te llamará en su transmisión. Ten Roblox abierto y permanece atento al directo.'
+                        : 'Tu solicitud de ingreso directo está siendo revisada por los administradores.'
+                      }
                     </p>
+                    <button
+                      onClick={() => {
+                        setRobloxUser(statusInfo.roblox_user || '');
+                        setTiktokUser(statusInfo.tiktok_user || '');
+                        setAlreadyInterviewed(statusInfo.already_interviewed || false);
+                        setIsRescheduling(true);
+                      }}
+                      className="w-full py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer mt-2"
+                    >
+                      Modificar datos / Reprogramar
+                    </button>
                   </div>
                 )}
 

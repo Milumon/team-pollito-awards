@@ -66,6 +66,51 @@ export async function POST(request: NextRequest) {
     }
     normalizedTiktok = normalizedTiktok.toLowerCase();
 
+    // Verify Roblox User exists
+    let robloxUserId: number | null = null;
+    let finalRobloxName = normalizedRoblox;
+    let avatarUrl: string | null = null;
+    try {
+      const robloxCheckRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0',
+        },
+        body: JSON.stringify({ usernames: [normalizedRoblox] }),
+      });
+      if (robloxCheckRes.ok) {
+        const robloxCheckData = (await robloxCheckRes.json()) as { data?: Array<{ id: number; name: string }> };
+        const robloxUserRecord = robloxCheckData.data?.[0];
+        if (robloxUserRecord && Number.isFinite(robloxUserRecord.id)) {
+          robloxUserId = robloxUserRecord.id;
+          finalRobloxName = robloxUserRecord.name;
+          
+          // Get avatar
+          const avatarRes = await fetch(
+            `https://thumbnails.roblox.com/v1/users/avatar?userIds=${robloxUserId}&size=420x420&format=Png&isCircular=false`,
+            { headers: { 'User-Agent': 'Mozilla/5.0' } }
+          );
+          if (avatarRes.ok) {
+            const avatarData = await avatarRes.json();
+            const item = avatarData?.data?.[0];
+            if (item?.state === 'Completed') {
+              avatarUrl = item.imageUrl || null;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error al verificar usuario de Roblox:', err);
+    }
+
+    if (!robloxUserId) {
+      return NextResponse.json(
+        { error: 'El usuario de Roblox ingresado no existe en Roblox. Por favor, verifica el nombre.' },
+        { status: 404 }
+      );
+    }
+
     // Check if the user is already an official member
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
@@ -78,6 +123,16 @@ export async function POST(request: NextRequest) {
         { error: 'Ya eres un miembro oficial de la comunidad.' },
         { status: 400 }
       );
+    }
+
+    // Release any existing slots booked by this user first to prevent slot leaks
+    const { error: releaseError } = await supabaseAdmin
+      .from('interview_slots')
+      .update({ is_booked: false, booked_by_user_id: null })
+      .eq('booked_by_user_id', user.id);
+
+    if (releaseError) {
+      console.warn('Fallo al liberar slots anteriores del usuario:', releaseError.message);
     }
 
     let interviewDate: string | null = null;
@@ -132,7 +187,7 @@ export async function POST(request: NextRequest) {
       .from('interview_history')
       .upsert(
         {
-          roblox_user: normalizedRoblox,
+          roblox_user: finalRobloxName,
           tiktok_user: normalizedTiktok,
           status: 'pending',
           interview_date: interviewDate,
@@ -163,8 +218,10 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .upsert({
         id: user.id,
-        roblox_user: normalizedRoblox,
-        roblox_display_name: normalizedRoblox,
+        roblox_user_id: robloxUserId,
+        roblox_user: finalRobloxName,
+        roblox_display_name: finalRobloxName,
+        roblox_avatar_url: avatarUrl,
         tiktok_user: normalizedTiktok,
         link_status: 'pending',
         testimonial: testimonial ? String(testimonial).trim() : null,

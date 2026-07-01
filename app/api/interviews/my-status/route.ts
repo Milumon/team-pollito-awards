@@ -81,15 +81,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // If profile has status, but no history record matches
+    // If profile has status, but no history record matches, they are out of sync (e.g. history was deleted).
+    // Reset profile link status to 'none' to maintain consistency.
     if (profile && profile.link_status !== 'none') {
-      return NextResponse.json({
-        status: profile.link_status,
-        roblox_user: profile.roblox_user,
-        tiktok_user: profile.tiktok_user,
-        rejection_reason: profile.rejection_reason,
-        is_admin: isAdminUser,
-      });
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          link_status: 'none',
+          roblox_user: null,
+          roblox_display_name: null,
+          roblox_avatar_url: null,
+          roblox_user_id: null,
+          tiktok_user: null,
+          rejection_reason: null
+        })
+        .eq('id', user.id);
     }
 
     return NextResponse.json({ status: 'none', is_admin: isAdminUser });
