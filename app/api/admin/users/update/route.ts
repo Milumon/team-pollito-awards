@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, robloxUsername, tiktokUsername, linkStatus, rejectionReason } = body;
+    const { userId, robloxUsername, tiktokUsername, linkStatus, rejectionReason, forceClaim } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'El parámetro "userId" es requerido.' }, { status: 400 });
@@ -128,6 +128,19 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (duplicateProfile) {
+          if (!forceClaim) {
+            const { data: { user: conflictedUser } } = await supabaseAdmin.auth.admin.getUserById(duplicateProfile.id);
+            const emailText = conflictedUser?.email ? maskEmail(conflictedUser.email) : 'otro usuario';
+            return NextResponse.json(
+              { 
+                error: `Esta cuenta de Roblox ya está vinculada al correo ${emailText}.`,
+                isDuplicate: true,
+                conflictedEmail: emailText
+              },
+              { status: 400 }
+            );
+          }
+
           // Desvincular al usuario anterior
           await supabaseAdmin
             .from('profiles')

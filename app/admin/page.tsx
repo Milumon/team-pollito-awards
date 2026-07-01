@@ -231,6 +231,10 @@ export default function AdminPage() {
     rejectionReason: '',
   });
   const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [isValidatingRoblox, setIsValidatingRoblox] = useState(false);
+  const [adminIsDuplicate, setAdminIsDuplicate] = useState(false);
+  const [adminConflictedEmail, setAdminConflictedEmail] = useState('');
+  const [adminForceClaim, setAdminForceClaim] = useState(false);
 
   // Active Nominee Drawer State
   const [editingNominee, setEditingNominee] = useState<AdminNominee | null>(null);
@@ -898,11 +902,56 @@ export default function AdminPage() {
       rejectionReason: u.rejectionReason || '',
     });
     setEditFormError(null);
+    setAdminIsDuplicate(false);
+    setAdminConflictedEmail('');
+    setAdminForceClaim(false);
+    setIsValidatingRoblox(false);
+  };
+
+  const handleAdminVerifyRoblox = async () => {
+    setEditFormError(null);
+    setAdminIsDuplicate(false);
+    setAdminConflictedEmail('');
+    setAdminForceClaim(false);
+
+    if (!editForm.robloxUsername.trim()) {
+      setEditFormError('El nombre de usuario de Roblox es obligatorio.');
+      return;
+    }
+
+    setIsValidatingRoblox(true);
+    try {
+      const response = await apiFetch('/api/profile/verify-roblox', {
+        method: 'POST',
+        body: JSON.stringify({ robloxUsername: editForm.robloxUsername.trim() }),
+      });
+      const data = await readApiPayload(response);
+
+      if (!response.ok) {
+        if (data.isDuplicate) {
+          setAdminIsDuplicate(true);
+          setAdminConflictedEmail(data.conflictedEmail || '');
+        }
+        setEditFormError(data.error || 'No se pudo validar el usuario de Roblox.');
+      } else {
+        setStatus('Usuario de Roblox verificado correctamente.');
+      }
+    } catch (err) {
+      setEditFormError('Error al conectar con el servidor.');
+    } finally {
+      setIsValidatingRoblox(false);
+    }
   };
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
+
+    if (adminIsDuplicate && !adminForceClaim) {
+      setEditFormError('Por favor confirma la reasignación forzada de la cuenta de Roblox.');
+      return;
+    }
+
     setUpdatingUser(true);
     setEditFormError(null);
     try {
@@ -914,6 +963,7 @@ export default function AdminPage() {
           tiktokUsername: editForm.tiktokUsername,
           linkStatus: editForm.linkStatus,
           rejectionReason: editForm.rejectionReason,
+          forceClaim: adminForceClaim,
         }),
       });
       const data = await readApiPayload(response);
@@ -3630,15 +3680,51 @@ export default function AdminPage() {
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Usuario Roblox</label>
-                    <input
-                      type="text"
-                      value={editForm.robloxUsername}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, robloxUsername: e.target.value }))}
-                      placeholder="Username de Roblox..."
-                      className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium"
-                    />
-                    <p className="text-[9px] text-gray-500 font-medium">Se validará contra la API oficial de Roblox al guardar.</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={editForm.robloxUsername}
+                        onChange={(e) => {
+                          setEditForm(prev => ({ ...prev, robloxUsername: e.target.value }));
+                          setAdminIsDuplicate(false);
+                          setAdminConflictedEmail('');
+                          setAdminForceClaim(false);
+                          setEditFormError(null);
+                        }}
+                        placeholder="Username de Roblox..."
+                        className="flex-grow px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium font-sans"
+                      />
+                      <button
+                        type="button"
+                        disabled={isValidatingRoblox || !editForm.robloxUsername.trim()}
+                        onClick={handleAdminVerifyRoblox}
+                        className="px-4 py-2 bg-[#2b2d31] hover:bg-neutral-800 text-white font-display font-semibold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        {isValidatingRoblox ? 'Validando...' : 'Validar'}
+                      </button>
+                    </div>
+                    <p className="text-[9px] text-gray-500 font-medium font-sans">Se validará contra la API oficial de Roblox al guardar.</p>
                   </div>
+
+                  {adminIsDuplicate && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 font-sans">
+                      <p className="text-xs text-amber-400 font-semibold leading-relaxed">
+                        ⚠️ Esta cuenta de Roblox ya está vinculada al correo <span className="underline">{adminConflictedEmail}</span>.
+                      </p>
+                      <label className="flex items-center gap-2 text-xs font-semibold text-amber-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={adminForceClaim}
+                          onChange={(e) => {
+                            setAdminForceClaim(e.target.checked);
+                            if (e.target.checked) setEditFormError(null);
+                          }}
+                          className="rounded text-[#FFC200] bg-[#171A20] border-neutral-700/60 focus:ring-[#FFC200]/30"
+                        />
+                        Confirmar reasignación forzada de cuenta
+                      </label>
+                    </div>
+                  )}
 
                   <div className="space-y-1.5">
                     <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Usuario TikTok</label>
