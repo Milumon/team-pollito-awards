@@ -43,11 +43,9 @@ export default function RobloxOnboarding({
   } | null>(null);
 
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-  const [prevProfile, setPrevProfile] = useState(currentProfile);
 
-  if (isOpen !== prevIsOpen || currentProfile !== prevProfile) {
+  if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
-    setPrevProfile(currentProfile);
 
     if (isOpen) {
       if (currentProfile) {
