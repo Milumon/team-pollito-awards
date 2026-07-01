@@ -291,6 +291,7 @@ export default function AdminPage() {
   const [canvasFitScale, setCanvasFitScale] = useState(0.3);
   const [zoomLevel, setZoomLevel] = useState<'fit' | 0.75 | 1 | 1.25>('fit');
   const [designerMobileTab, setDesignerMobileTab] = useState<'controls' | 'preview'>('controls');
+  const [showBackgroundGuide, setShowBackgroundGuide] = useState(true);
 
   // Siempre mostrar el popup estático mientras el usuario edita
   const staticPreviewEvent = streamSettings ? {
@@ -2544,21 +2545,35 @@ export default function AdminPage() {
               {/* Barra de zoom */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700/40 shrink-0">
                 <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Canvas OBS</span>
-                <div className="flex gap-1">
-                  {(['fit', 0.75, 1, 1.25] as const).map((z) => (
-                    <button
-                      key={String(z)}
-                      type="button"
-                      onClick={() => setZoomLevel(z)}
-                      className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase transition-colors ${
-                        zoomLevel === z
-                          ? 'bg-[#FFC200] text-black'
-                          : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700'
-                      }`}
-                    >
-                      {z === 'fit' ? 'Fit' : `${Math.round(z * 100)}%`}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowBackgroundGuide(!showBackgroundGuide)}
+                    className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase transition-colors border ${
+                      showBackgroundGuide
+                        ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/30 hover:bg-[#FFC200]/20'
+                        : 'bg-neutral-800 text-gray-400 border-transparent hover:bg-neutral-700'
+                    }`}
+                  >
+                    🖼️ Guía: {showBackgroundGuide ? 'ON' : 'OFF'}
+                  </button>
+
+                  <div className="flex gap-1">
+                    {(['fit', 0.75, 1, 1.25] as const).map((z) => (
+                      <button
+                        key={String(z)}
+                        type="button"
+                        onClick={() => setZoomLevel(z)}
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase transition-colors ${
+                          zoomLevel === z
+                            ? 'bg-[#FFC200] text-black'
+                            : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700'
+                        }`}
+                      >
+                        {z === 'fit' ? 'Fit' : `${Math.round(z * 100)}%`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -2590,6 +2605,7 @@ export default function AdminPage() {
                   animation={simulatedAnimation}
                   particles={simulatedParticles}
                   senderLabel={simulatedEvent?.visible ? simulatedEvent.senderRobloxUser : 'MilumonGaming'}
+                  showBackgroundGuide={showBackgroundGuide}
                 />
               </div>
             </div>

@@ -88,6 +88,9 @@ interface OverlayCanvasProps {
 
   /** Nombre a mostrar en el widget. Si no se pasa usa sender_roblox_user del evento. */
   senderLabel?: string;
+
+  /** Mostrar imagen de guía de diseño de fondo (en modo preview) */
+  showBackgroundGuide?: boolean;
 }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
@@ -112,6 +115,7 @@ export function OverlayCanvas({
   onInteraction,
   staticPreview = false,
   senderLabel,
+  showBackgroundGuide = false,
 }: OverlayCanvasProps) {
   const top = settings.overlay_notification_top ?? 48;
   const width = settings.overlay_notification_width ?? 288;
@@ -160,10 +164,16 @@ export function OverlayCanvas({
           top: 0,
           left: 0,
           background: isObs ? 'transparent' : undefined,
+          backgroundImage: isPreview && showBackgroundGuide ? 'url("/images/916 vertical layout.png")' : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
         }}
         className={
-          isPreview
+          isPreview && !showBackgroundGuide
             ? 'bg-neutral-950 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px]'
+            : isPreview
+            ? 'bg-neutral-950'
             : ''
         }
       >
