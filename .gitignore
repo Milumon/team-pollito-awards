@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI agent config (not part of the app)
+.agents/
+
+# Scratch / temp files
+lint.txt
+lint_utf8.txt
+pnpm-lock.yaml.*
+historical_interviews_backup.json
+skills-lock.json

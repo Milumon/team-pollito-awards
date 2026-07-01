@@ -68,7 +68,7 @@ export async function generateTtsAudio(text: string): Promise<Buffer> {
     voice: {
       languageCode: 'es-US',
       name: 'es-US-Neural2-C', // Spanish neural voice
-      ssmlGender: 'FEMALE',
+      ssmlGender: 'MALE',
     },
     audioConfig: {
       audioEncoding: 'MP3',

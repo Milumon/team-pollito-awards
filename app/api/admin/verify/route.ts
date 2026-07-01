@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { tagRobloxUser } from '@/lib/robloxAdmin';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
+import { logAdminAction } from '@/lib/auditLogger';
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isAuthorized(request)) {
+    if (!await isAuthorized(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    let adminEmail = 'admin-token@system';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring('Bearer '.length);
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user?.email) adminEmail = user.email;
     }
 
     const body = await request.json();
@@ -143,6 +147,18 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    // Registrar log de auditoría
+    let auditAction = 'Postulación procesada';
+    if (action === 'approve') auditAction = 'Aprobó postulación VIP';
+    else if (action === 'reject') auditAction = 'Rechazó postulación VIP';
+    else if (action === 'revoke') auditAction = 'Revocó membresía VIP';
+
+    await logAdminAction(adminEmail, auditAction, {
+      target_user_id: userId,
+      roblox_user: profile.roblox_user,
+      reason: rejectionReason || null
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

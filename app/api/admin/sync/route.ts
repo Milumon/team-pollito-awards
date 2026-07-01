@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
 
 function getVmConfig() {
   const vmBaseUrl = process.env.ROBLOX_ALEXA_VM_URL || '';
@@ -19,7 +14,7 @@ function getVmConfig() {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isAuthorized(request)) {
+    if (!await isAuthorized(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -52,7 +47,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    if (!isAuthorized(request)) {
+    if (!await isAuthorized(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

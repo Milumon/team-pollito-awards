@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const queryToken = searchParams.get('token') || '';
-    const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-
-    const isAuthorizedRequest = isAuthorized(request) || (Boolean(adminToken) && queryToken === adminToken);
+    const isAuthorizedRequest = await isAuthorized(request);
 
     if (!isAuthorizedRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

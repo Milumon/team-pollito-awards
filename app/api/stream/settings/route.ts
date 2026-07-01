@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
+import { logAdminAction } from '@/lib/auditLogger';
 
 export async function GET() {
   try {
@@ -38,15 +34,35 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   try {
-    const body = await request.json();
-    const { isMuted, globalCooldown, personalCooldown } = body;
+    const authHeader = request.headers.get('Authorization');
+    let adminEmail = 'admin-token@system';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring('Bearer '.length);
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user?.email) adminEmail = user.email;
+    }
 
-    const updates: Record<string, string | number | boolean> = {};
+    const body = await request.json();
+    const { isMuted, globalCooldown, personalCooldown, heartbeat } = body;
+
+    const updates: Record<string, string | number | boolean | null> = {};
+
+    // Caso Heartbeat de OBS Overlay
+    if (heartbeat === true) {
+      const { error: hbError } = await supabaseAdmin
+        .from('stream_settings')
+        .update({ overlay_active_at: new Date().toISOString() })
+        .eq('id', 1);
+
+      if (hbError) throw hbError;
+      return NextResponse.json({ success: true, message: 'Overlay heartbeat registrado.' });
+    }
+
     if (typeof isMuted === 'boolean') updates.is_muted = isMuted;
     if (typeof globalCooldown === 'number') updates.global_cooldown_seconds = globalCooldown;
     if (typeof personalCooldown === 'number') updates.personal_cooldown_seconds = personalCooldown;
@@ -60,6 +76,25 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Si se activa el Botón de Pánico (mutear), vaciamos automáticamente la cola de la DB
+    if (isMuted === true) {
+      const { error: clearError } = await supabaseAdmin
+        .from('stream_events')
+        .update({ played: true })
+        .eq('played', false);
+      
+      if (clearError) {
+        console.error('[Panic Button Clear Queue Warning]:', clearError.message);
+      }
+    }
+
+    // Registrar log de auditoría
+    let actionLabel = 'Modificó configuraciones del directo';
+    if (isMuted !== undefined) {
+      actionLabel = isMuted ? 'Muteó el directo (Botón Pánico)' : 'Desmuteó el directo';
+    }
+    await logAdminAction(adminEmail, actionLabel, updates);
 
     return NextResponse.json({ success: true, settings: data });
   } catch (error) {

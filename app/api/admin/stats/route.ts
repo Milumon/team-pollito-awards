@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { CATEGORY_FINALISTS } from '@/src/data/categories_phase2';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -44,7 +39,7 @@ export async function GET(request: NextRequest) {
     // 4. Fetch profiles
     const { data: profData, error: profError } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason');
+      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin');
 
     const hasProfilesTable = !profError;
     
@@ -79,6 +74,7 @@ export async function GET(request: NextRequest) {
       tiktok_user: string | null;
       link_status: 'none' | 'pending' | 'approved' | 'rejected';
       rejection_reason: string | null;
+      is_admin: boolean;
     }
 
     const categories = (catData || []) as DbCategory[];
@@ -87,7 +83,10 @@ export async function GET(request: NextRequest) {
     const profilesList = hasProfilesTable ? ((profData || []) as DbProfile[]) : [];
 
     // 5. Fetch auth users
-    const { data: { users: authUsers }, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users: authUsers }, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    });
     if (authUsersError) throw new Error(authUsersError.message);
 
     // --- PROCESS VOTE STATS ---
@@ -149,6 +148,7 @@ export async function GET(request: NextRequest) {
           tiktok_user: null,
           link_status: 'none',
           rejection_reason: null,
+          is_admin: false,
         };
       }
 
@@ -180,6 +180,7 @@ export async function GET(request: NextRequest) {
         tiktokUser: robloxProfile?.tiktok_user || null,
         linkStatus: robloxProfile?.link_status || 'none',
         rejectionReason: robloxProfile?.rejection_reason || null,
+        isAdmin: robloxProfile?.is_admin || false,
         votedCount: votedCategoriesCount,
         totalCategories: categories.length,
         votedPercentage: Math.round((votedCategoriesCount / categories.length) * 100),

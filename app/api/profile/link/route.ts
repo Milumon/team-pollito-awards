@@ -136,6 +136,16 @@ export async function POST(request: NextRequest) {
     const linkStatus = isAlreadyOfficial ? 'approved' : 'pending';
     const robloxVerifiedAt = isAlreadyOfficial ? new Date().toISOString() : null;
 
+    // Obtener perfil existente para verificar si tiene nickname personalizado (🐣)
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('roblox_display_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const isCustomNickname = !!(existingProfile?.roblox_display_name?.startsWith('🐣') && existingProfile?.roblox_display_name?.endsWith('🐣'));
+    const finalDisplayName = isCustomNickname ? existingProfile!.roblox_display_name : displayName;
+
     // Upsert into profiles
     const { data: updatedProfile, error: upsertError } = await supabaseAdmin
       .from('profiles')
@@ -144,7 +154,7 @@ export async function POST(request: NextRequest) {
           id: user.id,
           roblox_user_id: robloxUserId,
           roblox_user: robloxUser,
-          roblox_display_name: displayName,
+          roblox_display_name: finalDisplayName,
           roblox_avatar_url: avatarUrl,
           roblox_verified_at: robloxVerifiedAt,
           tiktok_user: normalizedTiktok,

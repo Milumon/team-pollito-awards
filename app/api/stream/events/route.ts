@@ -20,35 +20,11 @@ export async function GET() {
 }
 
 // POST: Trigger a new stream event (sound, tts, animation)
+// POST: Trigger a new stream event (sound, tts, animation)
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate user
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    const token = authHeader.substring('Bearer '.length);
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    // 2. Fetch user's profile and check approved status
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('roblox_user, tiktok_user, link_status')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profileError || !profile || profile.link_status !== 'approved') {
-      return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
-    }
-
-    // 3. Parse and validate body
     const body = await request.json();
-    const { type, content } = body;
+    const { type, content, tiktokUser } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
@@ -62,6 +38,81 @@ export async function POST(request: NextRequest) {
       if (content.length > 120) {
         return NextResponse.json({ error: 'El TTS no puede superar los 120 caracteres' }, { status: 400 });
       }
+
+      // Filtro de moderación automática de palabras prohibidas
+      const forbiddenWords = [
+        'mierda', 'puto', 'puta', 'concha', 'culiando', 'culiado', 'culiada', 'culazo', 'maricon', 'marica',
+        'hijueputa', 'hijo de puta', 'idiota', 'imbecil', 'estupido', 'hdp', 'fuck', 'ass', 'bitch', 'porn',
+        'sexo', 'pene', 'vagina', 'teta', 'caca', 'pedofilo', 'pinga', 'boludo', 'pelotudo', 'gonorrea',
+        'weon', 'culon', 'culona', 'basura'
+      ];
+      
+      const normalizedContent = content
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+      
+      const containsForbidden = forbiddenWords.some(word => normalizedContent.includes(word));
+
+      if (containsForbidden) {
+        return NextResponse.json({
+          error: 'Tu mensaje contiene palabras no permitidas. Por favor mantén el chat amigable para la bandada 🐣.'
+        }, { status: 400 });
+      }
+    }
+
+    let profile: { id: string; roblox_user: string | null; tiktok_user: string | null; link_status: string | null } | null = null;
+    let finalUserId: string = '';
+
+    const bridgeToken = request.headers.get('x-bridge-token');
+    const systemBridgeKey = process.env.BRIDGE_API_KEY || '';
+    const isBridgeRequest = Boolean(systemBridgeKey) && bridgeToken === systemBridgeKey;
+
+    if (isBridgeRequest) {
+      if (!tiktokUser || !tiktokUser.trim()) {
+        return NextResponse.json({ error: 'Falta tiktokUser en la petición del puente' }, { status: 400 });
+      }
+
+      // Look up profile by tiktok_user
+      const { data, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, roblox_user, tiktok_user, link_status')
+        .ilike('tiktok_user', tiktokUser.trim())
+        .maybeSingle();
+
+      if (profileError || !data || data.link_status !== 'approved') {
+        return NextResponse.json({ error: 'Membresía no aprobada o no encontrada' }, { status: 403 });
+      }
+
+      profile = data;
+      finalUserId = data.id;
+    } else {
+      // 1. Authenticate user
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      }
+
+      const token = authHeader.substring('Bearer '.length);
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+      if (authError || !user) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      }
+
+      // 2. Fetch user's profile and check approved status
+      const { data, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, roblox_user, tiktok_user, link_status')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileError || !data || data.link_status !== 'approved') {
+        return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
+      }
+
+      profile = data;
+      finalUserId = user.id;
     }
 
     // 4. Fetch stream settings (Panic Button & Cooldowns)
@@ -108,12 +159,12 @@ export async function POST(request: NextRequest) {
     // B. Personal Cooldown Check (specific to type)
     const cooldownLimit = type === 'tts'
       ? settings.personal_cooldown_seconds * 1000
-      : 60 * 1000; // 60 seconds personal cooldown for sounds/animations
+      : Math.min(60 * 1000, settings.personal_cooldown_seconds * 1000); // Respect dynamic personal cooldown up to 60s max for sounds/animations
 
     const { data: lastUserEvent, error: lastUserError } = await supabaseAdmin
       .from('stream_events')
       .select('created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', finalUserId)
       .eq('type', type)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -137,7 +188,7 @@ export async function POST(request: NextRequest) {
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')
       .insert({
-        user_id: user.id,
+        user_id: finalUserId,
         type,
         content: content.trim(),
         sender_roblox_user: profile.roblox_user,

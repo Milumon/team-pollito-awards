@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,6 +8,8 @@ import { Category } from '@/src/types';
 import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
+import dynamic from 'next/dynamic';
+const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
@@ -223,6 +225,7 @@ export default function AdminPage() {
   const [loadingSounds, setLoadingSounds] = useState(false);
   const [soundName, setSoundName] = useState('');
   const [soundFile, setSoundFile] = useState<File | null>(null);
+  const [soundTrim, setSoundTrim] = useState<{ start: number; end: number } | null>(null);
   const [submittingSound, setSubmittingSound] = useState(false);
 
   // Audit Logs
@@ -691,7 +694,19 @@ export default function AdminPage() {
       let processedFile: File | Blob = soundFile;
       if (soundFile.type !== 'audio/mpeg' && !soundFile.name.endsWith('.mp3')) {
         setStatus('Convirtiendo audio a MP3...');
-        processedFile = await convertAudioToMp3(soundFile);
+        processedFile = await convertAudioToMp3(
+          soundFile,
+          soundTrim?.start,
+          soundTrim?.end
+        );
+      } else if (soundTrim) {
+        // mp3 but user set a trim — still convert to apply the trim
+        setStatus('Recortando audio...');
+        processedFile = await convertAudioToMp3(
+          soundFile,
+          soundTrim.start,
+          soundTrim.end
+        );
       }
 
       const soundId = soundName.trim()
@@ -723,6 +738,7 @@ export default function AdminPage() {
       setStatus('Sonido agregado a la botonera.');
       setSoundName('');
       setSoundFile(null);
+      setSoundTrim(null);
       await loadSounds();
       await loadAuditLogs();
       setTimeout(() => setStatus(null), 3000);
@@ -1648,19 +1664,30 @@ export default function AdminPage() {
 
           <label className="block space-y-1">
             <span className="text-xs text-gray-500">Archivo de Audio</span>
-            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center ">
+            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
               <input
                 type="file"
                 accept="audio/*"
-                onChange={(e) => setSoundFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  setSoundFile(f);
+                  setSoundTrim(null);
+                }}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-              <p className="text-[10px] text-gray-400 font-bold truncate">
+              <p className="text-[10px] text-gray-400 font-medium truncate">
                 {soundFile ? soundFile.name : 'Elegir archivo audio'}
               </p>
             </div>
           </label>
+
+          {soundFile && (
+            <AudioPreview
+              file={soundFile}
+              onTrimChange={(start, end) => setSoundTrim({ start, end })}
+            />
+          )}
 
           <button
             type="submit"

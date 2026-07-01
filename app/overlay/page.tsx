@@ -53,6 +53,14 @@ export default function ObsOverlayPage() {
   const [settings, setSettings] = useState<StreamSettings | null>(null);
   const [soundsMap, setSoundsMap] = useState<Record<string, { url: string; name: string }>>({});
   const [needsInteraction, setNeedsInteraction] = useState(false);
+  const [isDebug, setIsDebug] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setIsDebug(params.get('debug') === 'true');
+    }
+  }, []);
 
   // Queue state
   const [isPlaying, setIsPlaying] = useState(false);
@@ -367,6 +375,33 @@ export default function ObsOverlayPage() {
     };
   }, [authorized, loadSounds]);
 
+  // Heartbeat del Overlay para certificar conectividad
+  useEffect(() => {
+    if (!authorized || !token) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        await fetch('/api/stream/settings', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-admin-token': token,
+          },
+          body: JSON.stringify({ heartbeat: true }),
+        });
+      } catch (err) {
+        console.error('[Overlay Heartbeat Error]:', err);
+      }
+    };
+
+    void sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 15000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [authorized, token]);
+
   // Handle Realtime updates (stream_events & stream_settings)
   useEffect(() => {
     if (!authorized || !token) return;
@@ -508,111 +543,118 @@ export default function ObsOverlayPage() {
   const isMuted = settings?.is_muted;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-transparent select-none pointer-events-none font-sans">
+    <div className="relative w-screen h-screen overflow-hidden bg-transparent select-none pointer-events-none font-sans flex items-center justify-center">
       
-      {/* Hidden audio element for MP3 playback */}
-      <audio
-        ref={audioPlayerRef}
-        onEnded={handleAudioEnded}
-        onError={handleAudioError}
-        className="hidden"
-      />
+      {/* 9:16 Fixed Aspect Container */}
+      <div 
+        className={`relative aspect-[9/16] h-full overflow-hidden bg-transparent ${
+          isDebug ? 'border-4 border-dashed border-[#FFD700]/60 bg-black/10' : ''
+        }`}
+      >
+        {/* Hidden audio element for MP3 playback */}
+        <audio
+          ref={audioPlayerRef}
+          onEnded={handleAudioEnded}
+          onError={handleAudioError}
+          className="hidden"
+        />
 
-      {/* USER INTERACTION OVERLAY (Autoplay bypass) */}
-      {needsInteraction && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center pointer-events-auto z-50">
-          <button
-            onClick={() => {
-              remoteLog('INFO', 'Interacción del usuario detectada. Desbloqueando audio y reanudando cola...');
-              setNeedsInteraction(false);
-              // Unlock audio context by playing a silent brief source or just re-triggering playNext
-              if (audioPlayerRef.current) {
-                audioPlayerRef.current.play().catch(() => {});
+        {/* USER INTERACTION OVERLAY (Autoplay bypass) */}
+        {needsInteraction && (
+          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center pointer-events-auto z-50 p-6 text-center">
+            <button
+              onClick={() => {
+                remoteLog('INFO', 'Interacción del usuario detectada. Desbloqueando audio y reanudando cola...');
+                setNeedsInteraction(false);
+                // Unlock audio context
+                if (audioPlayerRef.current) {
+                  audioPlayerRef.current.play().catch(() => {});
+                }
+                setTimeout(() => {
+                  playNextRef.current();
+                }, 100);
+              }}
+              className="px-6 py-4 bg-[#FFD700] hover:bg-yellow-300 text-black font-black uppercase text-xs rounded-xl border-2 border-black transition-all flex items-center gap-2 shadow-[4px_4px_0_0_#000] cursor-pointer"
+            >
+              🔊 Habilitar Audio del Overlay
+            </button>
+          </div>
+        )}
+
+        {/* PANIC BUTTON WARNING INDICATOR */}
+        {isMuted && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center border-4 border-red-600 animate-pulse z-40">
+            <div className="bg-red-600 border-2 border-black p-4 rounded-xl text-white font-black text-sm uppercase tracking-wider shadow-[4px_4px_0_0_#000]">
+              🔇 MUTED
+            </div>
+          </div>
+        )}
+
+        {/* EVENT NOTIFIER WIDGET (Centered Top inside the 9:16 view) */}
+        {isPlaying && currentEvent && !isMuted && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 bg-white border-2 border-black p-3 rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2.5 animate-slide-in w-[90%] max-w-xs pointer-events-auto z-30">
+            <div className="w-8 h-8 rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0">
+              {currentEvent.type === 'sound' ? '🔊' : currentEvent.type === 'tts' ? '🗣️' : '✨'}
+            </div>
+            <div className="min-w-0 text-left flex-1">
+              <span className="bg-[#ea580c] text-white border border-black rounded px-1 text-[7px] font-black uppercase">
+                {currentEvent.type === 'sound' ? 'VIP Sound' : currentEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
+              </span>
+              <p className="font-black text-[10px] text-black truncate mt-0.5 leading-tight">
+                {currentEvent.type === 'tts' 
+                  ? `"${currentEvent.content}"` 
+                  : currentEvent.type === 'sound' 
+                  ? `Sonido: ${soundsMap[currentEvent.content.replace('.mp3', '')]?.name || currentEvent.content}` 
+                  : `Animación: ${currentEvent.content}`}
+              </p>
+              <p className="text-[8px] font-black text-gray-500 truncate mt-0.5">
+                Por: @{currentEvent.sender_roblox_user || 'VIP'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* PARTICLE ANIMATION CANVAS ENGINE */}
+        {activeAnimation && particles.length > 0 && !isMuted && (
+          <div className="absolute inset-0 w-full h-full pointer-events-none z-20">
+            {particles.map((p) => {
+              const style: React.CSSProperties = {
+                position: 'absolute',
+                top: '-40px',
+                left: `${p.left}%`,
+                fontSize: `${p.size}px`,
+                animationDelay: `${p.delay}s`,
+                animationDuration: `${p.duration}s`,
+                animationName: 'fall-animation',
+                animationTimingFunction: 'linear',
+                animationFillMode: 'forwards',
+                transform: `rotate(${p.rotation}deg)`,
+              };
+
+              if (activeAnimation === 'confetti') {
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      ...style,
+                      width: `${p.size * 0.4}px`,
+                      height: `${p.size * 0.8}px`,
+                      backgroundColor: p.color,
+                      borderRadius: '2px',
+                    }}
+                  />
+                );
               }
-              setTimeout(() => {
-                playNextRef.current();
-              }, 100);
-            }}
-            className="px-8 py-5 bg-[#FFD700] hover:bg-yellow-300 text-black font-black uppercase text-lg rounded-[2rem] border-4 border-black transition-all flex items-center gap-3 shadow-[8px_8px_0_0_#000] cursor-pointer"
-          >
-            🔊 Habilitar Audio del Overlay
-          </button>
-        </div>
-      )}
 
-      {/* PANIC BUTTON WARNING INDICATOR */}
-      {isMuted && (
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center border-8 border-red-600 animate-pulse">
-          <div className="bg-red-600 border-4 border-black p-6 rounded-2xl text-white font-black text-2xl uppercase tracking-wider shadow-[8px_8px_0_0_#000]">
-            🔇 PANIC MODE: MUTED
-          </div>
-        </div>
-      )}
-
-      {/* EVENT NOTIFIER WIDGET (Top-Right Alert Card) */}
-      {isPlaying && currentEvent && !isMuted && (
-        <div className="absolute top-6 right-6 bg-white border-4 border-black p-4 rounded-2xl shadow-[6px_6px_0_0_rgba(0,0,0,1)] flex items-center gap-3 animate-slide-in min-w-[260px] max-w-sm pointer-events-auto">
-          <div className="w-10 h-10 rounded-xl bg-yellow-100 border-2 border-black flex items-center justify-center text-xl shrink-0">
-            {currentEvent.type === 'sound' ? '🔊' : currentEvent.type === 'tts' ? '🗣️' : '✨'}
-          </div>
-          <div className="min-w-0 text-left">
-            <span className="bg-[#ea580c] text-white border border-black rounded px-1 text-[8px] font-black uppercase">
-              {currentEvent.type === 'sound' ? 'VIP Sound' : currentEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
-            </span>
-            <p className="font-black text-xs text-black truncate mt-0.5">
-              {currentEvent.type === 'tts' 
-                ? `"${currentEvent.content}"` 
-                : currentEvent.type === 'sound' 
-                ? `Sonido: ${soundsMap[currentEvent.content.replace('.mp3', '')]?.name || currentEvent.content}` 
-                : `Animación: ${currentEvent.content}`}
-            </p>
-            <p className="text-[9px] font-black text-gray-500 truncate">
-              Por: @{currentEvent.sender_roblox_user || 'VIP'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* PARTICLE ANIMATION CANVAS ENGINE */}
-      {activeAnimation && particles.length > 0 && !isMuted && (
-        <div className="absolute inset-0 w-full h-full pointer-events-none">
-          {particles.map((p) => {
-            const style: React.CSSProperties = {
-              position: 'absolute',
-              top: '-40px',
-              left: `${p.left}%`,
-              fontSize: `${p.size}px`,
-              animationDelay: `${p.delay}s`,
-              animationDuration: `${p.duration}s`,
-              animationName: 'fall-animation',
-              animationTimingFunction: 'linear',
-              animationFillMode: 'forwards',
-              transform: `rotate(${p.rotation}deg)`,
-            };
-
-            if (activeAnimation === 'confetti') {
               return (
-                <div
-                  key={p.id}
-                  style={{
-                    ...style,
-                    width: `${p.size * 0.4}px`,
-                    height: `${p.size * 0.8}px`,
-                    backgroundColor: p.color,
-                    borderRadius: '2px',
-                  }}
-                />
+                <div key={p.id} style={style}>
+                  {p.char}
+                </div>
               );
-            }
-
-            return (
-              <div key={p.id} style={style}>
-                {p.char}
-              </div>
-            );
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </div>
 
       {/* FALLING KEYFRAME ANIMATIONS INJECTED IN STYLE BLOCK */}
       <style>{`
@@ -622,8 +664,8 @@ export default function ObsOverlayPage() {
             transform: translateY(0) rotate(0deg);
           }
           100% {
-            top: 110vh;
-            transform: translateY(110vh) rotate(360deg);
+            top: 110%;
+            transform: translateY(110%) rotate(360deg);
           }
         }
       `}</style>

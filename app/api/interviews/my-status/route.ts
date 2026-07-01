@@ -26,9 +26,11 @@ export async function GET(request: NextRequest) {
     // 2. Check profiles link_status first
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('link_status, roblox_user, tiktok_user, roblox_avatar_url, rejection_reason, testimonial, testimonial_approved')
+      .select('link_status, roblox_user, tiktok_user, roblox_avatar_url, rejection_reason, testimonial, testimonial_approved, is_admin')
       .eq('id', user.id)
       .maybeSingle();
+
+    const isAdminUser = !!profile?.is_admin || user.email === 'kpopxfull@gmail.com';
 
     if (profile?.link_status === 'approved') {
       return NextResponse.json({
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
         avatar_url: profile.roblox_avatar_url,
         testimonial: profile.testimonial,
         testimonial_approved: profile.testimonial_approved,
+        is_admin: isAdminUser,
       });
     }
 
@@ -73,6 +76,7 @@ export async function GET(request: NextRequest) {
         ban_reason: history.ban_reason,
         return_reason: history.return_reason,
         rejection_reason,
+        is_admin: isAdminUser,
       });
     }
 
@@ -83,10 +87,11 @@ export async function GET(request: NextRequest) {
         roblox_user: profile.roblox_user,
         tiktok_user: profile.tiktok_user,
         rejection_reason: profile.rejection_reason,
+        is_admin: isAdminUser,
       });
     }
 
-    return NextResponse.json({ status: 'none' });
+    return NextResponse.json({ status: 'none', is_admin: isAdminUser });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

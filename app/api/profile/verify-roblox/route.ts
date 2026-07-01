@@ -7,6 +7,27 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+let cachedBotId: number | null = null;
+
+async function getBotUserId(cookie: string): Promise<number | null> {
+  if (cachedBotId) return cachedBotId;
+  try {
+    const res = await fetch('https://users.roblox.com/v1/users/authenticated', {
+      headers: {
+        'Cookie': `.ROBLOSECURITY=${cookie}`,
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      cachedBotId = Number(data.id);
+      return cachedBotId;
+    }
+  } catch (err) {
+    console.error('Error fetching bot authenticated user:', err);
+  }
+  return null;
+}
+
 type RobloxProfile = {
   id: number;
   name: string;
@@ -145,7 +166,18 @@ export async function POST(request: NextRequest) {
     const robloxUser = String(profile?.name || `user-${robloxUserId}`).trim();
     const displayName = String(profile?.displayName || robloxUser || `user-${robloxUserId}`).trim();
     const avatarUrl = await fetchRobloxAvatar(robloxUserId);
-    const storedProfile = buildStoredProfile(robloxUserId, robloxUser, displayName, avatarUrl);
+
+    // Obtener perfil existente para verificar si tiene nickname personalizado (🐣)
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('roblox_display_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const isCustomNickname = !!(existingProfile?.roblox_display_name?.startsWith('🐣') && existingProfile?.roblox_display_name?.endsWith('🐣'));
+    const finalDisplayName = isCustomNickname ? existingProfile!.roblox_display_name : displayName;
+
+    const storedProfile = buildStoredProfile(robloxUserId, robloxUser, finalDisplayName!, avatarUrl);
 
     // Upsert profile
     const { error } = await supabaseAdmin
@@ -155,7 +187,7 @@ export async function POST(request: NextRequest) {
           id: user.id,
           roblox_user_id: robloxUserId,
           roblox_user: robloxUser,
-          roblox_display_name: displayName,
+          roblox_display_name: finalDisplayName,
           roblox_avatar_url: avatarUrl,
           roblox_verified_at: new Date().toISOString(),
         },
@@ -230,29 +262,50 @@ export async function GET(request: NextRequest) {
       }
 
       const metadataProfile = (user.user_metadata?.roblox_profile || null) as StoredRobloxProfile | null;
+      const fallbackProfile = metadataProfile
+        ? {
+            id: user.id,
+            roblox_user_id: metadataProfile.roblox_user_id,
+            roblox_user: metadataProfile.roblox_user,
+            roblox_display_name: metadataProfile.roblox_display_name,
+            roblox_avatar_url: metadataProfile.roblox_avatar_url,
+            roblox_verified_at: metadataProfile.roblox_verified_at,
+            tiktok_user: metadataProfile.tiktok_user || null,
+            link_status: metadataProfile.link_status || 'none',
+            rejection_reason: metadataProfile.rejection_reason || null,
+          }
+        : null;
+
+      let isBotAccount = false;
+      const robloxCookie = process.env.ROBLOSECURITY_COOKIE;
+      if (robloxCookie && fallbackProfile?.roblox_user_id) {
+        const botId = await getBotUserId(robloxCookie.trim());
+        if (botId && Number(fallbackProfile.roblox_user_id) === botId) {
+          isBotAccount = true;
+        }
+      }
 
       return NextResponse.json({
-        profile: metadataProfile
-          ? {
-              id: user.id,
-              roblox_user_id: metadataProfile.roblox_user_id,
-              roblox_user: metadataProfile.roblox_user,
-              roblox_display_name: metadataProfile.roblox_display_name,
-              roblox_avatar_url: metadataProfile.roblox_avatar_url,
-              roblox_verified_at: metadataProfile.roblox_verified_at,
-              tiktok_user: metadataProfile.tiktok_user || null,
-              link_status: metadataProfile.link_status || 'none',
-              rejection_reason: metadataProfile.rejection_reason || null,
-            }
-          : null,
+        profile: fallbackProfile,
         isComplete: metadataProfile?.link_status === 'approved',
         fallback: metadataProfile ? 'user_metadata' : null,
+        isBotAccount,
       });
+    }
+
+    let isBotAccount = false;
+    const robloxCookie = process.env.ROBLOSECURITY_COOKIE;
+    if (robloxCookie && data?.roblox_user_id) {
+      const botId = await getBotUserId(robloxCookie.trim());
+      if (botId && Number(data.roblox_user_id) === botId) {
+        isBotAccount = true;
+      }
     }
 
     return NextResponse.json({
       profile: data,
       isComplete: data?.link_status === 'approved',
+      isBotAccount,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

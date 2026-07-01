@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_PANEL_TOKEN || '';
-  const requestToken = request.headers.get('x-admin-token') || '';
-  return Boolean(adminToken) && requestToken === adminToken;
-}
+import { isAuthorized } from '@/lib/adminAuth';
+import { logAdminAction } from '@/lib/auditLogger';
 
 async function enrichNomineeDisplayName(nominee: {
   roblox_user_id: number | string | null;
@@ -99,7 +95,7 @@ async function fetchRobloxAvatar(userId: number) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -121,8 +117,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isAuthorized(request)) {
+    if (!await isAuthorized(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    let adminEmail = 'admin-token@system';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring('Bearer '.length);
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user?.email) adminEmail = user.email;
     }
 
     const body = await request.json();
@@ -176,6 +180,14 @@ export async function POST(request: NextRequest) {
 
     const nominee = await enrichNomineeDisplayName(data);
 
+    // Registrar log de auditoría
+    await logAdminAction(adminEmail, 'Nominado agregado', {
+      roblox_user: robloxUser,
+      roblox_user_id: friendId,
+      nickname,
+      is_new: !existingResponse.data,
+    });
+
     return NextResponse.json({
       nominee,
       created: !existingResponse.data,
@@ -188,8 +200,16 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  let adminEmail = 'admin-token@system';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring('Bearer '.length);
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    if (user?.email) adminEmail = user.email;
   }
 
   const body = await request.json();
@@ -228,12 +248,27 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Registrar log de auditoría
+  await logAdminAction(adminEmail, 'Nominado modificado', {
+    roblox_user: data.roblox_user,
+    nickname: updates.nickname !== undefined ? updates.nickname : null,
+    is_visible: updates.is_visible !== undefined ? updates.is_visible : null,
+  });
+
   return NextResponse.json({ nominee: await enrichNomineeDisplayName(data) });
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!await isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  let adminEmail = 'admin-token@system';
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring('Bearer '.length);
+    const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+    if (user?.email) adminEmail = user.email;
   }
 
   const body = await request.json();
@@ -243,10 +278,24 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Missing nominee id' }, { status: 400 });
   }
 
+  // Obtener info del nominado antes de eliminarlo para el log
+  const { data: nomineeData } = await supabaseAdmin
+    .from('nominees')
+    .select('roblox_user, roblox_user_id')
+    .eq('id', id)
+    .maybeSingle();
+
   const { error } = await supabaseAdmin.from('nominees').delete().eq('id', id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (nomineeData) {
+    await logAdminAction(adminEmail, 'Nominado eliminado', {
+      roblox_user: nomineeData.roblox_user,
+      roblox_user_id: nomineeData.roblox_user_id,
+    });
   }
 
   return NextResponse.json({ ok: true });

@@ -2,8 +2,17 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Sora", sans-serif;
-  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-display: "Anton", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brandYellow: #FFD500;
+  --color-dark0: #0E1014;
+  --color-dark1: #16181D;
+  --color-dark2: #20232A;
+  --color-dark3: #2B2F37;
+  
+  --border-width-3: 3px;
 }
 
 @layer utilities {
