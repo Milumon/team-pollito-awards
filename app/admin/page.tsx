@@ -3679,7 +3679,12 @@ export default function AdminPage() {
                   <h3 className="font-display font-semibold text-base text-white truncate" title={adminVerifiedProfile ? adminVerifiedProfile.displayName : (editingUser.robloxDisplayName || editingUser.email)}>
                     {adminVerifiedProfile ? adminVerifiedProfile.displayName : (editingUser.robloxDisplayName || editingUser.email)}
                   </h3>
-                  <p className="text-xs text-gray-400 font-medium mt-0.5">ID: {editingUser.id.substring(0, 8)}...</p>
+                  {(adminVerifiedProfile ? adminVerifiedProfile.username : editingUser.robloxUser) && (
+                    <p className="text-xs text-gray-400 font-medium mt-0.5">
+                      @{adminVerifiedProfile ? adminVerifiedProfile.username : editingUser.robloxUser}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-gray-500 font-medium mt-1">ID: {editingUser.id.substring(0, 8)}...</p>
                 </div>
               </div>
 
