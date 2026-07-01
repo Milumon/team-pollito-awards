@@ -62,18 +62,13 @@ type Testimonial = {
 // Roles estáticos mapeados por Roblox username
 const getMemberRole = (username: string) => {
   const name = username.toLowerCase().replace('@', '').trim();
-  if (name.includes('milumon')) return 'Guía de la Bandada 🐣';
-  if (name === 'zkylerrbx' || name === 'zkyler') return 'Protector de la Bandada 🛡️';
-  if (name === 'nekolixrbx' || name === 'nekolix') return 'Ayudante de la Bandada ✨';
-  if (name === 'xioramrbx' || name === 'xioram') return 'Ayudante de la Bandada ✨';
+  if (name.includes('milumon')) return 'Admin 🐣';
   return 'Pollito Oficial 🐣';
 };
 
 const getRoleColor = (role: string) => {
   switch (role) {
-    case 'Guía de la Bandada 🐣': return 'bg-sky-50 text-sky-700 border border-sky-200';
-    case 'Protector de la Bandada 🛡️': return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-    case 'Ayudante de la Bandada ✨': return 'bg-amber-50 text-amber-700 border border-amber-200';
+    case 'Admin 🐣': return 'bg-sky-50 text-sky-700 border border-sky-200'; 
     default: return 'bg-gray-50 text-gray-600 border border-gray-200';
   }
 };
@@ -513,7 +508,7 @@ export default function ComunidadPage() {
                     <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
                   </div>
                   <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
-                    Tu vinculación está activa. Ya eres parte de la bandada 🐣. Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
+                    Tu vinculación está activa. Ya eres parte del Team Pollito 🐣. Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <Link href="/console" className="decoration-transparent">
@@ -566,7 +561,7 @@ export default function ComunidadPage() {
                   <div className="flex flex-wrap gap-4">
                     <Button variant="primary" size="lg" onClick={handleJoinClick}>
                       <Users className="w-4 h-4" />
-                      Únete a la bandada
+                      Únete a la Comunidad
                     </Button>
                     <Button variant="secondary" size="lg" onClick={() => scrollToSection('timeline-ingreso')}>
                       ¿Cómo funciona?
@@ -618,7 +613,7 @@ export default function ComunidadPage() {
                 ¿Qué obtienes al entrar? 🐣
               </h3>
               <p className="font-sans text-xs text-gray-500 font-bold mt-2">
-                Beneficios especiales para toda la bandada
+                Beneficios especiales para toda el que sea Team Pollito
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -703,7 +698,7 @@ export default function ComunidadPage() {
           <section id="timeline-ingreso" className="space-y-8 pt-8">
             <div className="text-center">
               <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
-                Cómo ingresar a la bandada 🐣
+                Cómo ingresar al Team Pollito 🐣
               </h3>
               <p className="font-sans text-sm text-gray-500 mt-2">
                 Sigue estos 5 sencillos pasos para unirte

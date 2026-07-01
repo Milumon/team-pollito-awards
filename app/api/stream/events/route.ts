@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
       if (containsForbidden) {
         return NextResponse.json({
-          error: 'Tu mensaje contiene palabras no permitidas. Por favor mantén el chat amigable para la bandada 🐣.'
+          error: 'Tu mensaje contiene palabras no permitidas. Por favor mantén el chat amigable para la comunidad 🐣.'
         }, { status: 400 });
       }
     }

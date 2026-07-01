@@ -42,12 +42,52 @@ export async function POST(
       );
     }
 
-    // 2. Leer overrides opcionales del admin (nombre y cooldown)
-    const body = await request.json().catch(() => ({}));
-    const finalName = (body.name as string | undefined)?.trim() || submission.name;
-    const finalCooldown = body.cooldownSeconds !== undefined
-      ? Math.max(0, parseInt(String(body.cooldownSeconds)) || 0)
-      : submission.suggested_cooldown_seconds;
+    // 2. Leer overrides opcionales del admin (nombre, cooldown y audio recortado)
+    const contentType = request.headers.get('content-type') || '';
+    let finalName = submission.name;
+    let finalCooldown = submission.suggested_cooldown_seconds;
+    let uploadedFile: File | null = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      const name = formData.get('name');
+      const cooldownSeconds = formData.get('cooldownSeconds');
+      const file = formData.get('file');
+
+      if (name !== null && String(name).trim()) {
+        finalName = String(name).trim();
+      }
+      if (cooldownSeconds !== null && String(cooldownSeconds).trim() !== '') {
+        finalCooldown = Math.max(0, parseInt(String(cooldownSeconds)) || 0);
+      }
+      uploadedFile = file instanceof File ? file : null;
+    } else {
+      const body = await request.json().catch(() => ({}));
+      finalName = (body.name as string | undefined)?.trim() || submission.name;
+      finalCooldown = body.cooldownSeconds !== undefined
+        ? Math.max(0, parseInt(String(body.cooldownSeconds)) || 0)
+        : submission.suggested_cooldown_seconds;
+    }
+
+    let finalUrl = submission.url;
+    if (uploadedFile) {
+      const arrayBuffer = await uploadedFile.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('soundboard-files')
+        .upload(submission.file_path, buffer, {
+          contentType: uploadedFile.type || 'audio/mpeg',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabaseAdmin.storage
+        .from('soundboard-files')
+        .getPublicUrl(submission.file_path);
+      finalUrl = publicUrl;
+    }
 
     // 3. Generar slug único para soundboard_sounds
     const baseSlug = finalName
@@ -77,7 +117,7 @@ export async function POST(
         id: slug,
         name: finalName,
         file_path: submission.file_path,
-        url: submission.url,
+          url: finalUrl,
         cooldown_seconds: finalCooldown,
         is_public: submission.is_public,
         owner_user_id: submission.is_public ? null : submission.submitted_by_user_id,

@@ -32,7 +32,9 @@ import {
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
+const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 
 type StoredRobloxProfile = {
   id: string;
@@ -112,6 +114,7 @@ export default function MemberConsolePage() {
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string }[]>([]);
   const [loadingSounds, setLoadingSounds] = useState(true);
+  const [audioTrim, setAudioTrim] = useState<{ start: number; end: number } | null>(null);
 
   // Stream Settings State
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
@@ -429,7 +432,10 @@ export default function MemberConsolePage() {
       let processedFile: File | Blob = audioFile;
       if (audioFile.type !== 'audio/mpeg' && !audioFile.name.endsWith('.mp3')) {
         setAudioSubmitStatus('Convirtiendo audio a MP3...');
-        processedFile = await convertAudioToMp3(audioFile);
+        processedFile = await convertAudioToMp3(audioFile, audioTrim?.start, audioTrim?.end);
+      } else if (audioTrim) {
+        setAudioSubmitStatus('Recortando audio...');
+        processedFile = await convertAudioToMp3(audioFile, audioTrim.start, audioTrim.end);
       }
 
       const formData = new FormData();
@@ -451,6 +457,7 @@ export default function MemberConsolePage() {
 
       setAudioName('');
       setAudioFile(null);
+      setAudioTrim(null);
       setAudioCooldown('0');
       setAudioIsPublic(true);
       setAudioSubmitStatus('✓ Audio enviado para revisión. Te notificaremos cuando sea aprobado.');
@@ -1544,7 +1551,10 @@ export default function MemberConsolePage() {
                         <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#35373d] hover:bg-[#3a3c42] cursor-pointer transition-colors text-center">
                           <input
                             type="file" accept="audio/*"
-                            onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                            onChange={(e) => {
+                              setAudioFile(e.target.files?.[0] || null);
+                              setAudioTrim(null);
+                            }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                           <FileAudio className="w-6 h-6 text-gray-500 mx-auto mb-1" />
@@ -1553,6 +1563,13 @@ export default function MemberConsolePage() {
                           </p>
                         </div>
                       </label>
+
+                      {audioFile && (
+                        <AudioPreview
+                          file={audioFile}
+                          onTrimChange={(start, end) => setAudioTrim({ start, end })}
+                        />
+                      )}
 
                       {audioSubmitStatus && (
                         <p className={`text-xs font-semibold ${

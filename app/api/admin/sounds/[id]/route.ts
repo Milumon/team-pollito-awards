@@ -95,18 +95,71 @@ export async function PATCH(
       return NextResponse.json({ error: 'Falta el parámetro id' }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { name, cooldownSeconds } = body;
+    const contentType = request.headers.get('content-type') || '';
+    let name: unknown;
+    let cooldownSeconds: unknown;
+    let file: File | null = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      name = formData.get('name');
+      cooldownSeconds = formData.get('cooldownSeconds');
+      const uploadedFile = formData.get('file');
+      file = uploadedFile instanceof File ? uploadedFile : null;
+    } else {
+      const body = await request.json();
+      name = body.name;
+      cooldownSeconds = body.cooldownSeconds;
+    }
 
     const updates: Record<string, any> = {};
-    if (name !== undefined) updates.name = String(name).trim();
-    if (cooldownSeconds !== undefined) {
+    if (name !== undefined && name !== null) {
+      const normalizedName = String(name).trim();
+      if (normalizedName) updates.name = normalizedName;
+    }
+    if (cooldownSeconds !== undefined && cooldownSeconds !== null) {
       updates.cooldown_seconds = cooldownSeconds === null ? 0 : Math.max(0, parseInt(String(cooldownSeconds)) || 0);
+    }
+
+    if (file) {
+      const { data: currentSound, error: fetchError } = await supabaseAdmin
+        .from('soundboard_sounds')
+        .select('file_path')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!currentSound?.file_path) {
+        return NextResponse.json({ error: 'No se pudo localizar el archivo existente' }, { status: 404 });
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from('soundboard-files')
+        .upload(currentSound.file_path, buffer, {
+          contentType: file.type || 'audio/mpeg',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabaseAdmin.storage
+        .from('soundboard-files')
+        .getPublicUrl(currentSound.file_path);
+
+      updates.url = publicUrl;
+      updates.updated_at = new Date().toISOString();
     }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No se enviaron campos para actualizar' }, { status: 400 });
     }
+
+    updates.updated_at = new Date().toISOString();
 
     const { data: updatedSound, error: dbError } = await supabaseAdmin
       .from('soundboard_sounds')

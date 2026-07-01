@@ -142,7 +142,7 @@ export const NavBar: React.FC<NavBarProps> = ({
               onClick={() => { onLogin(); if (onClose) onClose(); }}
               className="flex items-center justify-center gap-1.5 font-display font-semibold text-sm bg-[#FFC200] hover:brightness-105 text-black py-2.5 rounded-xl active:scale-[0.97] transition-all cursor-pointer"
             >
-              🐣 Únete a la Bandada
+              🐣 Únete a la Comunidad
             </button>
           )
         )}

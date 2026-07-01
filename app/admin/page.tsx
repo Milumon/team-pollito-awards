@@ -3,18 +3,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
+import type { Session } from '@supabase/supabase-js';
 import { CATEGORIES } from '@/src/data/categories';
 import { Category } from '@/src/types';
-import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Scissors } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
 import dynamic from 'next/dynamic';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 import { Header } from '@/components/ui/Header';
-import { NavBar } from '@/components/ui/NavBar';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 
 type AdminNominee = {
   id: string;
@@ -109,7 +106,7 @@ type AuditLog = {
   id: string;
   admin_email: string;
   action: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   created_at: string;
 };
 
@@ -117,6 +114,7 @@ type SoundItem = {
   id: string;
   name: string;
   url: string;
+  file_path?: string | null;
   created_at: string;
   cooldown_seconds?: number | null;
   is_public?: boolean;
@@ -176,10 +174,6 @@ const readApiPayload = async (response: Response) => {
   };
 };
 
-function categoryLabel(categoryId: number) {
-  return CATEGORIES.find((category) => category.id === categoryId)?.title || `Categoría ${categoryId}`;
-}
-
 function formatDate(dateStr: string) {
   if (!dateStr) return 'Nunca';
   try {
@@ -198,7 +192,7 @@ function formatDate(dateStr: string) {
 
 export default function AdminPage() {
   // Auth states
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -236,8 +230,7 @@ export default function AdminPage() {
   const [newSlotDate, setNewSlotDate] = useState('');
   const [newSlotTime, setNewSlotTime] = useState('');
   const [creatingSlot, setCreatingSlot] = useState(false);
-  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
-  const [now] = useState(() => Date.now());
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
@@ -253,6 +246,8 @@ export default function AdminPage() {
   // Soundboard states
   const [sounds, setSounds] = useState<SoundItem[]>([]);
   const [loadingSounds, setLoadingSounds] = useState(false);
+  const [soundboardView, setSoundboardView] = useState<'library' | 'submissions'>('library');
+  const [isAddSoundModalOpen, setIsAddSoundModalOpen] = useState(false);
   const [soundName, setSoundName] = useState('');
   const [soundFile, setSoundFile] = useState<File | null>(null);
   const [soundTrim, setSoundTrim] = useState<{ start: number; end: number } | null>(null);
@@ -260,6 +255,11 @@ export default function AdminPage() {
   const [editingSound, setEditingSound] = useState<SoundItem | null>(null);
   const [editingSoundName, setEditingSoundName] = useState('');
   const [editingSoundCooldown, setEditingSoundCooldown] = useState('0');
+  const [editingSoundAudioEnabled, setEditingSoundAudioEnabled] = useState(false);
+  const [editingSoundAudioFile, setEditingSoundAudioFile] = useState<File | null>(null);
+  const [editingSoundAudioTrim, setEditingSoundAudioTrim] = useState<{ start: number; end: number } | null>(null);
+  const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
+  const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
   const [submittingSound, setSubmittingSound] = useState(false);
 
   // Sound Submissions (user-submitted audio pending review)
@@ -269,6 +269,13 @@ export default function AdminPage() {
   const [rejectingSubmissionId, setRejectingSubmissionId] = useState<string | null>(null);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [submissionEdits, setSubmissionEdits] = useState<Record<string, { name: string; cooldown: string }>>({});
+  const [submissionAudioDrafts, setSubmissionAudioDrafts] = useState<Record<string, File>>({});
+  const [editingSubmissionAudioId, setEditingSubmissionAudioId] = useState<string | null>(null);
+  const [editingSubmissionAudioFile, setEditingSubmissionAudioFile] = useState<File | null>(null);
+  const [editingSubmissionAudioTrim, setEditingSubmissionAudioTrim] = useState<{ start: number; end: number } | null>(null);
+  const [editingSubmissionAudioLoading, setEditingSubmissionAudioLoading] = useState(false);
+  const [editingSubmissionAudioSaving, setEditingSubmissionAudioSaving] = useState(false);
+  const [editingSubmissionAudioError, setEditingSubmissionAudioError] = useState('');
 
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -279,15 +286,23 @@ export default function AdminPage() {
   const totalWithNickname = useMemo(() => nominees.filter(n => n.nickname).length, [nominees]);
   const visibleNominees = useMemo(() => nominees.filter(n => n.is_visible).length, [nominees]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   const isOverlayOnline = useMemo(() => {
     if (!streamSettings?.overlay_active_at) return false;
     try {
       const lastActive = new Date(streamSettings.overlay_active_at).getTime();
-      return (Date.now() - lastActive) < 30000;
+      return (currentTime - lastActive) < 30000;
     } catch {
       return false;
     }
-  }, [streamSettings]);
+  }, [currentTime, streamSettings]);
 
   const filteredNominees = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
@@ -320,29 +335,8 @@ export default function AdminPage() {
     return Math.ceil(filteredUsers.length / USERS_PER_PAGE) || 1;
   }, [filteredUsers]);
 
-  // Reset pagination on search change
-  useEffect(() => {
-    setUserPage(1);
-  }, [userSearchTerm]);
-
   // Auth initialization
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      setSession(initialSession);
-      checkAdminRole(initialSession);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      checkAdminRole(newSession);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const checkAdminRole = async (currentSession: any) => {
+  const checkAdminRole = async (currentSession: Session | null) => {
     if (!currentSession?.user) {
       setIsAdmin(false);
       setCheckingAuth(false);
@@ -371,6 +365,22 @@ export default function AdminPage() {
       setCheckingAuth(false);
     }
   };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      checkAdminRole(initialSession);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      checkAdminRole(newSession);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const apiFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -513,17 +523,35 @@ export default function AdminPage() {
     setError(null);
     try {
       const edits = submissionEdits[submissionId];
-      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/approve`, {
+      const draftAudio = submissionAudioDrafts[submissionId];
+
+      const requestInit: RequestInit = {
         method: 'POST',
-        body: JSON.stringify({
+      };
+
+      if (draftAudio) {
+        const formData = new FormData();
+        formData.append('name', edits?.name?.trim() || '');
+        formData.append('cooldownSeconds', edits ? String(parseInt(edits.cooldown) || 0) : '');
+        formData.append('file', draftAudio, draftAudio.name);
+        requestInit.body = formData;
+      } else {
+        requestInit.body = JSON.stringify({
           name: edits?.name?.trim() || undefined,
           cooldownSeconds: edits ? parseInt(edits.cooldown) || 0 : undefined,
-        }),
-      });
+        });
+      }
+
+      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/approve`, requestInit);
       const data = await readApiPayload(response);
       if (!response.ok) throw new Error(data.error || 'Error al aprobar el envío');
       setStatus('Envío aprobado y agregado a la botonera.');
       setTimeout(() => setStatus(null), 3000);
+      setSubmissionAudioDrafts((current) => {
+        const next = { ...current };
+        delete next[submissionId];
+        return next;
+      });
       await loadSoundSubmissions();
       await loadSounds();
       await loadAuditLogs();
@@ -531,6 +559,60 @@ export default function AdminPage() {
       setError(err instanceof Error ? err.message : 'Error al aprobar');
     } finally {
       setApprovingSubmissionId(null);
+    }
+  };
+
+  const handleOpenSubmissionAudioEditor = async (submission: SoundSubmission) => {
+    setEditingSubmissionAudioId(submission.id);
+    setEditingSubmissionAudioLoading(true);
+    setEditingSubmissionAudioError('');
+    setEditingSubmissionAudioFile(null);
+    setEditingSubmissionAudioTrim(null);
+
+    try {
+      const response = await fetch(submission.url);
+      if (!response.ok) throw new Error('No se pudo cargar el audio del envío.');
+      const blob = await response.blob();
+      const inferredName = submission.file_path?.split('/').pop() || `${submission.id}.mp3`;
+      const file = new File([blob], inferredName, { type: blob.type || 'audio/mpeg' });
+      setEditingSubmissionAudioFile(file);
+    } catch (err) {
+      setEditingSubmissionAudioError(err instanceof Error ? err.message : 'No se pudo cargar el audio.');
+    } finally {
+      setEditingSubmissionAudioLoading(false);
+    }
+  };
+
+  const handleSaveSubmissionAudioTrim = async () => {
+    if (!editingSubmissionAudioId || !editingSubmissionAudioFile || !editingSubmissionAudioTrim) {
+      setEditingSubmissionAudioError('Primero cargá un audio y definí un recorte válido.');
+      return;
+    }
+
+    setEditingSubmissionAudioSaving(true);
+    setEditingSubmissionAudioError('');
+
+    try {
+      const processedFile = await convertAudioToMp3(
+        editingSubmissionAudioFile,
+        editingSubmissionAudioTrim.start,
+        editingSubmissionAudioTrim.end
+      );
+
+      setSubmissionAudioDrafts((current) => ({
+        ...current,
+        [editingSubmissionAudioId]: processedFile,
+      }));
+
+      setStatus('Recorte guardado para la aprobación.');
+      setTimeout(() => setStatus(null), 3000);
+      setEditingSubmissionAudioId(null);
+      setEditingSubmissionAudioFile(null);
+      setEditingSubmissionAudioTrim(null);
+    } catch (err) {
+      setEditingSubmissionAudioError(err instanceof Error ? err.message : 'No se pudo guardar el recorte.');
+    } finally {
+      setEditingSubmissionAudioSaving(false);
     }
   };
 
@@ -624,14 +706,18 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isAdmin) return;
 
-    void loadNominees();
-    void loadStats();
-    void loadInterviewSlots();
-    void loadStreamSettings();
-    void loadSounds();
-    void loadSoundSubmissions();
-    void loadAuditLogs();
-    void pingAlexaVM();
+    void (async () => {
+      await Promise.all([
+        loadNominees(),
+        loadStats(),
+        loadInterviewSlots(),
+        loadStreamSettings(),
+        loadSounds(),
+        loadSoundSubmissions(),
+        loadAuditLogs(),
+        pingAlexaVM(),
+      ]);
+    })();
 
     const channel = supabase
       .channel('admin_audit_logs_realtime')
@@ -658,17 +744,21 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isAdmin) return;
     if (activeTab === 'agenda') {
-      void loadInterviewSlots();
+      void (async () => {
+        await loadInterviewSlots();
+      })();
     } else if (activeTab === 'stream') {
-      void loadStreamSettings();
+      void (async () => {
+        await loadStreamSettings();
+      })();
     } else if (activeTab === 'soundboard') {
-      void loadSounds();
-      void loadSoundSubmissions();
+      void (async () => {
+        await Promise.all([loadSounds(), loadSoundSubmissions()]);
+      })();
     }
   }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
-    setVerifyingUserId(userId);
     setError(null);
     setStatus(null);
     try {
@@ -685,7 +775,6 @@ export default function AdminPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al verificar vinculación');
     } finally {
-      setVerifyingUserId(null);
     }
   };
 
@@ -830,6 +919,90 @@ export default function AdminPage() {
     }
   };
 
+  useEffect(() => {
+    if (!editingSound || !editingSoundAudioEnabled) return;
+
+    let cancelled = false;
+
+    const loadEditingAudio = async () => {
+      setEditingSoundAudioLoading(true);
+      setEditingSoundAudioError('');
+
+      try {
+        const response = await fetch(editingSound.url);
+        if (!response.ok) {
+          throw new Error('No se pudo cargar el audio actual para recortarlo.');
+        }
+
+        const blob = await response.blob();
+        const inferredName = editingSound.file_path?.split('/').pop() || `${editingSound.id}.mp3`;
+        const file = new File([blob], inferredName, { type: blob.type || 'audio/mpeg' });
+
+        if (!cancelled) {
+          setEditingSoundAudioFile(file);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEditingSoundAudioFile(null);
+          setEditingSoundAudioError(err instanceof Error ? err.message : 'No se pudo cargar el audio actual.');
+        }
+      } finally {
+        if (!cancelled) {
+          setEditingSoundAudioLoading(false);
+        }
+      }
+    };
+
+    void loadEditingAudio();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingSound, editingSoundAudioEnabled]);
+
+  const handleUpdateSoundAudio = async () => {
+    if (!editingSound || !editingSoundAudioFile || !editingSoundAudioTrim) {
+      setError('Primero habilita el editor de audio y carga un archivo válido.');
+      return;
+    }
+
+    setError(null);
+    setStatus(null);
+
+    try {
+      const processedFile = await convertAudioToMp3(
+        editingSoundAudioFile,
+        editingSoundAudioTrim.start,
+        editingSoundAudioTrim.end
+      );
+
+      const formData = new FormData();
+      formData.append('file', processedFile, processedFile.name);
+      formData.append('name', editingSoundName.trim() || editingSound.name);
+      formData.append('cooldownSeconds', editingSoundCooldown);
+
+      const response = await apiFetch(`/api/admin/sounds/${editingSound.id}`, {
+        method: 'PATCH',
+        body: formData,
+      });
+
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el audio');
+
+      setStatus('Audio actualizado correctamente.');
+      setEditingSound(null);
+      setEditingSoundAudioEnabled(false);
+      setEditingSoundAudioFile(null);
+      setEditingSoundAudioTrim(null);
+      setEditingSoundAudioError('');
+      await loadSounds();
+      await loadAuditLogs();
+      setTimeout(() => setStatus(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar el audio');
+    }
+  };
+
   const handleUploadSound = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!soundFile || !soundName.trim()) {
@@ -889,6 +1062,7 @@ export default function AdminPage() {
       setSoundFile(null);
       setSoundTrim(null);
       setSoundCooldown('0');
+      setIsAddSoundModalOpen(false);
       await loadSounds();
       await loadAuditLogs();
       setTimeout(() => setStatus(null), 3000);
@@ -1300,7 +1474,10 @@ export default function AdminPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             value={userSearchTerm}
-            onChange={(e) => setUserSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setUserSearchTerm(e.target.value);
+              setUserPage(1);
+            }}
             placeholder="Buscar por usuario, email o id..."
             className="w-full pl-9 pr-3 py-2 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium "
           />
@@ -1572,7 +1749,7 @@ export default function AdminPage() {
                     </span>
                   </div>
                   <p className="text-xs italic text-gray-300 font-sans leading-relaxed bg-[#1e1f22] p-3 rounded-lg border border-neutral-800">
-                    "{u.testimonial}"
+                    &quot;{u.testimonial}&quot;
                   </p>
                 </div>
 
@@ -1666,7 +1843,7 @@ export default function AdminPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             {slots.map((slot) => {
-              const isPast = new Date(`${slot.slot_date}T${slot.slot_time}`).getTime() < now;
+              const isPast = new Date(`${slot.slot_date}T${slot.slot_time}`).getTime() < currentTime;
               return (
                 <article key={slot.id} className={`bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-[0_4px_8px_rgba(0,0,0,.2)] ${
                   isPast ? 'opacity-50' : ''
@@ -1814,7 +1991,7 @@ export default function AdminPage() {
                   disabled={updatingStreamSettings}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10);
-                    setStreamSettings((prev: any) => prev ? { ...prev, global_cooldown_seconds: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, global_cooldown_seconds: val } : null);
                   }}
                   className="w-full accent-[#FFC200] cursor-pointer"
                 />
@@ -1857,7 +2034,7 @@ export default function AdminPage() {
                   disabled={updatingStreamSettings}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10);
-                    setStreamSettings((prev: any) => prev ? { ...prev, personal_cooldown_seconds: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, personal_cooldown_seconds: val } : null);
                   }}
                   className="w-full accent-[#FFC200] cursor-pointer"
                 />
@@ -1907,7 +2084,7 @@ export default function AdminPage() {
                     disabled={updatingStreamSettings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_top: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: val } : null);
                     }}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
@@ -1932,7 +2109,7 @@ export default function AdminPage() {
                     disabled={updatingStreamSettings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_width: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: val } : null);
                     }}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
@@ -1957,7 +2134,7 @@ export default function AdminPage() {
                     disabled={updatingStreamSettings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_badge_size: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: val } : null);
                     }}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
@@ -1978,7 +2155,7 @@ export default function AdminPage() {
                     disabled={updatingStreamSettings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_sender_size: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_sender_size: val } : null);
                     }}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
@@ -1999,7 +2176,7 @@ export default function AdminPage() {
                     disabled={updatingStreamSettings}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_content_size: val } : null);
+                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: val } : null);
                     }}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
@@ -2035,110 +2212,182 @@ export default function AdminPage() {
     </div>
   );
 
-  const renderSoundboardTab = () => (
-    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
-      <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
-        <div>
-          <span className="text-[10px] text-gray-500 tracking-wide">Botonera</span>
-          <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Agregar Sonido</h2>
-          <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
-            Sube un archivo de audio (MP3, WAV, etc.) a la botonera de los VIPs. Se convertirá automáticamente a MP3 en el cliente.
-          </p>
-        </div>
+  const renderSoundboardTab = () => {
+    const pending = soundSubmissions.filter((submission) => submission.status === 'pending');
 
-        <form onSubmit={handleUploadSound} className="space-y-4">
-          <label className="block space-y-1">
-            <span className="text-xs text-gray-500">Nombre del sonido</span>
-            <input
-              type="text"
-              value={soundName}
-              onChange={(e) => setSoundName(e.target.value)}
-              placeholder="Ej: Risitas, Fail, Woohoo"
-              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
-            />
-          </label>
-
-          <label className="block space-y-1">
-            <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
-            <input
-              type="number"
-              min={0}
-              value={soundCooldown}
-              onChange={(e) => setSoundCooldown(e.target.value)}
-              placeholder="0 (sin cooldown)"
-              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
-            />
-          </label>
-
-          <label className="block space-y-1">
-            <span className="text-xs text-gray-500">Archivo de Audio o Video</span>
-            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
-              <input
-                type="file"
-                accept="audio/*,video/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0] || null;
-                  setSoundFile(f);
-                  setSoundTrim(null);
-                }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              />
-              <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-              <p className="text-[10px] text-gray-400 font-medium truncate">
-                {soundFile ? soundFile.name : 'Elegir archivo de audio o video'}
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="grid gap-6 lg:grid-cols-[280px_1fr] items-start">
+          <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <div>
+              <span className="text-[10px] text-gray-500 tracking-wide">Botonera VIP</span>
+              <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Gestión de sonidos</h2>
+              <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
+                Mantené la botonera limpia. El alta de sonidos se hace en un modal y los envíos de usuarios se revisan aparte.
               </p>
             </div>
-          </label>
 
-          {soundFile && (
-            <AudioPreview
-              file={soundFile}
-              onTrimChange={(start, end) => setSoundTrim({ start, end })}
-            />
-          )}
-
-          <button
-            type="submit"
-            disabled={submittingSound || !soundFile || !soundName.trim()}
-            className="w-full py-3 bg-[#FFC200] hover:bg-[#ffe359] text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            {submittingSound ? 'Subiendo...' : 'Agregar Sonido'}
-          </button>
-        </form>
-      </aside>
-
-      <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
-
-        {/* ── Submissions Pendientes ── */}
-        {(() => {
-          const pending = soundSubmissions.filter(s => s.status === 'pending');
-          if (loadingSubmissions) return (
-            <div className="py-5 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando envíos...</div>
-          );
-          if (pending.length === 0) return null;
-          return (
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase tracking-wider font-medium text-amber-400">⏳ Revisión pendiente</span>
-                  <h3 className="font-display font-semibold text-base text-white mt-0.5 leading-none">Envíos de Usuarios</h3>
-                </div>
-                <span className="text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-2xl px-3 py-1">
-                  {pending.length} pendiente{pending.length !== 1 ? 's' : ''}
-                </span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+                <p className="text-[10px] font-medium text-gray-500">Sonidos</p>
+                <p className="text-base font-mono font-black text-white mt-1">{sounds.length}</p>
               </div>
-              <div className="space-y-3">
+              <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+                <p className="text-[10px] font-medium text-gray-500">Pendientes</p>
+                <p className="text-base font-mono font-black text-white mt-1">{pending.length}</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAddSoundModalOpen(true)}
+              className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-2"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Agregar Sonido
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSoundboardView('library')}
+                className={`flex-1 py-2 rounded-xl text-xs font-display font-semibold border transition-all cursor-pointer ${
+                  soundboardView === 'library'
+                    ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/20'
+                    : 'bg-[#2b2d31] text-gray-400 border-neutral-700/60 hover:text-white'
+                }`}
+              >
+                Botonera
+              </button>
+              <button
+                type="button"
+                onClick={() => setSoundboardView('submissions')}
+                className={`flex-1 py-2 rounded-xl text-xs font-display font-semibold border transition-all cursor-pointer ${
+                  soundboardView === 'submissions'
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                    : 'bg-[#2b2d31] text-gray-400 border-neutral-700/60 hover:text-white'
+                }`}
+              >
+                Envíos
+              </button>
+            </div>
+
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              La botonera y la revisión no compiten por espacio. Alterná entre ambas vistas según la tarea.
+            </p>
+          </aside>
+
+          <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">
+                  {soundboardView === 'library' ? 'Botonera VIP' : 'Moderación'}
+                </span>
+                <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">
+                  {soundboardView === 'library' ? 'Sonidos Disponibles' : 'Envíos de Usuarios'}
+                </h2>
+              </div>
+              <span className={`text-[10px] font-bold border rounded-2xl px-3 py-1 ${
+                soundboardView === 'library'
+                  ? 'bg-[#FFC200]/10 text-[#FFC200] border-neutral-700/60'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}>
+                {soundboardView === 'library' ? `${sounds.length} Sonidos` : `${pending.length} Pendiente${pending.length !== 1 ? 's' : ''}`}
+              </span>
+            </div>
+
+            {soundboardView === 'library' ? (
+              loadingSounds ? (
+                <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando botonera...</div>
+              ) : sounds.length === 0 ? (
+                <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
+                  <p className="font-bold text-white text-sm">Consola de sonidos vacía</p>
+                  <p className="text-xs text-gray-400 mt-1 font-medium">Usá el botón “Agregar Sonido” para crear el primer botón.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+                  {sounds.map((sound) => {
+                    const soundStyles = getSoundColor(sound.id);
+                    return (
+                      <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingSound(sound);
+                              setEditingSoundName(sound.name);
+                              setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
+                              setEditingSoundAudioEnabled(false);
+                              setEditingSoundAudioFile(null);
+                              setEditingSoundAudioTrim(null);
+                              setEditingSoundAudioLoading(false);
+                              setEditingSoundAudioError('');
+                            }}
+                            className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
+                            title="Editar sonido"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSound(sound.id)}
+                            className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
+                            title="Borrar de la botonera"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="text-center pt-2">
+                          <span className="text-2xl block mb-1">📢</span>
+                          <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
+                            {sound.name}
+                          </h3>
+                          {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
+                            <span className="text-[9px] text-gray-500 font-mono mt-0.5 block font-semibold">
+                              ⏱ {sound.cooldown_seconds}s cooldown
+                            </span>
+                          ) : (
+                            <span className="text-[9px] text-gray-500 font-mono mt-0.5 block opacity-40">
+                              Sin cooldown
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handlePlaySound(sound.id)}
+                          className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          Testear OBS
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              )
+            ) : loadingSubmissions ? (
+              <div className="py-5 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando envíos...</div>
+            ) : pending.length === 0 ? (
+              <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-amber-500/30 rounded-2xl">
+                <p className="font-bold text-white text-sm">Sin envíos pendientes</p>
+                <p className="text-xs text-gray-400 mt-1 font-medium">Cuando lleguen solicitudes nuevas aparecerán acá como cards de revisión.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-2">
                 {pending.map((sub) => {
                   const edits = submissionEdits[sub.id] ?? { name: sub.name, cooldown: String(sub.suggested_cooldown_seconds) };
                   const isApproving = approvingSubmissionId === sub.id;
                   const isRejecting = rejectingSubmissionId === sub.id;
                   const submitter = sub.profiles;
+                  const hasDraftAudio = !!submissionAudioDrafts[sub.id];
+
                   return (
                     <article key={sub.id} className="bg-[#35373d] border border-amber-500/20 rounded-xl p-4 space-y-3">
-                      {/* Header: submitter info */}
                       <div className="flex items-center gap-3">
                         {submitter?.roblox_avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={submitter.roblox_avatar_url} alt="" className="w-8 h-8 rounded-full border border-neutral-600" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-xs text-gray-400">?</div>
@@ -2147,19 +2396,22 @@ export default function AdminPage() {
                           <p className="text-xs font-bold text-white truncate">{submitter?.roblox_display_name || submitter?.roblox_user || 'Usuario desconocido'}</p>
                           <p className="text-[10px] text-gray-500 truncate">@{submitter?.roblox_user || sub.submitted_by_user_id.slice(0, 8)}</p>
                         </div>
-                        <span className={`ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                          sub.is_public
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                        }`}>
-                          {sub.is_public ? '🌐 Público' : '🔒 Privado'}
-                        </span>
+                        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+                          {hasDraftAudio && (
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                              Recorte listo
+                            </span>
+                          )}
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            sub.is_public
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                              : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                          }`}>
+                            {sub.is_public ? '🌐 Público' : '🔒 Privado'}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Audio preview */}
-                      <audio controls src={sub.url} className="w-full h-8 [&::-webkit-media-controls-panel]:bg-[#2b2d31]" preload="none" />
-
-                      {/* Editable fields */}
                       <div className="grid grid-cols-2 gap-2">
                         <label className="block space-y-1">
                           <span className="text-[10px] text-gray-500">Nombre del botón</span>
@@ -2182,13 +2434,20 @@ export default function AdminPage() {
                         </label>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => void handleOpenSubmissionAudioEditor(sub)}
+                          className="flex-1 min-w-[140px] py-2 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-1"
+                        >
+                          <Scissors className="w-3 h-3 text-[#FFC200]" />
+                          Previsualizar / Recortar
+                        </button>
                         <button
                           type="button"
                           disabled={isApproving || isRejecting !== false}
                           onClick={() => void handleApproveSubmission(sub.id)}
-                          className="flex-1 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1"
+                          className="flex-1 min-w-[140px] py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1"
                         >
                           {isApproving ? <Loader className="w-3 h-3 animate-spin" /> : null}
                           {isApproving ? 'Aprobando...' : '✓ Aprobar'}
@@ -2197,13 +2456,12 @@ export default function AdminPage() {
                           type="button"
                           disabled={isApproving}
                           onClick={() => setRejectingSubmissionId(prev => prev === sub.id ? null : sub.id)}
-                          className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50"
+                          className="flex-1 min-w-[140px] py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50"
                         >
                           ✕ Rechazar
                         </button>
                       </div>
 
-                      {/* Reject reason inline */}
                       <AnimatePresence>
                         {rejectingSubmissionId === sub.id && (
                           <motion.div
@@ -2233,88 +2491,111 @@ export default function AdminPage() {
                   );
                 })}
               </div>
-              <hr className="border-neutral-700/60" />
-            </section>
-          );
-        })()}
-
-        {/* ── Sonidos Activos ── */}
-        <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Botonera VIP</span>
-            <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Sonidos Disponibles</h2>
-          </div>
-          <span className="text-[10px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 rounded-2xl px-3 py-1">
-            {sounds.length} Sonidos
-          </span>
+            )}
+          </main>
         </div>
 
-        {loadingSounds ? (
-          <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando botonera...</div>
-        ) : sounds.length === 0 ? (
-          <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
-            <p className="font-bold text-white text-sm">Consola de sonidos vacía</p>
-            <p className="text-xs text-gray-400 mt-1 font-medium">Sube un archivo de audio para habilitarlo.</p>
-          </div>
-        ) : (
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-            {sounds.map((sound) => {
-              const soundStyles = getSoundColor(sound.id);
-              return (
-                <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingSound(sound);
-                        setEditingSoundName(sound.name);
-                        setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
-                      }}
-                      className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
-                      title="Editar sonido"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSound(sound.id)}
-                      className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
-                      title="Borrar de la botonera"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="text-center pt-2">
-                    <span className="text-2xl block mb-1">📢</span>
-                    <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
-                      {sound.name}
-                    </h3>
-                    {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
-                      <span className="text-[9px] text-gray-500 font-mono mt-0.5 block font-semibold">
-                        ⏱ {sound.cooldown_seconds}s cooldown
-                      </span>
-                    ) : (
-                      <span className="text-[9px] text-gray-500 font-mono mt-0.5 block opacity-40">
-                        Sin cooldown
-                      </span>
-                    )}
-                  </div>
-
+        <AnimatePresence>
+          {isAddSoundModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
+              >
+                <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
+                  <h3 className="font-display font-bold text-white text-base">Agregar Sonido</h3>
                   <button
                     type="button"
-                    onClick={() => handlePlaySound(sound.id)}
-                    className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
+                    onClick={() => setIsAddSoundModalOpen(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
                   >
-                    <Play className="w-3 h-3 fill-current" />
-                    Testear OBS
+                    <X className="w-5 h-5" />
                   </button>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </main>
+                </div>
+
+                <form onSubmit={handleUploadSound} className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block space-y-1">
+                      <span className="text-xs text-gray-500">Nombre del sonido</span>
+                      <input
+                        type="text"
+                        value={soundName}
+                        onChange={(e) => setSoundName(e.target.value)}
+                        placeholder="Ej: Risitas, Fail, Woohoo"
+                        className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                      />
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={soundCooldown}
+                        onChange={(e) => setSoundCooldown(e.target.value)}
+                        placeholder="0 (sin cooldown)"
+                        className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block space-y-1">
+                    <span className="text-xs text-gray-500">Archivo de Audio o Video</span>
+                    <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
+                      <input
+                        type="file"
+                        accept="audio/*,video/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setSoundFile(f);
+                          setSoundTrim(null);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                      <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
+                      <p className="text-[10px] text-gray-400 font-medium truncate">
+                        {soundFile ? soundFile.name : 'Elegir archivo de audio o video'}
+                      </p>
+                    </div>
+                  </label>
+
+                  {soundFile && (
+                    <AudioPreview
+                      file={soundFile}
+                      embedded
+                      onTrimChange={(start, end) => setSoundTrim({ start, end })}
+                    />
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddSoundModalOpen(false)}
+                      className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingSound || !soundFile || !soundName.trim()}
+                      className="flex-1 py-2 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {submittingSound ? 'Subiendo...' : 'Agregar Sonido'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {/* Modal para Editar Sonido */}
       <AnimatePresence>
@@ -2329,7 +2610,7 @@ export default function AdminPage() {
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 15 }}
-              className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4"
+              className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
             >
               <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
                 <h3 className="font-display font-bold text-white text-base">Editar Sonido</h3>
@@ -2343,26 +2624,108 @@ export default function AdminPage() {
               </div>
 
               <form onSubmit={handleUpdateSound} className="space-y-4">
-                <label className="block space-y-1">
-                  <span className="text-xs text-gray-500">Nombre del sonido</span>
-                  <input
-                    type="text"
-                    value={editingSoundName}
-                    onChange={(e) => setEditingSoundName(e.target.value)}
-                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                  />
-                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block space-y-1">
+                    <span className="text-xs text-gray-500">Nombre del sonido</span>
+                    <input
+                      type="text"
+                      value={editingSoundName}
+                      onChange={(e) => setEditingSoundName(e.target.value)}
+                      className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                    />
+                  </label>
 
-                <label className="block space-y-1">
-                  <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editingSoundCooldown}
-                    onChange={(e) => setEditingSoundCooldown(e.target.value)}
-                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                  />
-                </label>
+                  <label className="block space-y-1">
+                    <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editingSoundCooldown}
+                      onChange={(e) => setEditingSoundCooldown(e.target.value)}
+                      className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                    />
+                  </label>
+                </div>
+
+                <div className="rounded-2xl border border-neutral-700/60 bg-[#35373d] p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-white">Audio</p>
+                      <p className="text-[11px] text-gray-500">Activa esto si quieres recortar o reemplazar el archivo ya subido.</p>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-gray-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editingSoundAudioEnabled}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setEditingSoundAudioEnabled(enabled);
+                          if (!enabled) {
+                            setEditingSoundAudioFile(null);
+                            setEditingSoundAudioTrim(null);
+                            setEditingSoundAudioError('');
+                          }
+                        }}
+                        className="accent-[#FFC200]"
+                      />
+                      Editar audio
+                    </label>
+                  </div>
+
+                  {editingSoundAudioEnabled && (
+                    <div className="space-y-3 pt-1">
+                      {editingSoundAudioLoading ? (
+                        <div className="py-8 text-center text-xs text-gray-400 uppercase tracking-wider font-bold animate-pulse">
+                          Cargando audio actual...
+                        </div>
+                      ) : (
+                        <>
+                          <label className="block space-y-1">
+                            <span className="text-xs text-gray-500">Reemplazar por un archivo nuevo</span>
+                            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
+                              <input
+                                type="file"
+                                accept="audio/*,video/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0] || null;
+                                  setEditingSoundAudioFile(file);
+                                  setEditingSoundAudioTrim(null);
+                                  setEditingSoundAudioError('');
+                                }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
+                              <p className="text-[10px] text-gray-400 font-medium truncate">
+                                {editingSoundAudioFile ? editingSoundAudioFile.name : 'Elegir archivo para recortar o reemplazar'}
+                              </p>
+                            </div>
+                          </label>
+
+                          {editingSoundAudioError && (
+                            <p className="text-[10px] font-semibold text-amber-400">{editingSoundAudioError}</p>
+                          )}
+
+                          {editingSoundAudioFile && (
+                            <AudioPreview
+                              file={editingSoundAudioFile}
+                              embedded
+                              onTrimChange={(start, end) => setEditingSoundAudioTrim({ start, end })}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={handleUpdateSoundAudio}
+                            disabled={!editingSoundAudioFile || !editingSoundAudioTrim}
+                            className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Guardar audio recortado
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex gap-3 pt-2">
                   <button
@@ -2384,8 +2747,86 @@ export default function AdminPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {editingSubmissionAudioId && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
+                <h3 className="font-display font-bold text-white text-base">Recortar audio del envío</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingSubmissionAudioId(null);
+                    setEditingSubmissionAudioFile(null);
+                    setEditingSubmissionAudioTrim(null);
+                    setEditingSubmissionAudioError('');
+                  }}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {editingSubmissionAudioLoading ? (
+                <div className="py-10 text-center text-xs text-gray-400 uppercase tracking-wider font-bold animate-pulse">
+                  Cargando audio del envío...
+                </div>
+              ) : editingSubmissionAudioError ? (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400 font-semibold">
+                  {editingSubmissionAudioError}
+                </div>
+              ) : (
+                <>
+                  {editingSubmissionAudioFile && (
+                    <AudioPreview
+                      file={editingSubmissionAudioFile}
+                      embedded
+                      onTrimChange={(start, end) => setEditingSubmissionAudioTrim({ start, end })}
+                    />
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSubmissionAudioId(null);
+                        setEditingSubmissionAudioFile(null);
+                        setEditingSubmissionAudioTrim(null);
+                        setEditingSubmissionAudioError('');
+                      }}
+                      className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveSubmissionAudioTrim()}
+                      disabled={editingSubmissionAudioSaving || !editingSubmissionAudioFile || !editingSubmissionAudioTrim}
+                      className="flex-1 py-2 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {editingSubmissionAudioSaving ? 'Guardando...' : 'Guardar recorte'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
+};
 
   const renderStreamStatusMobileTab = () => (
     <div className="space-y-6 animate-fade-in">
