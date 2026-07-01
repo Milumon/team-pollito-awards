@@ -2348,11 +2348,11 @@ export default function AdminPage() {
   const effectiveScale = zoomLevel === 'fit' ? canvasFitScale : canvasFitScale * zoomLevel;
 
   const renderOverlayDesignTab = () => (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in h-full flex flex-col">
       {loadingStreamSettings ? (
         <div className="py-12 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando diseñador...</div>
       ) : streamSettings ? (
-        <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden">
+        <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden flex-1 flex flex-col">
           {/* Header */}
           <div className="flex justify-between items-center gap-3 px-4 py-3 border-b border-neutral-700/60">
             <div>
@@ -2389,7 +2389,7 @@ export default function AdminPage() {
           </div>
 
           {/* Split Layout */}
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
+          <div className="flex flex-col lg:flex-row flex-1 min-h-0">
 
             {/* ─── Controles ─────────────────────────────────────── */}
             <div className={`lg:w-[35%] lg:max-w-[380px] p-4 space-y-5 border-r border-neutral-700/60 flex-shrink-0 ${
@@ -2562,11 +2562,15 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Viewport del canvas */}
+              {/* Viewport del canvas — resize vertical para estirarlo */}
               <div
                 ref={canvasContainerRefCallback}
-                className="flex-1 overflow-auto flex items-center justify-center p-4"
-                style={{ minHeight: 0 }}
+                className="flex-1 overflow-auto flex items-start justify-center p-4"
+                style={{
+                  minHeight: '320px',
+                  resize: 'vertical',
+                  overflow: 'auto',
+                }}
               >
                 <OverlayCanvas
                   mode="preview"
@@ -3557,7 +3561,9 @@ export default function AdminPage() {
         </AnimatePresence>
 
         {/* MAIN DISPLAY AREA */}
-        <main className="flex-grow overflow-y-auto bg-[#1e1f22] p-4 sm:p-6 min-w-0">
+        <main className={`flex-grow overflow-y-auto bg-[#1e1f22] min-w-0 ${
+          activeTab === 'overlay-design' ? 'flex flex-col p-0' : 'p-4 sm:p-6'
+        }`}>
           {error && (
             <div className="bg-red-950/40 border border-neutral-700/60 rounded-2xl p-4 text-xs font-bold text-red-400 mb-6 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,.3)]">
               <span>⚠️ {error}</span>
@@ -3571,7 +3577,9 @@ export default function AdminPage() {
             </div>
           )}
 
-          {renderActiveTabContent()}
+          <div className={activeTab === 'overlay-design' ? 'flex-1 flex flex-col min-h-0 p-4 sm:p-6' : ''}>
+            {renderActiveTabContent()}
+          </div>
         </main>
 
         {/* 3. DESKTOP CONTROL COLUMN / STATUS (Oculto en móvil) */}
