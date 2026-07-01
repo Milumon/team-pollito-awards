@@ -51,36 +51,38 @@ async function setRobloxContactTag(
   cookie: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    let csrfToken = await getRobloxCsrfToken(cookie);
-    if (!csrfToken) {
-      return { success: false, error: 'No se pudo obtener el token de seguridad de Roblox.' };
-    }
-
-    const makeRequest = async (token: string) => {
+    const makeRequest = (token?: string) => {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Cookie': `.ROBLOSECURITY=${cookie}`,
+      };
+      if (token) {
+        headers['x-csrf-token'] = token;
+      }
       return fetch('https://contacts.roblox.com/v1/user/tag', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cookie': `.ROBLOSECURITY=${cookie}`,
-          'x-csrf-token': token,
-        },
+        headers,
         body: JSON.stringify({ targetUserId, userTag }),
       });
     };
 
-    let response = await makeRequest(csrfToken);
+    let response = await makeRequest();
 
-    // Si da 403 (token expirado/invalido), intentamos refrescar el token una vez
     if (response.status === 403) {
-      console.log('Roblox 403 detectado, refrescando CSRF token...');
-      csrfToken = await getRobloxCsrfToken(cookie);
-      if (csrfToken) {
-        response = await makeRequest(csrfToken);
+      const token = response.headers.get('x-csrf-token');
+      if (token) {
+        console.log('CSRF token obtenido del error 403:', token);
+        response = await makeRequest(token);
+      } else {
+        const fallbackToken = await getRobloxCsrfToken(cookie);
+        if (fallbackToken) {
+          response = await makeRequest(fallbackToken);
+        }
       }
     }
 
     if (response.status === 429) {
-      return { success: false, error: 'Roblox está saturado (Rate Limit 429). Intentá de nuevo en unos minutos.' };
+      return { success: false, error: 'Roblox está saturado (Rate Limit 429). Intenta de nuevo en unos minutos.' };
     }
 
     if (!response.ok) {

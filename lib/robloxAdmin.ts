@@ -198,7 +198,6 @@ async function getCsrfToken(): Promise<string> {
 
 export async function tagRobloxUser(targetUserId: number, action: 'add' | 'remove') {
   console.log(`[RobloxAdmin] tagRobloxUser: targetUserId=${targetUserId}, action=${action}`);
-  let csrfToken = await getCsrfToken();
   let userTag = '';
 
   if (action === 'add') {
@@ -210,25 +209,33 @@ export async function tagRobloxUser(targetUserId: number, action: 'add' | 'remov
     userTag = `🐣 ${displayName} 🐣`;
   }
 
-  let response = await robloxFetch('https://contacts.roblox.com/v1/user/tag', {
-    method: 'POST',
-    headers: {
+  const makeRequest = async (token?: string) => {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-csrf-token': csrfToken,
-    },
-    body: JSON.stringify({ targetUserId, userTag })
-  });
-
-  if (response.status === 403) {
-    csrfToken = await getCsrfToken();
-    response = await robloxFetch('https://contacts.roblox.com/v1/user/tag', {
+    };
+    if (token) {
+      headers['x-csrf-token'] = token;
+    }
+    return robloxFetch('https://contacts.roblox.com/v1/user/tag', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-csrf-token': csrfToken,
-      },
+      headers,
       body: JSON.stringify({ targetUserId, userTag })
     });
+  };
+
+  let response = await makeRequest();
+
+  if (response.status === 403) {
+    const token = response.headers.get('x-csrf-token');
+    if (token) {
+      console.log(`[RobloxAdmin] CSRF token obtenido del error 403: ${token}`);
+      response = await makeRequest(token);
+    } else {
+      const fallbackToken = await getCsrfToken();
+      if (fallbackToken) {
+        response = await makeRequest(fallbackToken);
+      }
+    }
   }
 
   if (!response.ok) {
