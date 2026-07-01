@@ -237,6 +237,7 @@ export default function AdminPage() {
   const [adminForceClaim, setAdminForceClaim] = useState(false);
   const [adminVerifiedProfile, setAdminVerifiedProfile] = useState<{ id: number; displayName: string; avatarUrl: string | null; username: string } | null>(null);
   const [adminRobloxConfirmed, setAdminRobloxConfirmed] = useState(false);
+  const [editFormSuccess, setEditFormSuccess] = useState<string | null>(null);
 
   // Active Nominee Drawer State
   const [editingNominee, setEditingNominee] = useState<AdminNominee | null>(null);
@@ -910,10 +911,12 @@ export default function AdminPage() {
     setIsValidatingRoblox(false);
     setAdminVerifiedProfile(null);
     setAdminRobloxConfirmed(false);
+    setEditFormSuccess(null);
   };
 
   const handleAdminVerifyRoblox = async () => {
     setEditFormError(null);
+    setEditFormSuccess(null);
     setAdminIsDuplicate(false);
     setAdminConflictedEmail('');
     setAdminForceClaim(false);
@@ -947,7 +950,7 @@ export default function AdminPage() {
           username: editForm.robloxUsername.trim(),
         });
         setAdminRobloxConfirmed(true);
-        setStatus('Usuario de Roblox verificado correctamente.');
+        setEditFormSuccess('Usuario de Roblox verificado correctamente.');
       }
     } catch (err) {
       setEditFormError('Error al conectar con el servidor.');
@@ -3697,6 +3700,12 @@ export default function AdminPage() {
                     </div>
                   )}
 
+                  {editFormSuccess && (
+                    <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs font-semibold font-sans">
+                      {editFormSuccess}
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Usuario Roblox</label>
                     <div className="flex gap-2">
@@ -3709,6 +3718,7 @@ export default function AdminPage() {
                           setAdminConflictedEmail('');
                           setAdminForceClaim(false);
                           setEditFormError(null);
+                          setEditFormSuccess(null);
                         }}
                         placeholder="Username de Roblox..."
                         className="flex-grow px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium font-sans"
