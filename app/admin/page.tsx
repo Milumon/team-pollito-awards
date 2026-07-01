@@ -286,7 +286,8 @@ export default function AdminPage() {
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
 
   // Canvas viewer state
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [canvasContainerEl, setCanvasContainerEl] = useState<HTMLDivElement | null>(null);
+  const canvasContainerRefCallback = useCallback((el: HTMLDivElement | null) => setCanvasContainerEl(el), []);
   const [canvasFitScale, setCanvasFitScale] = useState(0.3);
   const [zoomLevel, setZoomLevel] = useState<'fit' | 0.75 | 1 | 1.25>('fit');
   const [designerMobileTab, setDesignerMobileTab] = useState<'controls' | 'preview'>('controls');
@@ -2326,18 +2327,23 @@ export default function AdminPage() {
   );
 
   // ─── ResizeObserver para el canvas del diseñador ───────────────────────────
+  // Usamos un callback ref en vez de useRef para que el observer
+  // se registre cuando el elemento se MONTA (al activar el tab),
+  // no al montar el componente padre.
   useEffect(() => {
-    const el = canvasContainerRef.current;
-    if (!el) return;
+    if (!canvasContainerEl) return;
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      const scaleByH = height / CANVAS_H;
-      const scaleByW = width / CANVAS_W;
-      setCanvasFitScale(Math.min(scaleByH, scaleByW, 1));
+      setCanvasFitScale(Math.min(height / CANVAS_H, width / CANVAS_W, 1));
     });
-    observer.observe(el);
+    observer.observe(canvasContainerEl);
+    // Medir inmediatamente sin esperar el primer resize
+    const { clientWidth: w, clientHeight: h } = canvasContainerEl;
+    if (w > 0 && h > 0) {
+      setCanvasFitScale(Math.min(h / CANVAS_H, w / CANVAS_W, 1));
+    }
     return () => observer.disconnect();
-  }, []);
+  }, [canvasContainerEl]);
 
   const effectiveScale = zoomLevel === 'fit' ? canvasFitScale : canvasFitScale * zoomLevel;
 
@@ -2558,7 +2564,7 @@ export default function AdminPage() {
 
               {/* Viewport del canvas */}
               <div
-                ref={canvasContainerRef}
+                ref={canvasContainerRefCallback}
                 className="flex-1 overflow-auto flex items-center justify-center p-4"
                 style={{ minHeight: 0 }}
               >
