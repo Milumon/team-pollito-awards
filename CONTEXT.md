@@ -67,3 +67,8 @@ _Avoid_: Sonido exclusivo, Audio personal, Sonido de usuario
 **Sonido Público (Public Sound)**:
 Sonido aprobado por un Administrador que aparece en la botonera compartida y puede ser disparado por todos los Miembros Oficiales. Equivalente al comportamiento original de `soundboard_sounds`.
 _Avoid_: Sonido global, Audio comunitario, Sonido del admin
+
+**Protección Anti-Spam (Anti-Spam Guard)**:
+Mecanismo de seguridad opcional en la Consola del Miembro que solicita confirmación en pantalla antes de disparar sonidos o efectos para evitar clics accidentales. Puede ser deshabilitado por el usuario en el propio diálogo de confirmación o en el panel de Ajustes.
+_Avoid_: Diálogo molesto, Confirmación de envío, Alert de spam
+

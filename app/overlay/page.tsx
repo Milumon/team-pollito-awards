@@ -19,6 +19,11 @@ type StreamSettings = {
   is_muted: boolean;
   global_cooldown_seconds: number;
   personal_cooldown_seconds: number;
+  overlay_notification_top?: number;
+  overlay_notification_width?: number;
+  overlay_notification_badge_size?: number;
+  overlay_notification_content_size?: number;
+  overlay_notification_sender_size?: number;
 };
 
 
@@ -590,24 +595,40 @@ export default function ObsOverlayPage() {
           </div>
         )}
 
-        {/* EVENT NOTIFIER WIDGET (Centered Top inside the 9:16 view) */}
+        {/* EVENT NOTIFIER WIDGET (Configurable dimensions and position) */}
         {isPlaying && currentEvent && !isMuted && (
-          <div className="absolute top-12 left-1/2 -translate-x-1/2 bg-white border-2 border-black p-3 rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2.5 animate-slide-in w-[90%] max-w-xs pointer-events-auto z-30">
+          <div 
+            style={{
+              top: `${settings?.overlay_notification_top ?? 48}px`,
+              width: `${settings?.overlay_notification_width ?? 288}px`,
+              maxWidth: '90%',
+            }}
+            className="absolute left-1/2 -translate-x-1/2 bg-white border-2 border-black p-3 rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,1)] flex items-center gap-2.5 animate-slide-in pointer-events-auto z-30"
+          >
             <div className="w-8 h-8 rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0">
               {currentEvent.type === 'sound' ? '🔊' : currentEvent.type === 'tts' ? '🗣️' : '✨'}
             </div>
             <div className="min-w-0 text-left flex-1">
-              <span className="bg-[#ea580c] text-white border border-black rounded px-1 text-[7px] font-black uppercase">
+              <span 
+                style={{ fontSize: `${settings?.overlay_notification_badge_size ?? 10}px` }}
+                className="bg-[#ea580c] text-white border border-black rounded px-1.5 font-black uppercase inline-block leading-tight"
+              >
                 {currentEvent.type === 'sound' ? 'VIP Sound' : currentEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
               </span>
-              <p className="font-black text-[10px] text-black truncate mt-0.5 leading-tight">
+              <p 
+                style={{ fontSize: `${settings?.overlay_notification_content_size ?? 14}px` }}
+                className="font-black text-black truncate mt-0.5 leading-tight"
+              >
                 {currentEvent.type === 'tts' 
                   ? `"${currentEvent.content}"` 
                   : currentEvent.type === 'sound' 
                   ? `Sonido: ${soundsMap[currentEvent.content.replace('.mp3', '')]?.name || currentEvent.content}` 
                   : `Animación: ${currentEvent.content}`}
               </p>
-              <p className="text-[8px] font-black text-gray-500 truncate mt-0.5">
+              <p 
+                style={{ fontSize: `${settings?.overlay_notification_sender_size ?? 11}px` }}
+                className="font-black text-gray-500 truncate mt-0.5"
+              >
                 Por: @{currentEvent.sender_roblox_user || 'VIP'}
               </p>
             </div>

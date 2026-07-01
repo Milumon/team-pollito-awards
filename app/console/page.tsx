@@ -63,6 +63,13 @@ type StreamSettings = {
   personal_cooldown_seconds: number;
 };
 
+interface PendingTrigger {
+  type: 'sound' | 'tts' | 'animation';
+  content: string;
+  message: string;
+}
+
+
 const ANIMATIONS = [
   { id: 'eggs', name: '🥚 Lluvia de Huevos', color: 'from-amber-200 to-yellow-300' },
   { id: 'sparkles', name: '✨ Destellos Brillantes', color: 'from-teal-100 to-cyan-300' },
@@ -100,6 +107,7 @@ export default function MemberConsolePage() {
 
   // Sound/Animation Trigger State
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
+  const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
 
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string }[]>([]);
@@ -278,22 +286,25 @@ export default function MemberConsolePage() {
   }, []);
 
   // 3. Trigger Event Helper
-  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation', content: string) => {
+  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation', content: string, bypassConfirm = false) => {
     if (!session) return;
     setError(null);
     setSuccess(null);
 
     // Anti-spam popup check
-    if (confirmSpamGuard && !isLocalTestMode) {
+    if (!bypassConfirm && confirmSpamGuard && !isLocalTestMode) {
       const confirmMsg =
         type === 'sound'
           ? '¿Quieres reproducir este sonido en el stream?'
           : type === 'animation'
           ? '¿Quieres mostrar esta animación en pantalla?'
           : '¿Quieres enviar este mensaje de voz (TTS) al stream?';
-      if (!window.confirm(confirmMsg)) {
-        return;
-      }
+      setPendingTrigger({
+        type,
+        content,
+        message: confirmMsg
+      });
+      return;
     }
 
     // Local checks before calling the API
@@ -356,6 +367,13 @@ export default function MemberConsolePage() {
       setSendingTts(false);
     }
   }, [session, soundCooldown, ttsCooldown, animationCooldown, fetchRecentEvents, streamSettings, confirmSpamGuard, isLocalTestMode]);
+
+  const handleConfirmTrigger = useCallback(async () => {
+    if (!pendingTrigger) return;
+    const { type, content } = pendingTrigger;
+    setPendingTrigger(null);
+    await triggerEvent(type, content, true);
+  }, [pendingTrigger, triggerEvent]);
 
   const fetchSounds = useCallback(async () => {
     try {
@@ -1966,6 +1984,111 @@ export default function MemberConsolePage() {
         ]}
         activeTab={activeTab}
       />
+
+      {/* ----------------- MODAL DE PROTECCIÓN ANTI-SPAM ----------------- */}
+      <AnimatePresence>
+        {pendingTrigger && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 max-w-md w-full shadow-[0_4px_24px_rgba(0,0,0,.5)] relative space-y-4 text-left pointer-events-auto"
+            >
+              <div className="flex items-center gap-3 border-b border-neutral-700/40 pb-3 mb-2 shrink-0">
+                <div className={`p-2 rounded-xl border ${
+                  pendingTrigger.type === 'sound'
+                    ? 'bg-[#FFC200]/10 border-[#FFC200]/20 text-[#FFC200]'
+                    : pendingTrigger.type === 'animation'
+                    ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'
+                    : 'bg-purple-500/10 border-purple-500/20 text-purple-400'
+                }`}>
+                  {pendingTrigger.type === 'sound' && <Volume2 className="w-5 h-5" />}
+                  {pendingTrigger.type === 'animation' && <Sparkles className="w-5 h-5" />}
+                  {pendingTrigger.type === 'tts' && <Send className="w-5 h-5" />}
+                </div>
+                <h2 className="font-display font-bold text-lg leading-none text-white tracking-tight">
+                  {pendingTrigger.type === 'sound' && 'Confirmar Sonido'}
+                  {pendingTrigger.type === 'animation' && 'Confirmar Animación'}
+                  {pendingTrigger.type === 'tts' && 'Confirmar Mensaje de Voz'}
+                </h2>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-gray-300 leading-relaxed">
+                  {pendingTrigger.message}
+                </p>
+
+                {/* Vista previa rápida del contenido si corresponde */}
+                {pendingTrigger.type === 'sound' && (
+                  <div className="bg-neutral-800 rounded-xl p-3 border border-neutral-700/40">
+                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Sonido seleccionado</span>
+                    <span className="font-display font-medium text-xs text-white">
+                      📢 {sounds.find(s => s.id === pendingTrigger.content)?.name || pendingTrigger.content}
+                    </span>
+                  </div>
+                )}
+                {pendingTrigger.type === 'animation' && (
+                  <div className="bg-neutral-800 rounded-xl p-3 border border-neutral-700/40">
+                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Animación seleccionada</span>
+                    <span className="font-display font-medium text-xs text-white">
+                      🎬 {ANIMATIONS.find(a => a.id === pendingTrigger.content)?.name || pendingTrigger.content}
+                    </span>
+                  </div>
+                )}
+                {pendingTrigger.type === 'tts' && (
+                  <div className="bg-neutral-800 rounded-xl p-3 border border-neutral-700/40 max-h-24 overflow-y-auto scrollbar-thin">
+                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Mensaje de voz</span>
+                    <span className="font-sans text-xs text-white italic">
+                      "{pendingTrigger.content}"
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="modal-dont-ask-checkbox"
+                  checked={!confirmSpamGuard}
+                  onChange={(e) => {
+                    const disableSpamGuard = e.target.checked;
+                    setConfirmSpamGuard(!disableSpamGuard);
+                    window.localStorage.setItem('confirmSpamGuard', String(!disableSpamGuard));
+                  }}
+                  className="w-4 h-4 cursor-pointer accent-[#FFC200]"
+                />
+                <label htmlFor="modal-dont-ask-checkbox" className="text-xs font-bold text-gray-400 hover:text-white select-none cursor-pointer">
+                  No volver a preguntar (desactivar protección)
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingTrigger(null)}
+                  className="flex-1 py-3 bg-[#2b2d31] hover:bg-neutral-900 border border-neutral-700/60 rounded-xl text-gray-400 hover:text-white font-display font-semibold text-xs transition-all cursor-pointer active:scale-[0.97]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmTrigger}
+                  className={`flex-1 py-3 font-display font-semibold text-xs rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-[0.97] ${
+                    pendingTrigger.type === 'sound'
+                      ? 'bg-[#FFC200] hover:brightness-105 text-black'
+                      : pendingTrigger.type === 'animation'
+                      ? 'bg-cyan-500 hover:bg-cyan-600 text-black'
+                      : 'bg-purple-500 hover:bg-purple-600 text-white'
+                  }`}
+                >
+                  Enviar 🚀
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ROBLOX ONBOARDING MODAL */}
       <RobloxOnboarding

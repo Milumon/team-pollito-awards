@@ -98,6 +98,11 @@ type StreamSettings = {
   global_cooldown_seconds: number;
   personal_cooldown_seconds: number;
   overlay_active_at: string | null;
+  overlay_notification_top: number;
+  overlay_notification_width: number;
+  overlay_notification_badge_size: number;
+  overlay_notification_content_size: number;
+  overlay_notification_sender_size: number;
 };
 
 type AuditLog = {
@@ -589,6 +594,11 @@ export default function AdminPage() {
     isMuted?: boolean;
     globalCooldown?: number;
     personalCooldown?: number;
+    overlayNotificationTop?: number;
+    overlayNotificationWidth?: number;
+    overlayNotificationBadgeSize?: number;
+    overlayNotificationContentSize?: number;
+    overlayNotificationSenderSize?: number;
   }) => {
     if (!isAdmin) return;
     setUpdatingStreamSettings(true);
@@ -1865,6 +1875,157 @@ export default function AdminPage() {
               >
                 Guardar Cooldown Personal
               </button>
+            </div>
+
+            {/* CONFIGURACIÓN DE DISEÑO DEL OVERLAY */}
+            <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-4">
+              <div className="flex justify-between items-start gap-3 border-b border-neutral-700/60 pb-3">
+                <div>
+                  <h3 className="font-display font-semibold text-sm text-white">🎨 Diseño del Pop-up de Eventos</h3>
+                  <p className="text-[10px] text-gray-400 mt-1 font-semibold">
+                    Configura la posición, el ancho y los tamaños de texto del pop-up en el overlay vertical (720x1280).
+                  </p>
+                </div>
+                <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase">
+                  Ajuste Visual
+                </span>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Posición Superior (Top) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Distancia Superior (Y)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1000"
+                    step="10"
+                    value={streamSettings.overlay_notification_top ?? 48}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_top: val } : null);
+                    }}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                    <span>0px (Arriba)</span>
+                    <span>1000px</span>
+                  </div>
+                </div>
+
+                {/* Ancho del Pop-up (Width) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Ancho del Pop-up</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="200"
+                    max="700"
+                    step="10"
+                    value={streamSettings.overlay_notification_width ?? 288}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_width: val } : null);
+                    }}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                    <span>200px</span>
+                    <span>700px</span>
+                  </div>
+                </div>
+
+                {/* Fuente Badge */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Texto de Etiqueta (Badge)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="30"
+                    step="1"
+                    value={streamSettings.overlay_notification_badge_size ?? 10}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_badge_size: val } : null);
+                    }}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                </div>
+
+                {/* Fuente Remitente */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Texto del Remitente</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_sender_size ?? 11}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="30"
+                    step="1"
+                    value={streamSettings.overlay_notification_sender_size ?? 11}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_sender_size: val } : null);
+                    }}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                </div>
+
+                {/* Fuente Contenido */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Texto del Mensaje (Contenido)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="8"
+                    max="40"
+                    step="1"
+                    value={streamSettings.overlay_notification_content_size ?? 14}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setStreamSettings((prev: any) => prev ? { ...prev, overlay_notification_content_size: val } : null);
+                    }}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                    <span>8px</span>
+                    <span>40px</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  disabled={updatingStreamSettings}
+                  onClick={() => handleUpdateStreamSettings({
+                    overlayNotificationTop: streamSettings.overlay_notification_top,
+                    overlayNotificationWidth: streamSettings.overlay_notification_width,
+                    overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
+                    overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
+                    overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
+                  })}
+                  className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
+                >
+                  {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
+                </button>
+              </div>
             </div>
           </div>
         ) : (

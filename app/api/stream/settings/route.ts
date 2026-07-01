@@ -48,7 +48,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { isMuted, globalCooldown, personalCooldown, heartbeat } = body;
+    const { 
+      isMuted, 
+      globalCooldown, 
+      personalCooldown, 
+      heartbeat,
+      overlayNotificationTop,
+      overlayNotificationWidth,
+      overlayNotificationBadgeSize,
+      overlayNotificationContentSize,
+      overlayNotificationSenderSize
+    } = body;
 
     const updates: Record<string, string | number | boolean | null> = {};
 
@@ -66,6 +76,12 @@ export async function POST(request: NextRequest) {
     if (typeof isMuted === 'boolean') updates.is_muted = isMuted;
     if (typeof globalCooldown === 'number') updates.global_cooldown_seconds = globalCooldown;
     if (typeof personalCooldown === 'number') updates.personal_cooldown_seconds = personalCooldown;
+    if (typeof overlayNotificationTop === 'number') updates.overlay_notification_top = overlayNotificationTop;
+    if (typeof overlayNotificationWidth === 'number') updates.overlay_notification_width = overlayNotificationWidth;
+    if (typeof overlayNotificationBadgeSize === 'number') updates.overlay_notification_badge_size = overlayNotificationBadgeSize;
+    if (typeof overlayNotificationContentSize === 'number') updates.overlay_notification_content_size = overlayNotificationContentSize;
+    if (typeof overlayNotificationSenderSize === 'number') updates.overlay_notification_sender_size = overlayNotificationSenderSize;
+    
     updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabaseAdmin
