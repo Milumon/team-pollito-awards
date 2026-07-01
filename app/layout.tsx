@@ -49,32 +49,32 @@ export const viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "The Pollitos Awards",
+  title: "Comunidad del Team Pollito - Milumon",
   description:
-    "Vota por tus favoritos en The Pollitos Awards y celebra con la comunidad del Team Pollito.",
+    "La comunidad oficial de Team Pollito y Milumon: votaciones, stream, miembros, historias y eventos.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Team Pollito",
+    title: "Comunidad del Team Pollito",
   },
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "The Pollitos Awards",
+    title: "Comunidad del Team Pollito - Milumon",
     description:
-      "Vota por tus favoritos en The Pollitos Awards y celebra con la comunidad del Team Pollito.",
+      "La comunidad oficial de Team Pollito y Milumon: votaciones, stream, miembros, historias y eventos.",
     url: "/",
-    siteName: "The Pollitos Awards",
+    siteName: "Comunidad del Team Pollito",
     locale: "es_PE",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Pollitos Awards",
+    title: "Comunidad del Team Pollito - Milumon",
     description:
-      "Vota por tus favoritos en The Pollitos Awards y celebra con la comunidad del Team Pollito.",
+      "La comunidad oficial de Team Pollito y Milumon: votaciones, stream, miembros, historias y eventos.",
   },
 };
 

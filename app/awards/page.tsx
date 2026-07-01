@@ -1782,7 +1782,7 @@ export default function LandingPage() {
       {/* FOOTER */}
       <footer className="hidden md:block text-center mt-auto py-2 relative z-20">
         <p className="font-sans text-[10px] text-gray-700 tracking-wide font-bold uppercase">
-          🏆 The Pollitos Awards 2026 • Creado con ❤️ para todo el Team Pollito
+          🏆 Comunidad del Team Pollito • Milumon 2026 • Creado con ❤️ para todo el Team Pollito
         </p>
       </footer>
 

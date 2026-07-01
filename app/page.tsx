@@ -52,6 +52,13 @@ type InterviewStatus = {
   already_interviewed?: boolean;
 };
 
+type VerifiedRobloxProfile = {
+  id: number;
+  displayName: string;
+  avatarUrl: string | null;
+  username: string;
+};
+
 type Testimonial = {
   roblox_display_name: string;
   roblox_user: string;
@@ -117,6 +124,9 @@ export default function ComunidadPage() {
   const [returnReason, setReturnReason] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [alreadyInterviewed, setAlreadyInterviewed] = useState(false);
+  const [verifiedRobloxProfile, setVerifiedRobloxProfile] = useState<VerifiedRobloxProfile | null>(null);
+  const [robloxProfileConfirmed, setRobloxProfileConfirmed] = useState(false);
+  const [verifyingRoblox, setVerifyingRoblox] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
@@ -261,6 +271,56 @@ export default function ComunidadPage() {
     await supabase.auth.signOut();
   };
 
+  const resetRobloxVerification = () => {
+    setVerifiedRobloxProfile(null);
+    setRobloxProfileConfirmed(false);
+  };
+
+  const handleVerifyRobloxForInterview = async () => {
+    setFormError(null);
+
+    if (!robloxUser.trim()) {
+      setFormError('El nombre de usuario de Roblox es obligatorio.');
+      return false;
+    }
+
+    try {
+      setVerifyingRoblox(true);
+      const token = session?.access_token;
+      const res = await fetch('/api/profile/verify-roblox', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ robloxUsername: robloxUser.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setVerifiedRobloxProfile(null);
+        setRobloxProfileConfirmed(false);
+        setFormError(data.error || 'No se pudo validar ese usuario de Roblox.');
+        return false;
+      }
+
+      setVerifiedRobloxProfile({
+        id: data.id,
+        displayName: data.displayName,
+        avatarUrl: data.avatarUrl || null,
+        username: robloxUser.trim(),
+      });
+      setRobloxProfileConfirmed(false);
+      return true;
+    } catch {
+      setFormError('Ocurrió un error al consultar Roblox. Intenta nuevamente.');
+      return false;
+    } finally {
+      setVerifyingRoblox(false);
+    }
+  };
+
   const handleBook = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -279,6 +339,10 @@ export default function ComunidadPage() {
     }
     if (isReturning && (!banReason.trim() || !returnReason.trim())) {
       setFormError('Por favor completa todos los campos explicando tu situación.');
+      return;
+    }
+    if (!robloxProfileConfirmed) {
+      await handleVerifyRobloxForInterview();
       return;
     }
 
@@ -313,6 +377,7 @@ export default function ComunidadPage() {
       setFormSuccess(true);
       setIsRescheduling(false);
       setAlreadyInterviewed(false);
+      resetRobloxVerification();
       fetchSlots();
       fetchStats();
       if (token) {
@@ -869,7 +934,7 @@ export default function ComunidadPage() {
                 )}
 
                 {/* PENDING INTERVIEW STATUS */}
-                {session && !loadingStatus && statusInfo.status === 'pending' && (
+                {session && !loadingStatus && statusInfo.status === 'pending' && !isRescheduling && (
                   <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.06)] space-y-4 text-center">
                     <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mx-auto">
                       <Clock className="w-6 h-6 text-amber-500 animate-pulse" />
@@ -907,6 +972,7 @@ export default function ComunidadPage() {
                         setRobloxUser(statusInfo.roblox_user || '');
                         setTiktokUser(statusInfo.tiktok_user || '');
                         setAlreadyInterviewed(statusInfo.already_interviewed || false);
+                        resetRobloxVerification();
                         setIsRescheduling(true);
                       }}
                       className="w-full py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer mt-2"
@@ -936,6 +1002,7 @@ export default function ComunidadPage() {
                         setRobloxUser(statusInfo.roblox_user || '');
                         setTiktokUser(statusInfo.tiktok_user || '');
                         setIsReturning(false);
+                        resetRobloxVerification();
                         setIsRescheduling(true);
                       }}
                       className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
@@ -1154,7 +1221,10 @@ export default function ComunidadPage() {
                                     <input
                                       type="text"
                                       value={robloxUser}
-                                      onChange={(e) => setRobloxUser(e.target.value)}
+                                      onChange={(e) => {
+                                        setRobloxUser(e.target.value);
+                                        resetRobloxVerification();
+                                      }}
                                       placeholder="Ej: MilumonRoblox"
                                       className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                     />
@@ -1169,6 +1239,56 @@ export default function ComunidadPage() {
                                       className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                                     />
                                   </div>
+                                  {verifiedRobloxProfile && (
+                                    <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+                                      <div className="flex items-center gap-3">
+                                        {verifiedRobloxProfile.avatarUrl ? (
+                                          <img
+                                            src={verifiedRobloxProfile.avatarUrl}
+                                            alt={verifiedRobloxProfile.displayName}
+                                            className="w-14 h-14 rounded-xl object-cover border border-white"
+                                          />
+                                        ) : (
+                                          <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
+                                            🐣
+                                          </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                          <p className="font-display font-semibold text-sm text-[#2D3139] truncate">
+                                            {verifiedRobloxProfile.displayName}
+                                          </p>
+                                          <p className="font-sans text-xs text-gray-500 truncate">
+                                            @{verifiedRobloxProfile.username} · ID {verifiedRobloxProfile.id}
+                                          </p>
+                                          <p className={`font-sans text-[11px] font-semibold mt-1 ${robloxProfileConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                            {robloxProfileConfirmed ? 'Perfil confirmado' : 'Confirma que este es tu perfil de Roblox'}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {!robloxProfileConfirmed && (
+                                        <div className="grid grid-cols-2 gap-2 mt-3">
+                                          <button
+                                            type="button"
+                                            onClick={resetRobloxVerification}
+                                            className="py-2 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                          >
+                                            Editar usuario
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setRobloxProfileConfirmed(true);
+                                              setFormError(null);
+                                            }}
+                                            className="py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                          >
+                                            Sí, es mi perfil
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                   <div>
                                     <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
                                     <textarea
@@ -1214,10 +1334,10 @@ export default function ComunidadPage() {
 
                                 <button
                                   type="submit"
-                                  disabled={submitting}
+                                  disabled={submitting || verifyingRoblox}
                                   className={`w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer ${isReturning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-[#FFC200] hover:brightness-105 text-black'} active:scale-[0.97]`}
                                 >
-                                  {submitting ? 'Reservando...' : 'Confirmar Reserva'}
+                                  {verifyingRoblox ? 'Buscando perfil...' : submitting ? 'Reservando...' : robloxProfileConfirmed ? 'Confirmar Reserva' : 'Buscar perfil de Roblox'}
                                 </button>
                               </form>
                             )}
@@ -1236,7 +1356,10 @@ export default function ComunidadPage() {
                               <input
                                 type="text"
                                 value={robloxUser}
-                                onChange={(e) => setRobloxUser(e.target.value)}
+                                onChange={(e) => {
+                                  setRobloxUser(e.target.value);
+                                  resetRobloxVerification();
+                                }}
                                 placeholder="Ej: MilumonRoblox"
                                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                               />
@@ -1251,6 +1374,56 @@ export default function ComunidadPage() {
                                 className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
                               />
                             </div>
+                            {verifiedRobloxProfile && (
+                              <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+                                <div className="flex items-center gap-3">
+                                  {verifiedRobloxProfile.avatarUrl ? (
+                                    <img
+                                      src={verifiedRobloxProfile.avatarUrl}
+                                      alt={verifiedRobloxProfile.displayName}
+                                      className="w-14 h-14 rounded-xl object-cover border border-white"
+                                    />
+                                  ) : (
+                                    <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
+                                      🐣
+                                    </div>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-display font-semibold text-sm text-[#2D3139] truncate">
+                                      {verifiedRobloxProfile.displayName}
+                                    </p>
+                                    <p className="font-sans text-xs text-gray-500 truncate">
+                                      @{verifiedRobloxProfile.username} · ID {verifiedRobloxProfile.id}
+                                    </p>
+                                    <p className={`font-sans text-[11px] font-semibold mt-1 ${robloxProfileConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                      {robloxProfileConfirmed ? 'Perfil confirmado' : 'Confirma que este es tu perfil de Roblox'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {!robloxProfileConfirmed && (
+                                  <div className="grid grid-cols-2 gap-2 mt-3">
+                                    <button
+                                      type="button"
+                                      onClick={resetRobloxVerification}
+                                      className="py-2 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                    >
+                                      Editar usuario
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setRobloxProfileConfirmed(true);
+                                        setFormError(null);
+                                      }}
+                                      className="py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                    >
+                                      Sí, es mi perfil
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div>
                               <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
                               <textarea
@@ -1273,10 +1446,10 @@ export default function ComunidadPage() {
 
                           <button
                             type="submit"
-                            disabled={submitting}
+                            disabled={submitting || verifyingRoblox}
                             className="w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer bg-[#FFC200] hover:brightness-105 text-black active:scale-[0.97]"
                           >
-                            {submitting ? 'Enviando...' : 'Enviar Solicitud'}
+                            {verifyingRoblox ? 'Buscando perfil...' : submitting ? 'Enviando...' : robloxProfileConfirmed ? 'Enviar Solicitud' : 'Buscar perfil de Roblox'}
                           </button>
                         </form>
                       </div>

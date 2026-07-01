@@ -371,7 +371,7 @@ export function StoryImage({
                 Creado con amor por la comunidad
               </div>
               <div style={{ fontSize: '32px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' }}>
-                The Pollitos Awards
+                Comunidad del Team Pollito
               </div>
             </div>
 
