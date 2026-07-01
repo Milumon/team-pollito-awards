@@ -265,7 +265,11 @@ export default function ObsOverlayPage() {
   const loadSounds = useCallback(async () => {
     try {
       remoteLog('DEBUG', 'loadSounds - Buscando sonidos desde API...');
-      const response = await fetch('/api/admin/sounds');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['x-admin-token'] = token;
+      }
+      const response = await fetch('/api/admin/sounds', { headers });
       const data = await response.json();
       if (data.sounds) {
         const mapping: Record<string, { url: string; name: string }> = {};
@@ -282,7 +286,7 @@ export default function ObsOverlayPage() {
       const error = err as Error;
       remoteLog('ERROR', `loadSounds - Excepción: ${error.message}`);
     }
-  }, []);
+  }, [token]);
 
   // Read query token and fetch settings/events on mount
   useEffect(() => {
