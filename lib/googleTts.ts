@@ -27,9 +27,19 @@ const SILENT_MP3_BASE64 =
 function getTtsClient(): TextToSpeechClient | null {
   if (client) return client;
 
-  const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  // Production: base64-encoded JSON (avoids shell escaping issues in CI/CD)
+  // Local dev: raw JSON in GOOGLE_APPLICATION_CREDENTIALS_JSON
+  let credentialsJson: string | undefined;
+
+  const b64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_B64;
+  if (b64) {
+    credentialsJson = Buffer.from(b64, 'base64').toString('utf-8');
+  } else {
+    credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  }
+
   if (!credentialsJson) {
-    console.warn('[GoogleTTS] GOOGLE_APPLICATION_CREDENTIALS_JSON no está configurada.');
+    console.warn('[GoogleTTS] No se encontró credencial (GOOGLE_APPLICATION_CREDENTIALS_B64 ni GOOGLE_APPLICATION_CREDENTIALS_JSON).');
     return null;
   }
 

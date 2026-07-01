@@ -80,7 +80,7 @@ jobs:
             --set-env-vars "ROBLOX_ALEXA_VM_URL=${{ secrets.ROBLOX_ALEXA_VM_URL }}" \
             --set-env-vars "ROBLOX_ALEXA_SHARED_SECRET=${{ secrets.ROBLOX_ALEXA_SHARED_SECRET }}" \
             --set-env-vars "BRIDGE_API_KEY=${{ secrets.BRIDGE_API_KEY }}" \
-            --set-env-vars "^@^GOOGLE_APPLICATION_CREDENTIALS_JSON=$GOOGLE_CREDS"
+            --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS_B64=$(printf '%s' "$GOOGLE_CREDS" | base64 -w 0)"
 
       - name: Show deployment URL
         run: |

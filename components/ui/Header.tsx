@@ -62,7 +62,6 @@ export const Header: React.FC<HeaderProps> = ({
               { key: 'stats-evento', label: 'Eventos' },
               { key: 'timeline-ingreso', label: 'Cómo Ingresar' },
               { key: 'reglas-testimonios', label: 'Reglas' },
-              { key: 'admision', label: 'Admisión' },
               { key: 'miembros', label: 'Miembros' },
             ].map(({ key, label }) => (
               <button
