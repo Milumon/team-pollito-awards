@@ -336,13 +336,18 @@ export default function AdminPage() {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     const token = currentSession?.access_token;
 
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${token || ''}`,
+      ...(init.headers as Record<string, string> || {}),
+    };
+
+    if (!(init.body instanceof FormData) && !headers['content-type'] && !headers['Content-Type']) {
+      headers['content-type'] = 'application/json';
+    }
+
     const response = await fetch(input, {
       ...init,
-      headers: {
-        'content-type': 'application/json',
-        'Authorization': `Bearer ${token || ''}`,
-        ...(init.headers || {}),
-      },
+      headers,
     });
 
     if (response.status === 401) {
