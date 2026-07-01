@@ -6,6 +6,7 @@ import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
+import RobloxOnboarding from '@/components/RobloxOnboarding';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { 
@@ -90,6 +91,7 @@ export default function MemberConsolePage() {
   // Navigation state (app feel)
   const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
 
   // TTS State
   const [ttsText, setTtsText] = useState('');
@@ -1263,6 +1265,16 @@ export default function MemberConsolePage() {
                             <span className="text-emerald-400 font-semibold text-xs bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-full ">Aprobado VIP</span>
                           </div>
                         </div>
+
+                        <div className="pt-2 border-t border-neutral-700/40">
+                          <button
+                            type="button"
+                            onClick={() => setIsRobloxOnboardingOpen(true)}
+                            className="w-full py-2 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-xl transition-all cursor-pointer active:scale-[0.97]"
+                          >
+                            Modificar Cuentas Vinculadas
+                          </button>
+                        </div>
                       </div>
 
                       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 ">
@@ -1648,6 +1660,17 @@ export default function MemberConsolePage() {
                     'Confirmar Nickname 🐣'
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNicknameModalOpen(false);
+                    setIsRobloxOnboardingOpen(true);
+                  }}
+                  className="w-full text-center text-[10px] font-bold text-gray-400 hover:text-white underline cursor-pointer pt-2 block"
+                >
+                  ¿No es tu cuenta de Roblox o TikTok? Corregir datos
+                </button>
               </form>
             </motion.div>
           </div>
@@ -1666,6 +1689,26 @@ export default function MemberConsolePage() {
           { id: 'nickname', name: 'Tag', icon: <User className="w-4 h-4" />, onClick: () => setActiveTab('nickname') },
         ]}
         activeTab={activeTab}
+      />
+
+      {/* ROBLOX ONBOARDING MODAL */}
+      <RobloxOnboarding
+        isOpen={isRobloxOnboardingOpen}
+        onClose={() => setIsRobloxOnboardingOpen(false)}
+        onConfirm={async () => {
+          if (session) {
+            await fetchProfile(session);
+          }
+        }}
+        userSession={session ? { session } : null}
+        currentProfile={profile ? {
+          displayName: profile.roblox_display_name || profile.roblox_user || 'Pollito',
+          avatarUrl: profile.roblox_avatar_url || null,
+          username: profile.roblox_user || null,
+          tiktokUser: profile.tiktok_user || null,
+          linkStatus: profile.link_status || 'none',
+          rejectionReason: profile.rejection_reason || null,
+        } : null}
       />
     </div>
   );

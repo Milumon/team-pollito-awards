@@ -99,6 +99,7 @@ export default function ComunidadPage() {
   const [testimonialSuccess, setTestimonialSuccess] = useState(false);
   const [testimonialError, setTestimonialError] = useState<string | null>(null);
   const [isEditingTestimonial, setIsEditingTestimonial] = useState(false);
+  const [showTestimonialModal, setShowTestimonialModal] = useState(false);
 
   // Modal Rules State
   const [showRulesModal, setShowRulesModal] = useState(false);
@@ -239,6 +240,12 @@ export default function ComunidadPage() {
         testimonial_approved: false
       }));
       fetchTestimonials();
+
+      // Cerrar modal automáticamente después de mostrar éxito
+      setTimeout(() => {
+        setShowTestimonialModal(false);
+        setTestimonialSuccess(false);
+      }, 2000);
     } catch {
       setTestimonialError('Error de red al enviar el testimonio.');
     } finally {
@@ -809,83 +816,21 @@ export default function ComunidadPage() {
                 </div>
               )}
 
-              {/* Dejar / editar testimonio */}
+              {/* Dejar / editar testimonio (Botón para abrir Modal) */}
               {session && statusInfo.status === 'approved' && (
-                <div className="border-t border-gray-100 pt-5 space-y-4 text-left">
-                  {statusInfo.testimonial && !isEditingTestimonial ? (
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="font-display font-semibold text-sm text-[#2D3139]">Tu testimonio enviado:</span>
-                        <span className={`font-display font-semibold text-xs px-2.5 py-0.5 rounded-full ${statusInfo.testimonial_approved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                          {statusInfo.testimonial_approved ? '✓ Aprobado' : '⏳ Pendiente'}
-                        </span>
-                      </div>
-                      <p className="font-sans text-sm text-gray-600 italic border-l-2 border-[#FFC200]/50 pl-3">
-                        &quot;{statusInfo.testimonial}&quot;
-                      </p>
-                      <button
-                        onClick={() => {
-                          setUserTestimonial(statusInfo.testimonial || '');
-                          setIsEditingTestimonial(true);
-                        }}
-                        className="py-1.5 px-4 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 rounded-lg font-display font-semibold text-sm transition-all cursor-pointer"
-                      >
-                        Editar testimonio
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                      <div className="space-y-1">
-                        <h4 className="font-display font-semibold text-sm text-[#2D3139]">
-                          {isEditingTestimonial ? 'Editar tu testimonio' : '¿Qué opinas de la comunidad?'}
-                        </h4>
-                        <p className="text-xs text-gray-400">
-                          Máx. 150 caracteres. Aparece en la landing una vez aprobado.
-                        </p>
-                      </div>
-
-                      <form onSubmit={handleSendTestimonial} className="space-y-3">
-                        <textarea
-                          value={userTestimonial}
-                          onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
-                          placeholder="Tu opinión aquí..."
-                          rows={2}
-                          maxLength={150}
-                          className="w-full px-3 py-2 bg-white border border-gray-200 text-[#2D3139] rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30"
-                        />
-                        
-                        {testimonialError && (
-                          <p className="text-red-500 font-sans text-xs">✕ {testimonialError}</p>
-                        )}
-                        {testimonialSuccess && (
-                          <p className="text-emerald-600 font-sans text-xs">✓ Testimonio enviado. Pendiente de moderación.</p>
-                        )}
-
-                        <div className="flex gap-2">
-                          <button
-                            type="submit"
-                            disabled={testimonialSubmitting || !userTestimonial.trim() || userTestimonial.trim() === statusInfo.testimonial}
-                            className="py-2 px-4 bg-[#FFC200] hover:brightness-105 disabled:opacity-50 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
-                          >
-                            {testimonialSubmitting ? 'Guardando...' : 'Guardar'}
-                          </button>
-                          {isEditingTestimonial && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setUserTestimonial(statusInfo.testimonial || '');
-                                setIsEditingTestimonial(false);
-                                setTestimonialError(null);
-                              }}
-                              className="py-2 px-4 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
-                            >
-                              Cancelar
-                            </button>
-                          )}
-                        </div>
-                      </form>
-                    </div>
-                  )}
+                <div className="border-t border-gray-100 pt-4 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setUserTestimonial(statusInfo.testimonial || '');
+                      setShowTestimonialModal(true);
+                      setTestimonialError(null);
+                      setTestimonialSuccess(false);
+                    }}
+                    className="w-full sm:w-auto py-2.5 px-5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-2"
+                  >
+                    <span>💬</span>
+                    {statusInfo.testimonial ? 'Editar mi opinión' : 'Dejar mi opinión'}
+                  </button>
                 </div>
               )}
             </div>
@@ -1461,6 +1406,101 @@ export default function ComunidadPage() {
             >
               Entendido
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DEJAR / EDITAR OPINIÓN */}
+      {showTestimonialModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-[0_24px_80px_rgba(0,0,0,0.2)] relative">
+            <button
+              onClick={() => {
+                setShowTestimonialModal(false);
+                setTestimonialError(null);
+                setTestimonialSuccess(false);
+              }}
+              className="absolute top-4 right-4 bg-gray-50 hover:bg-gray-100 rounded-xl w-8 h-8 flex items-center justify-center font-sans text-sm text-gray-400 hover:text-gray-600 transition-all cursor-pointer"
+            >
+              ✕
+            </button>
+            
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100">
+              <span className="text-xl">💬</span>
+              <h3 className="font-display font-bold text-xl text-[#2D3139]">
+                {statusInfo.testimonial ? 'Editar mi opinión' : '¿Qué opinas de la comunidad?'}
+              </h3>
+            </div>
+
+            <div className="space-y-4">
+              {statusInfo.testimonial && (
+                <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-left">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-display font-semibold text-xs text-gray-500">Tu opinión enviada:</span>
+                    <span className={`font-display font-semibold text-[10px] px-2 py-0.5 rounded-full ${statusInfo.testimonial_approved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                      {statusInfo.testimonial_approved ? '✓ Aprobado' : '⏳ Pendiente'}
+                    </span>
+                  </div>
+                  <p className="font-sans text-xs text-gray-600 italic border-l-2 border-[#FFC200]/50 pl-2.5">
+                    &quot;{statusInfo.testimonial}&quot;
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleSendTestimonial} className="space-y-4 text-left">
+                <div className="space-y-1">
+                  <label className="font-display font-semibold text-sm text-[#2D3139] block">
+                    Tu comentario
+                  </label>
+                  <textarea
+                    value={userTestimonial}
+                    onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                    placeholder="Escribe tu testimonio aquí..."
+                    rows={3}
+                    maxLength={150}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 text-[#2D3139] rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 resize-none"
+                  />
+                  <div className="flex justify-between text-[11px] text-gray-400">
+                    <span>Máx. 150 caracteres. Aparece en la landing una vez aprobado.</span>
+                    <span className={userTestimonial.length >= 140 ? 'text-amber-600 font-bold' : ''}>
+                      {userTestimonial.length}/150
+                    </span>
+                  </div>
+                </div>
+
+                {testimonialError && (
+                  <p className="text-red-500 font-sans text-xs flex items-center gap-1">
+                    <span>✕</span> {testimonialError}
+                  </p>
+                )}
+                {testimonialSuccess && (
+                  <p className="text-emerald-600 font-sans text-xs flex items-center gap-1">
+                    <span>✓</span> Opinión guardada. Pendiente de moderación.
+                  </p>
+                )}
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTestimonialModal(false);
+                      setTestimonialError(null);
+                      setTestimonialSuccess(false);
+                    }}
+                    className="py-2 px-4 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={testimonialSubmitting || !userTestimonial.trim() || userTestimonial.trim() === statusInfo.testimonial}
+                    className="py-2 px-5 bg-[#FFC200] hover:brightness-105 disabled:opacity-50 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
+                  >
+                    {testimonialSubmitting ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

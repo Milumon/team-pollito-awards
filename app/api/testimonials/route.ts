@@ -7,6 +7,8 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/testimonials - Obtener testimonios aprobados
 export async function GET() {
   try {
