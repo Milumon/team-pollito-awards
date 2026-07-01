@@ -1761,11 +1761,11 @@ export default function AdminPage() {
           </label>
 
           <label className="block space-y-1">
-            <span className="text-xs text-gray-500">Archivo de Audio</span>
+            <span className="text-xs text-gray-500">Archivo de Audio o Video</span>
             <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
               <input
                 type="file"
-                accept="audio/*"
+                accept="audio/*,video/*"
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
                   setSoundFile(f);
@@ -1775,7 +1775,7 @@ export default function AdminPage() {
               />
               <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
               <p className="text-[10px] text-gray-400 font-medium truncate">
-                {soundFile ? soundFile.name : 'Elegir archivo audio'}
+                {soundFile ? soundFile.name : 'Elegir archivo de audio o video'}
               </p>
             </div>
           </label>

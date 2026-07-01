@@ -24,6 +24,49 @@ export default function AudioPreview({ file, onTrimChange }: AudioPreviewProps) 
   const [trimEnd, setTrimEnd] = useState(0);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [dragging, setDragging] = useState<'start' | 'end' | 'playhead' | null>(null);
+  const [waveform, setWaveform] = useState<number[]>([]);
+  const [loadingWaveform, setLoadingWaveform] = useState(false);
+
+  // Generate waveform bars dynamically
+  useEffect(() => {
+    const generateWaveform = async () => {
+      setWaveform([]);
+      setLoadingWaveform(true);
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const tempContext = new AudioContextClass();
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await tempContext.decodeAudioData(arrayBuffer);
+        await tempContext.close();
+
+        const channelData = audioBuffer.getChannelData(0);
+        const numBars = 75; // Number of bars to display
+        const blockSize = Math.floor(channelData.length / numBars);
+        const rawBars: number[] = [];
+
+        for (let i = 0; i < numBars; i++) {
+          const start = i * blockSize;
+          let sum = 0;
+          for (let j = 0; j < blockSize; j++) {
+            sum += Math.abs(channelData[start + j]);
+          }
+          rawBars.push(sum / blockSize);
+        }
+
+        // Normalize heights
+        const maxVal = Math.max(...rawBars);
+        const normalizedBars = maxVal > 0 ? rawBars.map(val => val / maxVal) : rawBars;
+        setWaveform(normalizedBars);
+      } catch (err) {
+        console.error('Error generating waveform:', err);
+      } finally {
+        setLoadingWaveform(false);
+      }
+    };
+
+    generateWaveform();
+  }, [file]);
 
   // Create object URL for the file
   useEffect(() => {
@@ -168,8 +211,35 @@ export default function AudioPreview({ file, onTrimChange }: AudioPreviewProps) 
         className="relative h-10 rounded-lg overflow-visible cursor-pointer select-none"
         onMouseDown={handleBarMouseDown}
       >
-        {/* Background track */}
-        <div className="absolute inset-0 rounded-lg bg-neutral-800" />
+        {/* Background track with waveform bars */}
+        <div className="absolute inset-0 rounded-lg bg-neutral-900/40 flex items-center justify-between px-2 gap-[1.5px]">
+          {loadingWaveform ? (
+            <div className="w-full text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider animate-pulse">
+              Generando forma de onda...
+            </div>
+          ) : waveform.length > 0 ? (
+            waveform.map((barHeight, idx) => {
+              const barPct = (idx / waveform.length) * 100;
+              const isSelected = barPct >= startPct && barPct <= endPct;
+              const isPlayed = barPct <= playPct;
+              
+              let barColor = 'bg-neutral-600/60';
+              if (isSelected) {
+                barColor = isPlayed ? 'bg-[#FFC200]' : 'bg-[#FFC200]/50';
+              }
+
+              return (
+                <div
+                  key={idx}
+                  className={`w-0.5 rounded-sm transition-colors ${barColor}`}
+                  style={{ height: `${Math.max(15, barHeight * 100)}%` }}
+                />
+              );
+            })
+          ) : (
+            <div className="w-full h-[2px] bg-neutral-700" />
+          )}
+        </div>
 
         {/* Excluded left region */}
         <div

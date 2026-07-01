@@ -658,6 +658,10 @@ export default function ObsOverlayPage() {
 
       {/* FALLING KEYFRAME ANIMATIONS INJECTED IN STYLE BLOCK */}
       <style>{`
+        body {
+          background: transparent !important;
+          background-color: transparent !important;
+        }
         @keyframes fall-animation {
           0% {
             top: -50px;
