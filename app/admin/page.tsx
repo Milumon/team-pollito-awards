@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
 import type { Session } from '@supabase/supabase-js';
@@ -12,6 +12,7 @@ import { convertAudioToMp3 } from '@/lib/audioConverter';
 import dynamic from 'next/dynamic';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 import { Header } from '@/components/ui/Header';
+import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 
 function maskEmail(email: string): string {
   if (!email) return '';
@@ -280,18 +281,23 @@ export default function AdminPage() {
     visible: boolean;
   } | null>(null);
 
-  const [simulatedParticles, setSimulatedParticles] = useState<{
-    id: number;
-    char?: string;
-    color?: string;
-    size: number;
-    left: number;
-    delay: number;
-    duration: number;
-    rotation: number;
-  }[]>([]);
-  const [simulatedAnimation, setSimulatedAnimation] = useState<'eggs' | 'sparkles' | 'confetti' | null>(null);
+  const [simulatedParticles, setSimulatedParticles] = useState<OverlayParticle[]>([]);
+  const [simulatedAnimation, setSimulatedAnimation] = useState<OverlayAnimationType>(null);
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
+
+  // Canvas viewer state
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [canvasFitScale, setCanvasFitScale] = useState(0.3);
+  const [zoomLevel, setZoomLevel] = useState<'fit' | 0.75 | 1 | 1.25>('fit');
+  const [designerMobileTab, setDesignerMobileTab] = useState<'controls' | 'preview'>('controls');
+
+  // Siempre mostrar el popup estático mientras el usuario edita
+  const staticPreviewEvent = streamSettings ? {
+    id: 'preview',
+    type: 'tts' as const,
+    content: '¡Hola stream, este es el pop-up!',
+    sender_roblox_user: 'MilumonGaming',
+  } : null;
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
@@ -2319,105 +2325,72 @@ export default function AdminPage() {
     </div>
   );
 
+  // ─── ResizeObserver para el canvas del diseñador ───────────────────────────
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      const scaleByH = height / CANVAS_H;
+      const scaleByW = width / CANVAS_W;
+      setCanvasFitScale(Math.min(scaleByH, scaleByW, 1));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const effectiveScale = zoomLevel === 'fit' ? canvasFitScale : canvasFitScale * zoomLevel;
+
   const renderOverlayDesignTab = () => (
-    <div className="space-y-6 animate-fade-in">
+    <div className="animate-fade-in">
       {loadingStreamSettings ? (
         <div className="py-12 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando diseñador...</div>
       ) : streamSettings ? (
         <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden">
           {/* Header */}
-          <div className="flex justify-between items-start gap-3 px-4 py-3 border-b border-neutral-700/60">
+          <div className="flex justify-between items-center gap-3 px-4 py-3 border-b border-neutral-700/60">
             <div>
               <h3 className="font-display font-semibold text-sm text-white">🎨 Diseñador del Pop-up en Vivo</h3>
-              <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">
-                Modificá → Mirá el preview → Ajustá → Guardá → Probá en OBS
-              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5 font-semibold">Modificá → Mirá el preview → Ajustá → Guardá → Probá en OBS</p>
             </div>
-            <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase shrink-0">
-              Ajuste Visual
-            </span>
+            <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase shrink-0">Canvas 720×1280</span>
           </div>
 
-          {/* Split Layout: controles izquierda, preview derecha */}
-          <div className="flex flex-col lg:flex-row">
+          {/* Mobile tab switcher */}
+          <div className="flex lg:hidden border-b border-neutral-700/60">
+            <button
+              type="button"
+              onClick={() => setDesignerMobileTab('controls')}
+              className={`flex-1 py-2.5 text-xs font-bold uppercase transition-colors ${
+                designerMobileTab === 'controls'
+                  ? 'bg-[#FFC200]/10 text-[#FFC200] border-b-2 border-[#FFC200]'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              ⚙️ Controles
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesignerMobileTab('preview')}
+              className={`flex-1 py-2.5 text-xs font-bold uppercase transition-colors ${
+                designerMobileTab === 'preview'
+                  ? 'bg-[#FFC200]/10 text-[#FFC200] border-b-2 border-[#FFC200]'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              📺 Preview OBS
+            </button>
+          </div>
 
-            {/* ─── Preview OBS — en mobile va ARRIBA ─── */}
-            <div className="lg:hidden flex flex-col items-center gap-3 px-4 py-4 bg-neutral-900/40 border-b border-neutral-700/60">
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
-              <div className="relative w-[160px] h-[284px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[24px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-                <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[7px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
-                {simulatedEvent?.visible && (
-                  <div
-                    style={{
-                      top: `${(streamSettings.overlay_notification_top ?? 48) * 0.22}px`,
-                      width: `${(streamSettings.overlay_notification_width ?? 288) * 0.22}px`,
-                      maxWidth: '90%',
-                      transform: 'translateX(-50%)',
-                      position: 'absolute',
-                      left: '50%',
-                    }}
-                    className="bg-white border-2 border-black p-1.5 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1 z-20 animate-slide-in"
-                  >
-                    <div className="w-5 h-5 rounded bg-yellow-100 border border-black flex items-center justify-center text-[10px] shrink-0 select-none">
-                      {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
-                    </div>
-                    <div className="min-w-0 text-left flex-1 select-none">
-                      <span
-                        style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.55}px` }}
-                        className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
-                      >
-                        {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
-                      </span>
-                      <p
-                        style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.55}px` }}
-                        className="font-black text-black truncate leading-tight mt-0.5"
-                      >
-                        {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
-                      </p>
-                      <p
-                        style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.55}px` }}
-                        className="font-black text-gray-500 truncate leading-none mt-0.5"
-                      >
-                        Por: @{simulatedEvent.senderRobloxUser}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {simulatedAnimation && simulatedParticles.length > 0 && (
-                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                    {simulatedParticles.map((p) => {
-                      const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size * 0.6}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
-                      if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.24}px`, height: `${p.size * 0.48}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
-                      return <div key={p.id} style={s}>{p.char}</div>;
-                    })}
-                  </div>
-                )}
-              </div>
-              {/* Botones de prueba rápida en mobile */}
-              <div className="flex gap-2 flex-wrap justify-center mt-3">
-                <button type="button" onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
-                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
-                  🔊 Sonido
-                </button>
-                <button type="button" onClick={() => triggerLocalTestEvent('tts', '¡Hola stream!')}
-                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
-                  🗣️ TTS
-                </button>
-                <button type="button" onClick={() => triggerLocalTestEvent('animation', 'confetti')}
-                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
-                  🎉 Confetti
-                </button>
-                <button type="button" onClick={() => triggerLocalTestEvent('animation', 'eggs')}
-                  className="py-1.5 px-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-[10px] font-display font-semibold rounded-lg border border-neutral-700/60 transition-all cursor-pointer active:scale-95">
-                  🐣 Huevos
-                </button>
-              </div>
-            </div>
+          {/* Split Layout */}
+          <div className="flex flex-col lg:flex-row min-h-[600px]">
 
-            {/* ─── Controles (izquierda en desktop) ─── */}
-            <div className="flex-1 p-4 space-y-5">
-              {/* Grupo: Posición */}
+            {/* ─── Controles ─────────────────────────────────────── */}
+            <div className={`lg:w-[35%] lg:max-w-[380px] p-4 space-y-5 border-r border-neutral-700/60 flex-shrink-0 ${
+              designerMobileTab === 'preview' ? 'hidden lg:block' : ''
+            }`}>
+
+              {/* Posición */}
               <div className="space-y-3">
                 <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Posición</p>
                 <div className="space-y-1.5">
@@ -2426,15 +2399,13 @@ export default function AdminPage() {
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
                   </label>
                   <input
-                    type="range" min="0" max="1000" step="10"
+                    type="range" min="0" max="1200" step="10"
                     value={streamSettings.overlay_notification_top ?? 48}
                     disabled={updatingStreamSettings}
                     onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: parseInt(e.target.value, 10) } : null)}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                    <span>0px (Arriba del todo)</span><span>1000px (Abajo)</span>
-                  </div>
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0px (Arriba)</span><span>1200px (Abajo)</span></div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
@@ -2448,19 +2419,17 @@ export default function AdminPage() {
                     onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: parseInt(e.target.value, 10) } : null)}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                    <span>200px (compacto)</span><span>700px (ancho)</span>
-                  </div>
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>200px (compacto)</span><span>700px (ancho)</span></div>
                 </div>
               </div>
 
-              {/* Grupo: Tipografía */}
+              {/* Tipografía */}
               <div className="space-y-3 pt-3 border-t border-neutral-700/40">
                 <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Tipografía</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
-                      <span>Etiqueta (Badge)</span>
+                      <span>Badge</span>
                       <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
                     </label>
                     <input
@@ -2488,7 +2457,7 @@ export default function AdminPage() {
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
-                      <span>Mensaje (Contenido)</span>
+                      <span>Mensaje</span>
                       <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
                     </label>
                     <input
@@ -2498,12 +2467,12 @@ export default function AdminPage() {
                       onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: parseInt(e.target.value, 10) } : null)}
                       className="w-full accent-[#FFC200] cursor-pointer"
                     />
-                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px (pequeño)</span><span>40px (grande)</span></div>
+                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>40px</span></div>
                   </div>
                 </div>
               </div>
 
-              {/* Botones Guardar + Pruebas en OBS */}
+              {/* Guardar + Pruebas */}
               <div className="space-y-3 pt-3 border-t border-neutral-700/40">
                 <button
                   type="button"
@@ -2520,7 +2489,6 @@ export default function AdminPage() {
                   {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
                 </button>
 
-                {/* Pruebas locales */}
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Pruebas locales (Preview)</p>
                   <div className="grid gap-2 grid-cols-2">
@@ -2543,92 +2511,80 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Pruebas en OBS en vivo */}
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Probar en OBS en vivo</p>
                   <div className="flex gap-2">
                     <button type="button" disabled={sendingTestEvent}
                       onClick={() => triggerLiveTestEvent('sound', 'sorpresa')}
                       className="flex-1 py-2 px-2 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
-                      {sendingTestEvent ? 'Enviando...' : '📡 Sonido en OBS'}
+                      {sendingTestEvent ? 'Enviando...' : '📡 Sonido OBS'}
                     </button>
                     <button type="button" disabled={sendingTestEvent}
                       onClick={() => triggerLiveTestEvent('tts', 'Mensaje de prueba en vivo desde el panel de administración')}
                       className="flex-1 py-2 px-2 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
-                      {sendingTestEvent ? 'Enviando...' : '📡 TTS en OBS'}
+                      {sendingTestEvent ? 'Enviando...' : '📡 TTS OBS'}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ─── Preview OBS — en desktop va a la DERECHA, sticky ─── */}
-            <div className="hidden lg:flex flex-col items-center gap-3 px-5 py-4 border-l border-neutral-700/60 bg-neutral-900/30 lg:sticky lg:top-6 lg:self-start">
-              <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Preview OBS (9:16)</span>
-              <div className="relative w-[220px] h-[390px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[28px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)]">
-                <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[8px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">Preview</div>
-
-                {simulatedEvent?.visible && (
-                  <div
-                    style={{
-                      top: `${(streamSettings.overlay_notification_top ?? 48) * 0.30}px`,
-                      width: `${(streamSettings.overlay_notification_width ?? 288) * 0.30}px`,
-                      maxWidth: '90%',
-                      transform: 'translateX(-50%)',
-                      position: 'absolute',
-                      left: '50%',
-                    }}
-                    className="bg-white border-2 border-black p-2 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1.5 z-20 animate-slide-in"
-                  >
-                    <div className="w-6 h-6 rounded bg-yellow-100 border border-black flex items-center justify-center text-xs shrink-0 select-none">
-                      {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
-                    </div>
-                    <div className="min-w-0 text-left flex-1 select-none">
-                      <span
-                        style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.65}px` }}
-                        className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
-                      >
-                        {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
-                      </span>
-                      <p
-                        style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.65}px` }}
-                        className="font-black text-black truncate leading-tight mt-0.5 animate-pulse"
-                      >
-                        {simulatedEvent.type === 'tts' ? `"${simulatedEvent.content}"` : simulatedEvent.type === 'sound' ? 'Sonido de Prueba' : `FX: ${simulatedEvent.content}`}
-                      </p>
-                      <p
-                        style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.65}px` }}
-                        className="font-black text-gray-500 truncate leading-none mt-0.5"
-                      >
-                        Por: @{simulatedEvent.senderRobloxUser}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {simulatedAnimation && simulatedParticles.length > 0 && (
-                  <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-                    {simulatedParticles.map((p) => {
-                      const s: React.CSSProperties = { position: 'absolute', top: '-20px', left: `${p.left}%`, fontSize: `${p.size}px`, animationDelay: `${p.delay}s`, animationDuration: `${p.duration}s`, animationName: 'fall-animation-sim', animationTimingFunction: 'linear', animationFillMode: 'forwards', transform: `rotate(${p.rotation}deg)` };
-                      if (simulatedAnimation === 'confetti') return <div key={p.id} style={{ ...s, width: `${p.size * 0.4}px`, height: `${p.size * 0.8}px`, backgroundColor: p.color, borderRadius: '1px' }} />;
-                      return <div key={p.id} style={s}>{p.char}</div>;
-                    })}
-                  </div>
-                )}
+            {/* ─── Canvas real 720×1280 (65% del ancho en desktop) ─────────── */}
+            <div
+              className={`flex-1 flex flex-col bg-neutral-950/60 ${
+                designerMobileTab === 'controls' ? 'hidden lg:flex' : 'flex'
+              }`}
+            >
+              {/* Barra de zoom */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-700/40 shrink-0">
+                <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Canvas OBS</span>
+                <div className="flex gap-1">
+                  {(['fit', 0.75, 1, 1.25] as const).map((z) => (
+                    <button
+                      key={String(z)}
+                      type="button"
+                      onClick={() => setZoomLevel(z)}
+                      className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase transition-colors ${
+                        zoomLevel === z
+                          ? 'bg-[#FFC200] text-black'
+                          : 'bg-neutral-800 text-gray-400 hover:bg-neutral-700'
+                      }`}
+                    >
+                      {z === 'fit' ? 'Fit' : `${Math.round(z * 100)}%`}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <style>{`
-                @keyframes fall-animation-sim {
-                  0% { top: -30px; transform: translateY(0) rotate(0deg); }
-                  100% { top: 450px; transform: translateY(450px) rotate(360deg); }
-                }
-              `}</style>
-              <p className="text-[9px] text-gray-600 font-mono text-center max-w-[200px] leading-relaxed">
-                Mové los sliders y presioná un botón de prueba para ver la animación aquí
-              </p>
+
+              {/* Viewport del canvas */}
+              <div
+                ref={canvasContainerRef}
+                className="flex-1 overflow-auto flex items-center justify-center p-4"
+                style={{ minHeight: 0 }}
+              >
+                <OverlayCanvas
+                  mode="preview"
+                  scale={effectiveScale}
+                  settings={streamSettings}
+                  event={
+                    simulatedEvent?.visible
+                      ? {
+                          id: simulatedEvent.content,
+                          type: simulatedEvent.type,
+                          content: simulatedEvent.content,
+                          sender_roblox_user: simulatedEvent.senderRobloxUser,
+                        }
+                      : staticPreviewEvent
+                  }
+                  staticPreview={!simulatedEvent?.visible}
+                  animation={simulatedAnimation}
+                  particles={simulatedParticles}
+                  senderLabel={simulatedEvent?.visible ? simulatedEvent.senderRobloxUser : 'MilumonGaming'}
+                />
+              </div>
             </div>
 
-          </div>{/* ← cierra flex flex-col lg:flex-row */}
+          </div>{/* ← cierra Split Layout */}
         </div>
       ) : (
         <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
