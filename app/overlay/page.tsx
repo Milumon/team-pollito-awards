@@ -290,7 +290,7 @@ export default function ObsOverlayPage() {
   useEffect(() => {
     const initializeOverlay = async () => {
       const params = new URLSearchParams(window.location.search);
-      const queryToken = params.get('token');
+      const queryToken = params.get('token') || params.get('TOKEN');
 
       remoteLog('DEBUG', `Iniciando inicialización de overlay. Token query: ${queryToken}`);
 
@@ -534,7 +534,7 @@ export default function ObsOverlayPage() {
         <ShieldAlert className="w-12 h-12 mb-3" />
         <h1 className="font-black text-2xl uppercase">Token Inválido o Faltante</h1>
         <p className="text-sm font-semibold text-gray-400 mt-2 max-w-sm">
-          Por favor, agregá el parámetro de token correcto en la URL para conectar el overlay con Supabase. (ej: `/overlay?token=TU_TOKEN`)
+          Por favor, agrega el parámetro de token correcto en la URL para conectar el overlay con Supabase. (ej: `/overlay?token=TU_TOKEN`)
         </p>
       </div>
     );
