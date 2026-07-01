@@ -92,6 +92,21 @@ export const Header: React.FC<HeaderProps> = ({
             </Link>
           )}
 
+          {/* Admin panel access badge for desktop admins */}
+          {isAdmin && panelHref !== '/admin' && (
+            <Link
+              href="/admin"
+              className={`hidden sm:flex items-center gap-1.5 font-display font-semibold text-[11px] px-2.5 py-1 rounded-lg transition-all decoration-transparent ${
+                isDark
+                  ? 'bg-[#FFC200]/10 text-[#FFC200] hover:bg-[#FFC200]/15 border border-[#FFC200]/15'
+                  : 'bg-[#FFC200]/10 text-[#D4A000] hover:bg-[#FFC200]/15 border border-[#FFC200]/20'
+              }`}
+            >
+              <Shield className="w-3 h-3" />
+              Panel Admin
+            </Link>
+          )}
+
           {/* Version badge (non-panel pages) */}
           {!panelName && (
             <span className={`hidden sm:inline-flex font-mono text-[10px] px-2 py-0.5 rounded-full ${
