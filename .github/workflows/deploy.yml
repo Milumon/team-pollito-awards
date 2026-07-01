@@ -56,6 +56,8 @@ jobs:
           docker push $IMAGE:${{ github.sha }}
 
       - name: Deploy to Cloud Run
+        env:
+          GOOGLE_CREDS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
@@ -76,7 +78,9 @@ jobs:
             --set-env-vars "ROBLOSECURITY_COOKIE=${{ secrets.ROBLOSECURITY_COOKIE }}" \
             --set-env-vars "ROBLOX_CLOTHING_ID=${{ secrets.ROBLOX_CLOTHING_ID }}" \
             --set-env-vars "ROBLOX_ALEXA_VM_URL=${{ secrets.ROBLOX_ALEXA_VM_URL }}" \
-            --set-env-vars "ROBLOX_ALEXA_SHARED_SECRET=${{ secrets.ROBLOX_ALEXA_SHARED_SECRET }}"
+            --set-env-vars "ROBLOX_ALEXA_SHARED_SECRET=${{ secrets.ROBLOX_ALEXA_SHARED_SECRET }}" \
+            --set-env-vars "BRIDGE_API_KEY=${{ secrets.BRIDGE_API_KEY }}" \
+            --set-env-vars "^@^GOOGLE_APPLICATION_CREDENTIALS_JSON=$GOOGLE_CREDS"
 
       - name: Show deployment URL
         run: |
