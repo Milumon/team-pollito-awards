@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
+import { tagRobloxUser } from '@/lib/robloxAdmin';
 
 type RobloxProfile = {
   id: number;
@@ -121,18 +122,31 @@ export async function POST(request: NextRequest) {
         // Verificar si el robloxUserId ya está vinculado a OTRO usuario
         const { data: duplicateProfile } = await supabaseAdmin
           .from('profiles')
-          .select('id')
+          .select('id, roblox_user_id')
           .eq('roblox_user_id', robloxUserId)
           .not('id', 'eq', userId)
           .maybeSingle();
 
         if (duplicateProfile) {
-          const { data: { user: conflictedUser } } = await supabaseAdmin.auth.admin.getUserById(duplicateProfile.id);
-          const emailText = conflictedUser?.email ? maskEmail(conflictedUser.email) : 'otro usuario';
-          return NextResponse.json(
-            { error: `Esta cuenta de Roblox ya está vinculada al correo ${emailText}.` },
-            { status: 400 }
-          );
+          // Desvincular al usuario anterior
+          await supabaseAdmin
+            .from('profiles')
+            .update({
+              roblox_user_id: null,
+              roblox_user: null,
+              roblox_display_name: null,
+              roblox_avatar_url: null,
+              roblox_verified_at: null,
+              link_status: 'none',
+              rejection_reason: 'Tu cuenta de Roblox fue reasignada a otro usuario por el administrador.',
+            })
+            .eq('id', duplicateProfile.id);
+
+          try {
+            await tagRobloxUser(Number(duplicateProfile.roblox_user_id), 'remove');
+          } catch (tagErr) {
+            console.error('Error al remover prefijo del usuario desvinculado:', tagErr);
+          }
         }
 
         // Obtener detalles adicionales del perfil de Roblox
