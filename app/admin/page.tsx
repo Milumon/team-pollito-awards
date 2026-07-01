@@ -939,13 +939,16 @@ export default function AdminPage() {
       const data = await readApiPayload(response);
 
       if (!response.ok) {
+        setAdminVerifiedProfile(null);
+        setAdminRobloxConfirmed(false);
+        setEditFormSuccess(null);
         if (data.isDuplicate) {
           setAdminIsDuplicate(true);
           setAdminConflictedEmail(data.conflictedEmail || '');
+          setEditFormError(null);
+        } else {
+          setEditFormError(data.error || 'No se pudo validar el usuario de Roblox.');
         }
-        setAdminVerifiedProfile(null);
-        setAdminRobloxConfirmed(false);
-        setEditFormError(data.error || 'No se pudo validar el usuario de Roblox.');
       } else {
         setAdminVerifiedProfile({
           id: data.id,
@@ -1001,8 +1004,10 @@ export default function AdminPage() {
         if (emailMatch && emailMatch[1]) {
           setAdminConflictedEmail(emailMatch[1].replace(/\.$/, ''));
         }
+        setEditFormError(null);
+      } else {
+        setEditFormError(errMsg);
       }
-      setEditFormError(errMsg);
     } finally {
       setUpdatingUser(false);
     }
