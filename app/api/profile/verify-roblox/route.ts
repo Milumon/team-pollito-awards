@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isAuthorized } from '@/lib/adminAuth';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -162,12 +163,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verificar si es administrador para excluir el ID del usuario en edición
+    const isAdmin = await isAuthorized(request);
+    let userIdToExclude = user.id;
+    if (isAdmin && body.userIdToExclude) {
+      userIdToExclude = body.userIdToExclude;
+    }
+
     // Verificar si el robloxUserId ya está vinculado a OTRO usuario
     const { data: duplicateProfile } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('roblox_user_id', robloxUserId)
-      .not('id', 'eq', user.id)
+      .not('id', 'eq', userIdToExclude)
       .maybeSingle();
 
     if (duplicateProfile) {

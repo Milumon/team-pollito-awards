@@ -915,6 +915,7 @@ export default function AdminPage() {
   };
 
   const handleAdminVerifyRoblox = async () => {
+    if (!editingUser) return;
     setEditFormError(null);
     setEditFormSuccess(null);
     setAdminIsDuplicate(false);
@@ -930,7 +931,10 @@ export default function AdminPage() {
     try {
       const response = await apiFetch('/api/profile/verify-roblox', {
         method: 'POST',
-        body: JSON.stringify({ robloxUsername: editForm.robloxUsername.trim() }),
+        body: JSON.stringify({
+          robloxUsername: editForm.robloxUsername.trim(),
+          userIdToExclude: editingUser.id,
+        }),
       });
       const data = await readApiPayload(response);
 
@@ -989,8 +993,16 @@ export default function AdminPage() {
       setEditingUser(null);
       await loadStats();
       await loadAuditLogs();
-    } catch (err) {
-      setEditFormError(err instanceof Error ? err.message : 'Error al actualizar el usuario');
+    } catch (err: any) {
+      const errMsg = err instanceof Error ? err.message : 'Error al actualizar el usuario';
+      if (errMsg.includes('ya está vinculada')) {
+        setAdminIsDuplicate(true);
+        const emailMatch = errMsg.match(/correo\s+([^\s]+)/);
+        if (emailMatch && emailMatch[1]) {
+          setAdminConflictedEmail(emailMatch[1].replace(/\.$/, ''));
+        }
+      }
+      setEditFormError(errMsg);
     } finally {
       setUpdatingUser(false);
     }
