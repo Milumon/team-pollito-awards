@@ -2161,7 +2161,9 @@ export default function AdminPage() {
   );
 
   const renderStreamSettingsTab = () => (
-    <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
+      {/* Fila 1: Panic Button + Cooldowns */}
+      <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start">
       <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
         <div>
           <span className="text-[10px] uppercase tracking-wider font-medium text-red-400">Mute General</span>
@@ -2225,7 +2227,7 @@ export default function AdminPage() {
         {loadingStreamSettings ? (
           <div className="py-12 text-center text-gray-500 text-xs font-bold uppercase animate-pulse">Cargando cooldowns...</div>
         ) : streamSettings ? (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-3 ">
               <div className="flex justify-between items-start gap-3">
                 <div>
@@ -2311,9 +2313,17 @@ export default function AdminPage() {
                 Guardar Cooldown Personal
               </button>
             </div>
+          </div>
+        ) : (
+          <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
+        )}
+      </main>
+      </div>
 
+      {/* Fila 2: Diseñador del Pop-up — sección independiente ancho completo */}
+      {streamSettings && (
+      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.25)] overflow-hidden">
             {/* CONFIGURACIÓN DE DISEÑO DEL OVERLAY — Split View */}
-            <div className="border border-neutral-700/60 rounded-2xl overflow-hidden bg-[#2b2d31]">
               {/* Header */}
               <div className="flex justify-between items-start gap-3 px-4 py-3 border-b border-neutral-700/60">
                 <div>
@@ -2617,13 +2627,9 @@ export default function AdminPage() {
                   </p>
                 </div>
 
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-xs text-gray-500 py-12">No se pudieron recuperar las configuraciones del stream.</div>
-        )}
-      </main>
+              </div>{/* ← cierra flex flex-col lg:flex-row */}
+      </div>
+      )}
     </div>
   );
 
