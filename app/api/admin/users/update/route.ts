@@ -213,6 +213,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Error al actualizar la base de datos: ${updateError.message}` }, { status: 500 });
     }
 
+    // Sincronizar con la tabla interview_history si se cambiaron los nombres de usuario
+    const historyUpdate: any = {};
+    if (robloxUsername !== undefined) {
+      historyUpdate.roblox_user = updateData.roblox_user;
+    }
+    if (tiktokUsername !== undefined) {
+      historyUpdate.tiktok_user = updateData.tiktok_user;
+    }
+
+    if (Object.keys(historyUpdate).length > 0) {
+      const { error: historyError } = await supabaseAdmin
+        .from('interview_history')
+        .update(historyUpdate)
+        .eq('user_id', userId);
+
+      if (historyError) {
+        console.warn('[Admin Users Update]: Fallo al sincronizar interview_history:', historyError.message);
+      }
+    }
+
     // 7. Registrar log de auditoría
     await logAdminAction(adminEmail, 'Actualizó perfil de usuario', {
       target_user_id: userId,
