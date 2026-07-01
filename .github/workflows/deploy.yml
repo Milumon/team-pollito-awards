@@ -59,6 +59,7 @@ jobs:
         env:
           GOOGLE_CREDS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
         run: |
+          GOOGLE_CREDS_B64=$(printf '%s' "$GOOGLE_CREDS" | base64 -w 0)
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
@@ -80,7 +81,7 @@ jobs:
             --set-env-vars "ROBLOX_ALEXA_VM_URL=${{ secrets.ROBLOX_ALEXA_VM_URL }}" \
             --set-env-vars "ROBLOX_ALEXA_SHARED_SECRET=${{ secrets.ROBLOX_ALEXA_SHARED_SECRET }}" \
             --set-env-vars "BRIDGE_API_KEY=${{ secrets.BRIDGE_API_KEY }}" \
-            --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS_B64=$(printf '%s' "$GOOGLE_CREDS" | base64 -w 0)"
+            --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS_B64=$GOOGLE_CREDS_B64"
 
       - name: Show deployment URL
         run: |
