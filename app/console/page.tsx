@@ -31,6 +31,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
+import { convertAudioToMp3 } from '@/lib/audioConverter';
 import { motion, AnimatePresence } from 'motion/react';
 
 type StoredRobloxProfile = {
@@ -89,7 +90,7 @@ export default function MemberConsolePage() {
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
 
   // Navigation state (app feel)
-  const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
+  const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help' | 'my-sounds'>('sounds');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
 
@@ -131,6 +132,25 @@ export default function MemberConsolePage() {
   // Error/Success state
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // My Audios — submissions & private sounds
+  type MySubmission = {
+    id: string; name: string; url: string; is_public: boolean;
+    status: 'pending' | 'approved' | 'rejected';
+    rejection_reason: string | null; created_at: string;
+  };
+  const [mySubmissions, setMySubmissions] = useState<MySubmission[]>([]);
+  const [loadingMySubmissions, setLoadingMySubmissions] = useState(false);
+  const [myPrivateSounds, setMyPrivateSounds] = useState<{ id: string; name: string; url: string; cooldown_seconds?: number | null }[]>([]);
+  const [loadingMyPrivate, setLoadingMyPrivate] = useState(false);
+
+  // Audio upload form
+  const [audioName, setAudioName] = useState('');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioCooldown, setAudioCooldown] = useState('0');
+  const [audioIsPublic, setAudioIsPublic] = useState(true);
+  const [submittingAudio, setSubmittingAudio] = useState(false);
+  const [audioSubmitStatus, setAudioSubmitStatus] = useState<string | null>(null);
 
   // Anti-spam confirmation toggle (for kids safety)
   const [confirmSpamGuard, setConfirmSpamGuard] = useState<boolean>(true);
@@ -351,6 +371,81 @@ export default function MemberConsolePage() {
     }
   }, []);
 
+  const loadMySubmissions = useCallback(async (currentSession: Session) => {
+    setLoadingMySubmissions(true);
+    try {
+      const response = await fetch('/api/console/sounds/my-submissions', {
+        headers: { Authorization: `Bearer ${currentSession.access_token}` },
+      });
+      const data = await response.json();
+      if (data.submissions) setMySubmissions(data.submissions);
+    } catch (err) {
+      console.error('Error loading my submissions:', err);
+    } finally {
+      setLoadingMySubmissions(false);
+    }
+  }, []);
+
+  const loadMyPrivateSounds = useCallback(async (currentSession: Session) => {
+    setLoadingMyPrivate(true);
+    try {
+      const response = await fetch('/api/console/sounds/my-private', {
+        headers: { Authorization: `Bearer ${currentSession.access_token}` },
+      });
+      const data = await response.json();
+      if (data.sounds) setMyPrivateSounds(data.sounds);
+    } catch (err) {
+      console.error('Error loading private sounds:', err);
+    } finally {
+      setLoadingMyPrivate(false);
+    }
+  }, []);
+
+  const handleSubmitAudio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session || !audioFile || !audioName.trim()) return;
+    setSubmittingAudio(true);
+    setAudioSubmitStatus(null);
+    setError(null);
+    try {
+      let processedFile: File | Blob = audioFile;
+      if (audioFile.type !== 'audio/mpeg' && !audioFile.name.endsWith('.mp3')) {
+        setAudioSubmitStatus('Convirtiendo audio a MP3...');
+        processedFile = await convertAudioToMp3(audioFile);
+      }
+
+      const formData = new FormData();
+      const ext = 'mp3';
+      const slug = audioName.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'audio';
+      formData.append('file', processedFile, `${slug}-${Date.now()}.${ext}`);
+      formData.append('name', audioName.trim());
+      formData.append('suggestedCooldown', audioCooldown);
+      formData.append('isPublic', String(audioIsPublic));
+
+      setAudioSubmitStatus('Subiendo audio...');
+      const response = await fetch('/api/console/sounds/submit', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al enviar el audio');
+
+      setAudioName('');
+      setAudioFile(null);
+      setAudioCooldown('0');
+      setAudioIsPublic(true);
+      setAudioSubmitStatus('✓ Audio enviado para revisión. Te notificaremos cuando sea aprobado.');
+      setTimeout(() => setAudioSubmitStatus(null), 6000);
+      await loadMySubmissions(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar el audio');
+      setTimeout(() => setError(null), 6000);
+    } finally {
+      setSubmittingAudio(false);
+    }
+  };
+
   const fetchStats = useCallback(async () => {
     try {
       // Obtener conteo de miembros aprobados reales
@@ -390,6 +485,8 @@ export default function MemberConsolePage() {
         await fetchSounds();
         await fetchStreamSettings();
         await fetchStats();
+        await loadMySubmissions(initialSession);
+        await loadMyPrivateSounds(initialSession);
       }
       setLoading(false);
     };
@@ -411,7 +508,15 @@ export default function MemberConsolePage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, fetchRecentEvents, fetchSounds, fetchStreamSettings, fetchStats]);
+  }, [fetchProfile, fetchRecentEvents, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
+
+  // Load my-sounds data on tab switch
+  useEffect(() => {
+    if (activeTab === 'my-sounds' && session) {
+      void loadMySubmissions(session);
+      void loadMyPrivateSounds(session);
+    }
+  }, [activeTab, session, loadMySubmissions, loadMyPrivateSounds]);
 
   // Cooldown countdowns & simulation
   useEffect(() => {
@@ -601,6 +706,7 @@ export default function MemberConsolePage() {
               { id: 'animations', label: 'Efectos Visuales', icon: Sparkles },
               { id: 'feed', label: 'Feed de Actividad', icon: List },
               { id: 'nickname', label: 'Nickname', icon: User },
+              { id: 'my-sounds', label: 'Mis Audios', icon: FileAudio },
             ].map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1358,6 +1464,175 @@ export default function MemberConsolePage() {
                   </div>
                 </motion.div>
               )}
+              {/* TAB: MY AUDIOS */}
+              {activeTab === 'my-sounds' && (
+                <motion.div
+                  key="my-sounds-tab"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 flex flex-col overflow-y-auto pr-1 space-y-4 text-left"
+                >
+                  {/* Upload form */}
+                  <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-4">
+                    <div className="border-b border-neutral-700/60 pb-3">
+                      <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Proponer Sonido</span>
+                      <h2 className="font-display font-semibold text-base text-white mt-0.5">Enviar Audio</h2>
+                      <p className="text-[11px] text-gray-400 mt-1 font-semibold leading-relaxed">El audio será revisado por un admin antes de aparecer en la botonera.</p>
+                    </div>
+
+                    <form onSubmit={handleSubmitAudio} className="space-y-3">
+                      <label className="block space-y-1">
+                        <span className="text-xs text-gray-500">Nombre del botón</span>
+                        <input
+                          type="text"
+                          value={audioName}
+                          onChange={(e) => setAudioName(e.target.value)}
+                          placeholder="Ej: Mi Risa, Clásico, Épico..."
+                          maxLength={40}
+                          className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="block space-y-1">
+                          <span className="text-xs text-gray-500">Cooldown sugerido (seg)</span>
+                          <input
+                            type="number" min={0} max={300}
+                            value={audioCooldown}
+                            onChange={(e) => setAudioCooldown(e.target.value)}
+                            className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                          />
+                        </label>
+                        <div className="space-y-1">
+                          <span className="text-xs text-gray-500 block">Visibilidad</span>
+                          <button
+                            type="button"
+                            onClick={() => setAudioIsPublic(p => !p)}
+                            className={`w-full h-[38px] rounded-xl border text-xs font-display font-semibold transition-all cursor-pointer ${
+                              audioIsPublic
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                            }`}
+                          >
+                            {audioIsPublic ? '🌐 Público' : '🔒 Solo yo'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <label className="block space-y-1">
+                        <span className="text-xs text-gray-500">Archivo de audio (MP3, WAV, M4A — máx 2MB)</span>
+                        <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#35373d] hover:bg-[#3a3c42] cursor-pointer transition-colors text-center">
+                          <input
+                            type="file" accept="audio/*"
+                            onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <FileAudio className="w-6 h-6 text-gray-500 mx-auto mb-1" />
+                          <p className="text-[10px] text-gray-400 font-medium truncate">
+                            {audioFile ? audioFile.name : 'Elegir archivo de audio'}
+                          </p>
+                        </div>
+                      </label>
+
+                      {audioSubmitStatus && (
+                        <p className={`text-xs font-semibold ${
+                          audioSubmitStatus.startsWith('✓') ? 'text-emerald-400' : 'text-[#FFC200]'
+                        }`}>{audioSubmitStatus}</p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={submittingAudio || !audioFile || !audioName.trim()}
+                        className="w-full py-3 bg-[#FFC200] hover:bg-[#ffe359] text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {submittingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileAudio className="w-4 h-4" />}
+                        {submittingAudio ? 'Enviando...' : 'Enviar para revisión'}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Private sounds */}
+                  {(loadingMyPrivate || myPrivateSounds.length > 0) && (
+                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-3">
+                      <div className="border-b border-neutral-700/60 pb-3 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase tracking-wider font-medium text-purple-400">🔒 Solo vos</span>
+                          <h3 className="font-display font-semibold text-base text-white mt-0.5">Mis Sonidos Privados</h3>
+                        </div>
+                        <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-2xl px-3 py-1">
+                          {myPrivateSounds.length}
+                        </span>
+                      </div>
+                      {loadingMyPrivate ? (
+                        <div className="py-4 text-center text-gray-500 text-xs animate-pulse">Cargando...</div>
+                      ) : (
+                        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+                          {myPrivateSounds.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => void triggerEvent('sound', s.id)}
+                              disabled={!!triggeringId || soundCooldown > 0}
+                              className="bg-[#35373d] border border-purple-500/20 rounded-xl p-3 text-center hover:bg-[#3a3c42] transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 space-y-1"
+                            >
+                              <span className="text-xl block">🔒</span>
+                              <p className="text-xs font-display font-semibold text-purple-300 truncate">{s.name}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submissions history */}
+                  <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-3">
+                    <div className="border-b border-neutral-700/60 pb-3">
+                      <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Historial</span>
+                      <h3 className="font-display font-semibold text-base text-white mt-0.5">Mis Envíos</h3>
+                    </div>
+                    {loadingMySubmissions ? (
+                      <div className="py-8 text-center text-gray-500 text-xs animate-pulse">Cargando historial...</div>
+                    ) : mySubmissions.length === 0 ? (
+                      <div className="py-8 text-center text-gray-500">
+                        <FileAudio className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-xs font-semibold">Todavía no enviaste ningún audio.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {mySubmissions.map((sub) => (
+                          <div key={sub.id} className="flex items-start gap-3 bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-display font-semibold text-white truncate">{sub.name}</p>
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                                  sub.status === 'approved'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : sub.status === 'rejected'
+                                    ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                    : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                }`}>
+                                  {sub.status === 'approved' ? '✓ Aprobado' : sub.status === 'rejected' ? '✕ Rechazado' : '⏳ Pendiente'}
+                                </span>
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
+                                  sub.is_public
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                }`}>{sub.is_public ? '🌐' : '🔒'}</span>
+                              </div>
+                              {sub.rejection_reason && (
+                                <p className="text-[10px] text-red-400 font-semibold mt-1 leading-relaxed">Motivo: {sub.rejection_reason}</p>
+                              )}
+                              <p className="text-[9px] text-gray-600 mt-0.5">{new Date(sub.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
 
             </AnimatePresence>
           </div>
@@ -1687,6 +1962,7 @@ export default function MemberConsolePage() {
           { id: 'animations', name: 'Efectos', icon: <Sparkles className="w-4 h-4" />, onClick: () => setActiveTab('animations') },
           { id: 'feed', name: 'Feed', icon: <List className="w-4 h-4" />, onClick: () => setActiveTab('feed') },
           { id: 'nickname', name: 'Tag', icon: <User className="w-4 h-4" />, onClick: () => setActiveTab('nickname') },
+          { id: 'my-sounds', name: 'Mis Audios', icon: <FileAudio className="w-4 h-4" />, onClick: () => setActiveTab('my-sounds') },
         ]}
         activeTab={activeTab}
       />

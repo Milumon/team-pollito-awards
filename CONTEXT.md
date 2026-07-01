@@ -56,3 +56,14 @@ _Avoid_: Log del sistema, Historial de visitas, Entrada de consola
 Conjunto unificado de directrices visuales basadas en el estilo Neobrutalismo Oscuro Unificado (tipografía Anton/Inter, color amarillo #FFD500, bordes de 3px y sombras duras amarillas en modo oscuro y negras en modo claro).
 _Avoid_: Estilo SaaS, UI gamer, Tema Discord
 
+**Envío de Audio (Audio Submission)**:
+Audio subido por un Miembro Oficial desde la consola, sujeto a revisión de un Administrador antes de ser disponibilizado como Sonido Público o Sonido Privado. Mientras está en revisión, solo el Miembro que lo envió puede verlo en su historial de envíos.
+_Avoid_: Propuesta de sonido, Audio pendiente, Upload de usuario
+
+**Sonido Privado (Private Sound)**:
+Sonido aprobado por un Administrador cuyo botón de disparo solo aparece en la consola del Miembro Oficial que lo envió. El Overlay lo reproduce sin distinción respecto a los sonidos públicos.
+_Avoid_: Sonido exclusivo, Audio personal, Sonido de usuario
+
+**Sonido Público (Public Sound)**:
+Sonido aprobado por un Administrador que aparece en la botonera compartida y puede ser disparado por todos los Miembros Oficiales. Equivalente al comportamiento original de `soundboard_sounds`.
+_Avoid_: Sonido global, Audio comunitario, Sonido del admin

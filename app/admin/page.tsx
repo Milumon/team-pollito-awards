@@ -114,6 +114,28 @@ type SoundItem = {
   url: string;
   created_at: string;
   cooldown_seconds?: number | null;
+  is_public?: boolean;
+  owner_user_id?: string | null;
+};
+
+type SoundSubmission = {
+  id: string;
+  submitted_by_user_id: string;
+  name: string;
+  file_path: string;
+  url: string;
+  suggested_cooldown_seconds: number;
+  is_public: boolean;
+  status: 'pending' | 'approved' | 'rejected';
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  profiles?: {
+    roblox_user: string | null;
+    roblox_display_name: string | null;
+    roblox_avatar_url: string | null;
+  } | null;
 };
 
 const getSoundColor = (soundId: string) => {
@@ -234,6 +256,14 @@ export default function AdminPage() {
   const [editingSoundName, setEditingSoundName] = useState('');
   const [editingSoundCooldown, setEditingSoundCooldown] = useState('0');
   const [submittingSound, setSubmittingSound] = useState(false);
+
+  // Sound Submissions (user-submitted audio pending review)
+  const [soundSubmissions, setSoundSubmissions] = useState<SoundSubmission[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [approvingSubmissionId, setApprovingSubmissionId] = useState<string | null>(null);
+  const [rejectingSubmissionId, setRejectingSubmissionId] = useState<string | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [submissionEdits, setSubmissionEdits] = useState<Record<string, { name: string; cooldown: string }>>({});
 
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -450,6 +480,77 @@ export default function AdminPage() {
     }
   }, [isAdmin, apiFetch]);
 
+  const loadSoundSubmissions = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingSubmissions(true);
+    try {
+      const response = await apiFetch('/api/admin/sounds/submissions');
+      const data = await readApiPayload(response);
+      if (response.ok) {
+        const subs: SoundSubmission[] = Array.isArray(data.submissions) ? data.submissions : [];
+        setSoundSubmissions(subs);
+        // Inicializar edits con los valores propuestos por el usuario
+        const initialEdits: Record<string, { name: string; cooldown: string }> = {};
+        subs.forEach((s) => {
+          initialEdits[s.id] = { name: s.name, cooldown: String(s.suggested_cooldown_seconds) };
+        });
+        setSubmissionEdits(initialEdits);
+      }
+    } catch (err) {
+      console.error('Error al cargar submissions de audio:', err);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  }, [isAdmin, apiFetch]);
+
+  const handleApproveSubmission = async (submissionId: string) => {
+    setApprovingSubmissionId(submissionId);
+    setError(null);
+    try {
+      const edits = submissionEdits[submissionId];
+      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: edits?.name?.trim() || undefined,
+          cooldownSeconds: edits ? parseInt(edits.cooldown) || 0 : undefined,
+        }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al aprobar el envío');
+      setStatus('Envío aprobado y agregado a la botonera.');
+      setTimeout(() => setStatus(null), 3000);
+      await loadSoundSubmissions();
+      await loadSounds();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al aprobar');
+    } finally {
+      setApprovingSubmissionId(null);
+    }
+  };
+
+  const handleRejectSubmission = async (submissionId: string) => {
+    setRejectingSubmissionId(submissionId);
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: rejectReasonInput.trim() || null }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al rechazar el envío');
+      setStatus('Envío rechazado.');
+      setRejectReasonInput('');
+      setTimeout(() => setStatus(null), 3000);
+      await loadSoundSubmissions();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al rechazar');
+    } finally {
+      setRejectingSubmissionId(null);
+    }
+  };
+
   const loadAuditLogs = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingAuditLogs(true);
@@ -518,6 +619,7 @@ export default function AdminPage() {
     void loadInterviewSlots();
     void loadStreamSettings();
     void loadSounds();
+    void loadSoundSubmissions();
     void loadAuditLogs();
     void pingAlexaVM();
 
@@ -541,7 +643,7 @@ export default function AdminPage() {
       void channel.unsubscribe();
       clearInterval(interval);
     };
-  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
+  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions, loadAuditLogs, pingAlexaVM]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -551,8 +653,9 @@ export default function AdminPage() {
       void loadStreamSettings();
     } else if (activeTab === 'soundboard') {
       void loadSounds();
+      void loadSoundSubmissions();
     }
-  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds]);
+  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
     setVerifyingUserId(userId);
@@ -1845,6 +1948,136 @@ export default function AdminPage() {
       </aside>
 
       <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+
+        {/* ── Submissions Pendientes ── */}
+        {(() => {
+          const pending = soundSubmissions.filter(s => s.status === 'pending');
+          if (loadingSubmissions) return (
+            <div className="py-5 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando envíos...</div>
+          );
+          if (pending.length === 0) return null;
+          return (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider font-medium text-amber-400">⏳ Revisión pendiente</span>
+                  <h3 className="font-display font-semibold text-base text-white mt-0.5 leading-none">Envíos de Usuarios</h3>
+                </div>
+                <span className="text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-2xl px-3 py-1">
+                  {pending.length} pendiente{pending.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {pending.map((sub) => {
+                  const edits = submissionEdits[sub.id] ?? { name: sub.name, cooldown: String(sub.suggested_cooldown_seconds) };
+                  const isApproving = approvingSubmissionId === sub.id;
+                  const isRejecting = rejectingSubmissionId === sub.id;
+                  const submitter = sub.profiles;
+                  return (
+                    <article key={sub.id} className="bg-[#35373d] border border-amber-500/20 rounded-xl p-4 space-y-3">
+                      {/* Header: submitter info */}
+                      <div className="flex items-center gap-3">
+                        {submitter?.roblox_avatar_url ? (
+                          <img src={submitter.roblox_avatar_url} alt="" className="w-8 h-8 rounded-full border border-neutral-600" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-xs text-gray-400">?</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{submitter?.roblox_display_name || submitter?.roblox_user || 'Usuario desconocido'}</p>
+                          <p className="text-[10px] text-gray-500 truncate">@{submitter?.roblox_user || sub.submitted_by_user_id.slice(0, 8)}</p>
+                        </div>
+                        <span className={`ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                          sub.is_public
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                        }`}>
+                          {sub.is_public ? '🌐 Público' : '🔒 Privado'}
+                        </span>
+                      </div>
+
+                      {/* Audio preview */}
+                      <audio controls src={sub.url} className="w-full h-8 [&::-webkit-media-controls-panel]:bg-[#2b2d31]" preload="none" />
+
+                      {/* Editable fields */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block space-y-1">
+                          <span className="text-[10px] text-gray-500">Nombre del botón</span>
+                          <input
+                            type="text"
+                            value={edits.name}
+                            onChange={(e) => setSubmissionEdits(prev => ({ ...prev, [sub.id]: { ...edits, name: e.target.value } }))}
+                            className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-lg px-2 py-1.5 text-xs focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                          />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-[10px] text-gray-500">Cooldown (seg)</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={edits.cooldown}
+                            onChange={(e) => setSubmissionEdits(prev => ({ ...prev, [sub.id]: { ...edits, cooldown: e.target.value } }))}
+                            className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-lg px-2 py-1.5 text-xs focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isApproving || isRejecting !== false}
+                          onClick={() => void handleApproveSubmission(sub.id)}
+                          className="flex-1 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          {isApproving ? <Loader className="w-3 h-3 animate-spin" /> : null}
+                          {isApproving ? 'Aprobando...' : '✓ Aprobar'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isApproving}
+                          onClick={() => setRejectingSubmissionId(prev => prev === sub.id ? null : sub.id)}
+                          className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50"
+                        >
+                          ✕ Rechazar
+                        </button>
+                      </div>
+
+                      {/* Reject reason inline */}
+                      <AnimatePresence>
+                        {rejectingSubmissionId === sub.id && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-2 overflow-hidden"
+                          >
+                            <textarea
+                              value={rejectReasonInput}
+                              onChange={(e) => setRejectReasonInput(e.target.value)}
+                              placeholder="Motivo del rechazo (opcional)..."
+                              rows={2}
+                              className="w-full bg-[#2b2d31] border border-red-500/20 rounded-lg px-2 py-1.5 text-xs outline-none text-white resize-none focus:border-red-400 transition-colors"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleRejectSubmission(sub.id)}
+                              className="w-full py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97]"
+                            >
+                              Confirmar rechazo
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </article>
+                  );
+                })}
+              </div>
+              <hr className="border-neutral-700/60" />
+            </section>
+          );
+        })()}
+
+        {/* ── Sonidos Activos ── */}
         <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
           <div>
             <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Botonera VIP</span>

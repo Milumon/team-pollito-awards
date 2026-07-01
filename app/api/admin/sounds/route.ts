@@ -3,13 +3,20 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
 
-// GET: Listar todos los sonidos del soundboard (público)
-export async function GET() {
+// GET: Listar todos los sonidos del soundboard (público / filtrado por privacidad)
+export async function GET(request: NextRequest) {
   try {
-    const { data: sounds, error } = await supabaseAdmin
+    const isAdminUser = await isAuthorized(request);
+    
+    let query = supabaseAdmin
       .from('soundboard_sounds')
-      .select('*')
-      .order('created_at', { ascending: true });
+      .select('*');
+
+    if (!isAdminUser) {
+      query = query.eq('is_public', true);
+    }
+
+    const { data: sounds, error } = await query.order('created_at', { ascending: true });
 
     if (error) throw error;
 
