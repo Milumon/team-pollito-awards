@@ -272,6 +272,90 @@ export default function AdminPage() {
   const [vmStatus, setVmStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [pingingVM, setPingingVM] = useState(false);
 
+  // Simulated Event Previews for Overlay Simulator
+  const [simulatedEvent, setSimulatedEvent] = useState<{
+    type: 'sound' | 'tts' | 'animation';
+    content: string;
+    senderRobloxUser: string;
+    visible: boolean;
+  } | null>(null);
+
+  const [simulatedParticles, setSimulatedParticles] = useState<{
+    id: number;
+    char?: string;
+    color?: string;
+    size: number;
+    left: number;
+    delay: number;
+    duration: number;
+    rotation: number;
+  }[]>([]);
+  const [simulatedAnimation, setSimulatedAnimation] = useState<'eggs' | 'sparkles' | 'confetti' | null>(null);
+  const [sendingTestEvent, setSendingTestEvent] = useState(false);
+
+  const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
+
+  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation', content: string) => {
+    setSimulatedEvent({
+      type,
+      content,
+      senderRobloxUser: 'MilumonGaming',
+      visible: true
+    });
+    
+    if (type === 'animation') {
+      const animationType = content as 'confetti' | 'eggs' | 'sparkles';
+      setSimulatedAnimation(animationType);
+      
+      const newParticles = Array.from({ length: 45 }).map((_, i) => {
+        const isConf = animationType === 'confetti';
+        const char = animationType === 'eggs' ? '🐣' : animationType === 'sparkles' ? '✨' : '';
+        return {
+          id: i,
+          char,
+          color: isConf ? CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)] : undefined,
+          size: Math.floor(Math.random() * 12) + 10,
+          left: Math.random() * 95,
+          delay: Math.random() * 0.4,
+          duration: Math.random() * 1.5 + 1.2,
+          rotation: Math.floor(Math.random() * 360)
+        };
+      });
+      setSimulatedParticles(newParticles);
+      
+      setTimeout(() => {
+        setSimulatedAnimation(null);
+        setSimulatedParticles([]);
+      }, 3500);
+    }
+
+    setTimeout(() => {
+      setSimulatedEvent(prev => prev && prev.type === type && prev.content === content ? { ...prev, visible: false } : prev);
+    }, 4000);
+  };
+
+  const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation', content: string) => {
+    setSendingTestEvent(true);
+    try {
+      const response = await apiFetch('/api/admin/stream/test-event', {
+        method: 'POST',
+        body: JSON.stringify({
+          type,
+          content,
+          senderRobloxUser: 'PruebaAdmin',
+          senderTiktokUser: 'prueba_admin'
+        })
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al disparar evento de prueba');
+      alert('¡Alerta de prueba enviada con éxito al OBS en vivo!');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al enviar evento de prueba');
+    } finally {
+      setSendingTestEvent(false);
+    }
+  };
+
   // Soundboard states
   const [sounds, setSounds] = useState<SoundItem[]>([]);
   const [loadingSounds, setLoadingSounds] = useState(false);
@@ -2232,9 +2316,9 @@ export default function AdminPage() {
             <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-4">
               <div className="flex justify-between items-start gap-3 border-b border-neutral-700/60 pb-3">
                 <div>
-                  <h3 className="font-display font-semibold text-sm text-white">🎨 Diseño del Pop-up de Eventos</h3>
+                  <h3 className="font-display font-semibold text-sm text-white">🎨 Configuración y Simulación de Overlay</h3>
                   <p className="text-[10px] text-gray-400 mt-1 font-semibold">
-                    Configura la posición, el ancho y los tamaños de texto del pop-up en el overlay vertical (720x1280).
+                    Ajustá el diseño en tiempo real y probalo localmente o en tu OBS en directo.
                   </p>
                 </div>
                 <span className="text-[9px] font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2 py-0.5 rounded-xl uppercase">
@@ -2242,140 +2326,321 @@ export default function AdminPage() {
                 </span>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Posición Superior (Top) */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Distancia Superior (Y)</span>
-                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1000"
-                    step="10"
-                    value={streamSettings.overlay_notification_top ?? 48}
-                    disabled={updatingStreamSettings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: val } : null);
-                    }}
-                    className="w-full accent-[#FFC200] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                    <span>0px (Arriba)</span>
-                    <span>1000px</span>
+              <div className="grid gap-6 md:grid-cols-[1fr_260px] items-start">
+                {/* Controles de Sliders */}
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {/* Posición Superior (Top) */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-gray-400 font-bold flex justify-between">
+                        <span>Distancia Superior (Y)</span>
+                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_top ?? 48}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1000"
+                        step="10"
+                        value={streamSettings.overlay_notification_top ?? 48}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev) => prev ? { ...prev, overlay_notification_top: val } : null);
+                        }}
+                        className="w-full accent-[#FFC200] cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                        <span>0px (Arriba)</span>
+                        <span>1000px</span>
+                      </div>
+                    </div>
+
+                    {/* Ancho del Pop-up (Width) */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-gray-400 font-bold flex justify-between">
+                        <span>Ancho del Pop-up</span>
+                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="200"
+                        max="700"
+                        step="10"
+                        value={streamSettings.overlay_notification_width ?? 288}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: val } : null);
+                        }}
+                        className="w-full accent-[#FFC200] cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                        <span>200px</span>
+                        <span>700px</span>
+                      </div>
+                    </div>
+
+                    {/* Fuente Badge */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-gray-400 font-bold flex justify-between">
+                        <span>Texto de Etiqueta (Badge)</span>
+                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="8"
+                        max="30"
+                        step="1"
+                        value={streamSettings.overlay_notification_badge_size ?? 10}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: val } : null);
+                        }}
+                        className="w-full accent-[#FFC200] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Fuente Remitente */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-gray-400 font-bold flex justify-between">
+                        <span>Texto del Remitente</span>
+                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_sender_size ?? 11}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="8"
+                        max="30"
+                        step="1"
+                        value={streamSettings.overlay_notification_sender_size ?? 11}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev) => prev ? { ...prev, overlay_notification_sender_size: val } : null);
+                        }}
+                        className="w-full accent-[#FFC200] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Fuente Contenido */}
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <label className="text-xs text-gray-400 font-bold flex justify-between">
+                        <span>Texto del Mensaje (Contenido)</span>
+                        <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="8"
+                        max="40"
+                        step="1"
+                        value={streamSettings.overlay_notification_content_size ?? 14}
+                        disabled={updatingStreamSettings}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: val } : null);
+                        }}
+                        className="w-full accent-[#FFC200] cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[8px] text-gray-500 font-mono">
+                        <span>8px</span>
+                        <span>40px</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      disabled={updatingStreamSettings}
+                      onClick={() => handleUpdateStreamSettings({
+                        overlayNotificationTop: streamSettings.overlay_notification_top,
+                        overlayNotificationWidth: streamSettings.overlay_notification_width,
+                        overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
+                        overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
+                        overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
+                      })}
+                      className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
+                    >
+                      {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
+                    </button>
                   </div>
                 </div>
 
-                {/* Ancho del Pop-up (Width) */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Ancho del Pop-up</span>
-                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="200"
-                    max="700"
-                    step="10"
-                    value={streamSettings.overlay_notification_width ?? 288}
-                    disabled={updatingStreamSettings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_width: val } : null);
-                    }}
-                    className="w-full accent-[#FFC200] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                    <span>200px</span>
-                    <span>700px</span>
+                {/* Pantalla Simuladora */}
+                <div className="flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 mb-2 tracking-wider">Pantalla OBS (9:16)</span>
+                  <div className="relative w-[247px] h-[440px] bg-neutral-950 border-4 border-neutral-700/80 rounded-[32px] overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.5)] flex items-center justify-center">
+                    {/* Fondo simulado con grilla e indicador */}
+                    <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none opacity-40" />
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/40 border border-white/10 rounded-full px-2 py-0.5 text-[8px] text-gray-500 font-mono tracking-widest uppercase z-30 select-none">
+                      Preview
+                    </div>
+
+                    {/* Alerta de Prueba Simulada */}
+                    {simulatedEvent?.visible && (
+                      <div 
+                        style={{
+                          top: `${(streamSettings.overlay_notification_top ?? 48) * 0.34}px`,
+                          width: `${(streamSettings.overlay_notification_width ?? 288) * 0.34}px`,
+                          maxWidth: '90%',
+                          transform: 'translateX(-50%)',
+                          position: 'absolute',
+                          left: '50%',
+                        }}
+                        className="bg-white border-2 border-black p-2 rounded-xl shadow-[2px_2px_0_0_rgba(0,0,0,1)] flex items-center gap-1.5 z-20 animate-slide-in"
+                      >
+                        <div className="w-6 h-6 rounded bg-yellow-100 border border-black flex items-center justify-center text-xs shrink-0 select-none">
+                          {simulatedEvent.type === 'sound' ? '🔊' : simulatedEvent.type === 'tts' ? '🗣️' : '✨'}
+                        </div>
+                        <div className="min-w-0 text-left flex-1 select-none">
+                          <span 
+                            style={{ fontSize: `${(streamSettings.overlay_notification_badge_size ?? 10) * 0.75}px` }}
+                            className="bg-[#ea580c] text-white border border-black rounded px-1 font-black uppercase inline-block leading-none"
+                          >
+                            {simulatedEvent.type === 'sound' ? 'VIP Sound' : simulatedEvent.type === 'tts' ? 'VIP Speak' : 'VIP FX'}
+                          </span>
+                          <p 
+                            style={{ fontSize: `${(streamSettings.overlay_notification_content_size ?? 14) * 0.75}px` }}
+                            className="font-black text-black truncate leading-tight mt-0.5 animate-pulse"
+                          >
+                            {simulatedEvent.type === 'tts' 
+                              ? `"${simulatedEvent.content}"` 
+                              : simulatedEvent.type === 'sound' 
+                              ? 'Sonido de Prueba' 
+                              : `FX: ${simulatedEvent.content}`}
+                          </p>
+                          <p 
+                            style={{ fontSize: `${(streamSettings.overlay_notification_sender_size ?? 11) * 0.75}px` }}
+                            className="font-black text-gray-500 truncate leading-none mt-0.5"
+                          >
+                            Por: @{simulatedEvent.senderRobloxUser}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Partículas Cayendo Simuladas */}
+                    {simulatedAnimation && simulatedParticles.length > 0 && (
+                      <div className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-hidden">
+                        {simulatedParticles.map((p) => {
+                          const style: React.CSSProperties = {
+                            position: 'absolute',
+                            top: '-20px',
+                            left: `${p.left}%`,
+                            fontSize: `${p.size}px`,
+                            animationDelay: `${p.delay}s`,
+                            animationDuration: `${p.duration}s`,
+                            animationName: 'fall-animation-sim',
+                            animationTimingFunction: 'linear',
+                            animationFillMode: 'forwards',
+                            transform: `rotate(${p.rotation}deg)`,
+                          };
+
+                          if (simulatedAnimation === 'confetti') {
+                            return (
+                              <div
+                                key={p.id}
+                                style={{
+                                  ...style,
+                                  width: `${p.size * 0.4}px`,
+                                  height: `${p.size * 0.8}px`,
+                                  backgroundColor: p.color,
+                                  borderRadius: '1px',
+                                }}
+                              />
+                            );
+                          }
+
+                          return (
+                            <div key={p.id} style={style}>
+                              {p.char}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-
-                {/* Fuente Badge */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Texto de Etiqueta (Badge)</span>
-                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="8"
-                    max="30"
-                    step="1"
-                    value={streamSettings.overlay_notification_badge_size ?? 10}
-                    disabled={updatingStreamSettings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: val } : null);
-                    }}
-                    className="w-full accent-[#FFC200] cursor-pointer"
-                  />
-                </div>
-
-                {/* Fuente Remitente */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Texto del Remitente</span>
-                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_sender_size ?? 11}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="8"
-                    max="30"
-                    step="1"
-                    value={streamSettings.overlay_notification_sender_size ?? 11}
-                    disabled={updatingStreamSettings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_sender_size: val } : null);
-                    }}
-                    className="w-full accent-[#FFC200] cursor-pointer"
-                  />
-                </div>
-
-                {/* Fuente Contenido */}
-                <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Texto del Mensaje (Contenido)</span>
-                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_content_size ?? 14}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="8"
-                    max="40"
-                    step="1"
-                    value={streamSettings.overlay_notification_content_size ?? 14}
-                    disabled={updatingStreamSettings}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      setStreamSettings((prev) => prev ? { ...prev, overlay_notification_content_size: val } : null);
-                    }}
-                    className="w-full accent-[#FFC200] cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono">
-                    <span>8px</span>
-                    <span>40px</span>
-                  </div>
+                  
+                  {/* Animación keyframe inyectada localmente */}
+                  <style>{`
+                    @keyframes fall-animation-sim {
+                      0% {
+                        top: -30px;
+                        transform: translateY(0) rotate(0deg);
+                      }
+                      100% {
+                        top: 450px;
+                        transform: translateY(450px) rotate(360deg);
+                      }
+                    }
+                  `}</style>
                 </div>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={updatingStreamSettings}
-                  onClick={() => handleUpdateStreamSettings({
-                    overlayNotificationTop: streamSettings.overlay_notification_top,
-                    overlayNotificationWidth: streamSettings.overlay_notification_width,
-                    overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
-                    overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
-                    overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
-                  })}
-                  className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
-                >
-                  {updatingStreamSettings ? 'Guardando...' : '💾 Guardar Diseño del Pop-up'}
-                </button>
+              {/* PANEL DE PRUEBAS DEL OVERLAY */}
+              <div className="border-t border-neutral-700/60 pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-semibold text-xs text-white flex items-center gap-1.5">
+                    🧪 Lanzador de Alertas de Prueba
+                  </h3>
+                  <span className="text-[9px] font-bold text-gray-500 font-mono">Simulación local en tiempo real</span>
+                </div>
+                
+                <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+                  <button
+                    type="button"
+                    onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
+                    className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-display font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center"
+                  >
+                    🔊 Alerta Sonido (Local)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerLocalTestEvent('tts', '¡Hola stream, este es un texto de prueba!')}
+                    className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-display font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center"
+                  >
+                    🗣️ Alerta TTS (Local)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerLocalTestEvent('animation', 'confetti')}
+                    className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-display font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center"
+                  >
+                    🎉 Confetti (Local)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => triggerLocalTestEvent('animation', 'eggs')}
+                    className="py-2.5 px-3 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-display font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center"
+                  >
+                    🐣 Lluvia Huevos (Local)
+                  </button>
+                </div>
+
+                <div className="pt-3 border-t border-neutral-700/40 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                  <div className="text-[10px] text-gray-400 font-semibold max-w-md">
+                    ¿Querés testear cómo se ve y se escucha directamente en el OBS de tu transmisión?
+                  </div>
+                  
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('sound', 'sorpresa')}
+                      className="flex-1 sm:flex-none py-2 px-3 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center"
+                    >
+                      {sendingTestEvent ? 'Enviando...' : '📡 Probar Sonido en OBS'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('tts', 'Mensaje de prueba en vivo desde el panel de administración')}
+                      className="flex-1 sm:flex-none py-2 px-3 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center"
+                    >
+                      {sendingTestEvent ? 'Enviando...' : '📡 Probar TTS en OBS'}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
