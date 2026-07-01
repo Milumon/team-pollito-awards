@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         ban_reason: history.ban_reason,
         return_reason: history.return_reason,
         rejection_reason,
+        already_interviewed: history.already_interviewed || false,
         is_admin: isAdminUser,
       });
     }

@@ -119,6 +119,7 @@ export default function ComunidadPage() {
   const [banReason, setBanReason] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [alreadyInterviewed, setAlreadyInterviewed] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
@@ -261,7 +262,7 @@ export default function ComunidadPage() {
     e.preventDefault();
     setFormError(null);
 
-    if (!selectedSlotId) {
+    if (!alreadyInterviewed && !selectedSlotId) {
       setFormError('Por favor selecciona un horario para tu entrevista.');
       return;
     }
@@ -288,13 +289,14 @@ export default function ComunidadPage() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          slotId: selectedSlotId,
+          slotId: alreadyInterviewed ? null : selectedSlotId,
           robloxUsername: robloxUser.trim(),
           tiktokUsername: tiktokUser.trim(),
           isReturning,
           banReason: isReturning ? banReason.trim() : null,
           returnReason: isReturning ? returnReason.trim() : null,
-          testimonial: userTestimonial.trim() || null
+          testimonial: userTestimonial.trim() || null,
+          alreadyInterviewed
         })
       });
 
@@ -307,6 +309,7 @@ export default function ComunidadPage() {
 
       setFormSuccess(true);
       setIsRescheduling(false);
+      setAlreadyInterviewed(false);
       fetchSlots();
       fetchStats();
       if (token) {
@@ -945,7 +948,7 @@ export default function ComunidadPage() {
                       </div>
                     </div>
                     <p className="font-sans text-sm text-gray-500 leading-snug">
-                      Milumon te llamará en su stream. Tené Roblox abierto y estate atento al directo.
+                      Milumon te llamará en su transmisión. Ten Roblox abierto y permanece atento al directo.
                     </p>
                   </div>
                 )}
@@ -1010,6 +1013,29 @@ export default function ComunidadPage() {
 
                     {!formSuccess && (
                       <div>
+                        {/* Opción para saltar el calendario si ya fue entrevistado */}
+                        <div className="flex items-center gap-2 bg-[#FCF9F2] border border-amber-200 rounded-xl p-3 text-left mb-4">
+                          <input
+                            type="checkbox"
+                            id="already-interviewed"
+                            checked={alreadyInterviewed}
+                            onChange={(e) => {
+                              setAlreadyInterviewed(e.target.checked);
+                              if (e.target.checked) {
+                                setSelectedSlotId('already-interviewed-temp');
+                              } else {
+                                setSelectedSlotId('');
+                              }
+                            }}
+                            className="w-4 h-4 accent-[#FFC200] cursor-pointer"
+                          />
+                          <label htmlFor="already-interviewed" className="text-xs text-[#2D3139] font-medium cursor-pointer select-none">
+                            Ya pasé mi entrevista en el directo de Milumon (Vincular directamente)
+                          </label>
+                        </div>
+
+                        {!alreadyInterviewed ? (
+                          <div>
                         {/* Calendar Month Header */}
                         <div className="flex justify-between items-center font-sans text-sm px-2 mb-3 text-gray-500">
                           <span className="font-semibold">&lt;</span>
@@ -1106,10 +1132,10 @@ export default function ComunidadPage() {
                         {showHowItWorks && (
                           <div className="bg-[#FCF9F2] border-3 border-black p-3.5 rounded-2xl text-left font-sans text-xs mt-3 space-y-1.5 leading-snug shadow-[2px_2px_0_0_rgba(0,0,0,1)]">
                             <p className="font-display font-bold text-[#FFB000]">💡 GUÍA RÁPIDA:</p>
-                            <p>1. Seleccioná un día viernes resaltado en amarillo en el calendario.</p>
-                            <p>2. Elegí una de las horas libres listadas abajo.</p>
-                            <p>3. Completá tus nombres reales de Roblox y TikTok.</p>
-                            <p>4. Conectate el día acordado al vivo de Milumon en TikTok para tu charla 1:1.</p>
+                            <p>1. Selecciona un día viernes resaltado en amarillo en el calendario.</p>
+                            <p>2. Elige una de las horas libres listadas abajo.</p>
+                            <p>3. Completa tus nombres reales de Roblox y TikTok.</p>
+                            <p>4. Conéctate el día acordado al directo de Milumon en TikTok para tu charla 1:1.</p>
                           </div>
                         )}
 
@@ -1234,9 +1260,66 @@ export default function ComunidadPage() {
                             )}
                           </div>
                         )}
+                      </div>
+                    ) : (
+                      <div className="mt-4 space-y-4 pt-2">
+                        <p className="font-sans text-xs text-gray-500 text-left leading-relaxed">
+                          Como ya has pasado la entrevista, por favor proporciona tus nombres oficiales de Roblox y TikTok para procesar tu aprobación de forma manual.
+                        </p>
+                        <form onSubmit={handleBook} className="space-y-4">
+                          <div className="space-y-2 text-left">
+                            <div>
+                              <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario de Roblox</label>
+                              <input
+                                type="text"
+                                value={robloxUser}
+                                onChange={(e) => setRobloxUser(e.target.value)}
+                                placeholder="Ej: MilumonRoblox"
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario de TikTok</label>
+                              <input
+                                type="text"
+                                value={tiktokUser}
+                                onChange={(e) => setTiktokUser(e.target.value)}
+                                placeholder="Ej: @Milumon"
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
+                              <textarea
+                                value={userTestimonial}
+                                onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                                placeholder="Cuéntanos brevemente qué opinas del Team (Máx. 150 caracteres)"
+                                rows={2}
+                                maxLength={150}
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                              />
+                            </div>
+                          </div>
 
+                          {formError && (
+                            <div className="bg-red-50 border border-red-100 p-2.5 rounded-xl flex items-start gap-1.5 text-red-500">
+                              <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                              <p className="font-sans text-sm">{formError}</p>
+                            </div>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer bg-[#FFC200] hover:brightness-105 text-black active:scale-[0.97]"
+                          >
+                            {submitting ? 'Enviando...' : 'Enviar Solicitud'}
+                          </button>
+                        </form>
                       </div>
                     )}
+                  </div>
+                )}
 
                   </div>
                 )}

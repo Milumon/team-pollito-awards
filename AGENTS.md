@@ -17,3 +17,8 @@ Using default triage label vocabulary: needs-triage, needs-info, ready-for-agent
 ### Domain docs
 
 Single-context layout: one CONTEXT.md + docs/adr/ at the root. See `docs/agents/domain.md`.
+
+## Language
+
+- En las conversaciones en español, utiliza siempre español neutro (evitando el voseo rioplatense, el acento argentino o cualquier otro modismo regional).
+

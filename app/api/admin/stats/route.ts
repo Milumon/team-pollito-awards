@@ -89,6 +89,11 @@ export async function GET(request: NextRequest) {
     });
     if (authUsersError) throw new Error(authUsersError.message);
 
+    // 6. Fetch interview history
+    const { data: historyList } = await supabaseAdmin
+      .from('interview_history')
+      .select('user_id, already_interviewed');
+
     // --- PROCESS VOTE STATS ---
     const voteCounts: Record<number, Record<string, number>> = {};
     categories.forEach((cat: DbCategory) => {
@@ -167,6 +172,8 @@ export async function GET(request: NextRequest) {
         };
       }).sort((a, b) => a.categoryId - b.categoryId);
 
+      const historyItem = historyList?.find((h) => h.user_id === authUser.id);
+
       return {
         id: authUser.id,
         email: authUser.email || 'N/A',
@@ -181,6 +188,7 @@ export async function GET(request: NextRequest) {
         linkStatus: robloxProfile?.link_status || 'none',
         rejectionReason: robloxProfile?.rejection_reason || null,
         isAdmin: robloxProfile?.is_admin || false,
+        alreadyInterviewed: historyItem?.already_interviewed || false,
         votedCount: votedCategoriesCount,
         totalCategories: categories.length,
         votedPercentage: Math.round((votedCategoriesCount / categories.length) * 100),

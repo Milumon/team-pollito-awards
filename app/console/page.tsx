@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -687,7 +687,7 @@ export default function MemberConsolePage() {
                       🐣 Bienvenido a la Consola VIP
                     </h2>
                     <p className="text-xs text-gray-400 font-semibold leading-relaxed max-w-2xl">
-                      Hola, <strong className="text-white">@{profile.roblox_user}</strong>. Tenés acceso completo al panel de interacción en tiempo real del stream de Milumon. Todo lo que dispares aquí se emitirá de forma instantánea en la transmisión en vivo.
+                      Hola, <strong className="text-white">@{profile.roblox_user}</strong>. Tienes acceso completo al panel de interacción en tiempo real de la transmisión de Milumon. Todo lo que dispares aquí se emitirá de forma instantánea en la transmisión en vivo.
                     </p>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
@@ -1038,7 +1038,7 @@ export default function MemberConsolePage() {
                     </div>
 
                     <p className="text-[11px] font-semibold text-gray-400 mb-4 shrink-0 leading-relaxed">
-                      Elegí un efecto visual para proyectarlo temporalmente sobre la pantalla del directo.
+                      Elige un efecto visual para proyectarlo temporalmente sobre la pantalla del directo.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1291,7 +1291,7 @@ export default function MemberConsolePage() {
                       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 ">
                         <h3 className="font-display font-medium text-xs text-gray-500">Sesión</h3>
                         <p className="text-[11px] text-gray-500 leading-relaxed font-semibold">
-                          Si cambiaste de cuenta de Google o necesitas desvincular tus credenciales, podés cerrar sesión aquí.
+                          Si cambiaste de cuenta de Google o necesitas desvincular tus credenciales, puedes cerrar sesión aquí.
                         </p>
                         <button
                           onClick={handleBackToLanding}
@@ -1586,12 +1586,12 @@ export default function MemberConsolePage() {
               <div className="text-center space-y-2">
                 <span className="text-5xl block animate-bounce">🐣</span>
                 <h2 className="font-display font-bold text-xl leading-none text-[#FFC200] tracking-tight">
-                  {profile && !isCustomNickname(profile.roblox_display_name) ? '¡Elegí tu Nickname Oficial!' : 'Modificar tu Nickname'}
+                  {profile && !isCustomNickname(profile.roblox_display_name) ? '¡Elige tu Nickname Oficial!' : 'Modificar tu Nickname'}
                 </h2>
                 <p className="text-[11px] font-semibold text-gray-400 leading-relaxed text-center">
                   {profile && !isCustomNickname(profile.roblox_display_name)
                     ? 'Como Miembro Oficial del Team Pollito, tu nombre en el juego debe llevar los pollitos a los costados.'
-                    : 'Podés cambiar la parte central de tu nickname. Recordá el cooldown de 24 horas.'}
+                    : 'Puedes cambiar la parte central de tu nickname. Recuerda el cooldown de 24 horas.'}
                 </p>
               </div>
 

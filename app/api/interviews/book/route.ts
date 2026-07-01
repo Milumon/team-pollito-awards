@@ -12,14 +12,14 @@ export async function POST(request: NextRequest) {
     // 1. Authenticate user
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
     }
 
     const token = authHeader.substring('Bearer '.length);
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
     }
 
     // 2. Parse request body
@@ -32,11 +32,21 @@ export async function POST(request: NextRequest) {
       banReason,
       returnReason,
       testimonial,
+      alreadyInterviewed, // NEW: user claims they already had an interview
     } = body;
 
-    if (!slotId || !robloxUsername || !tiktokUsername) {
+    // Validate required fields
+    if (!robloxUsername || !tiktokUsername) {
       return NextResponse.json(
-        { error: 'slotId, robloxUsername y tiktokUsername son campos obligatorios.' },
+        { error: 'El nombre de usuario de Roblox y TikTok son obligatorios.' },
+        { status: 400 }
+      );
+    }
+
+    // If NOT claiming already interviewed, a slotId is required
+    if (!alreadyInterviewed && !slotId) {
+      return NextResponse.json(
+        { error: 'Debes seleccionar un horario para tu entrevista.' },
         { status: 400 }
       );
     }
@@ -65,56 +75,59 @@ export async function POST(request: NextRequest) {
 
     if (existingProfile?.link_status === 'approved') {
       return NextResponse.json(
-        { error: 'Ya eres un miembro oficial de la comunidad y no necesitas agendar entrevistas.' },
+        { error: 'Ya eres un miembro oficial de la comunidad.' },
         { status: 400 }
       );
     }
 
-    // 3. Fetch slot to verify it's available
-    const { data: slot, error: slotError } = await supabaseAdmin
-      .from('interview_slots')
-      .select('*')
-      .eq('id', slotId)
-      .maybeSingle();
+    let interviewDate: string | null = null;
+    let interviewTime: string | null = null;
 
-    if (slotError || !slot) {
-      return NextResponse.json(
-        { error: 'El slot de entrevista seleccionado no existe.' },
-        { status: 404 }
-      );
+    // 3. If scheduling a new slot — validate and book it
+    if (!alreadyInterviewed && slotId) {
+      const { data: slot, error: slotError } = await supabaseAdmin
+        .from('interview_slots')
+        .select('*')
+        .eq('id', slotId)
+        .maybeSingle();
+
+      if (slotError || !slot) {
+        return NextResponse.json(
+          { error: 'El horario de entrevista seleccionado no existe.' },
+          { status: 404 }
+        );
+      }
+
+      if (slot.is_booked) {
+        return NextResponse.json(
+          { error: 'Este horario ya fue reservado por otro usuario.' },
+          { status: 400 }
+        );
+      }
+
+      const slotDateTime = new Date(`${slot.slot_date}T${slot.slot_time}`);
+      if (slotDateTime.getTime() < Date.now()) {
+        return NextResponse.json(
+          { error: 'No puedes reservar un horario en el pasado.' },
+          { status: 400 }
+        );
+      }
+
+      // Mark slot as booked
+      const { error: updateSlotError } = await supabaseAdmin
+        .from('interview_slots')
+        .update({ is_booked: true, booked_by_user_id: user.id })
+        .eq('id', slotId);
+
+      if (updateSlotError) {
+        return NextResponse.json({ error: updateSlotError.message }, { status: 500 });
+      }
+
+      interviewDate = slot.slot_date;
+      interviewTime = slot.slot_time;
     }
 
-    if (slot.is_booked) {
-      return NextResponse.json(
-        { error: 'Este slot ya ha sido reservado por otro usuario.' },
-        { status: 400 }
-      );
-    }
-
-    // Verify slot is in the future
-    const slotDateTime = new Date(`${slot.slot_date}T${slot.slot_time}`);
-    if (slotDateTime.getTime() < Date.now()) {
-      return NextResponse.json(
-        { error: 'No puedes reservar un slot en el pasado.' },
-        { status: 400 }
-      );
-    }
-
-    // 4. Perform booking transactions
-    // Update the slot to booked
-    const { error: updateSlotError } = await supabaseAdmin
-      .from('interview_slots')
-      .update({
-        is_booked: true,
-        booked_by_user_id: user.id,
-      })
-      .eq('id', slotId);
-
-    if (updateSlotError) {
-      return NextResponse.json({ error: updateSlotError.message }, { status: 500 });
-    }
-
-    // Upsert into interview_history
+    // 4. Upsert interview_history
     const { data: historyData, error: historyError } = await supabaseAdmin
       .from('interview_history')
       .upsert(
@@ -122,11 +135,12 @@ export async function POST(request: NextRequest) {
           roblox_user: normalizedRoblox,
           tiktok_user: normalizedTiktok,
           status: 'pending',
-          interview_date: slot.slot_date,
-          interview_time: slot.slot_time,
+          interview_date: interviewDate,
+          interview_time: interviewTime,
           user_id: user.id,
           ban_reason: isReturning ? banReason.trim() : null,
           return_reason: isReturning ? returnReason.trim() : null,
+          already_interviewed: alreadyInterviewed ?? false,
         },
         { onConflict: 'roblox_user,tiktok_user' }
       )
@@ -134,19 +148,17 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (historyError) {
-      // Rollback slot booking if history insert fails
-      await supabaseAdmin
-        .from('interview_slots')
-        .update({
-          is_booked: false,
-          booked_by_user_id: null,
-        })
-        .eq('id', slotId);
-
+      // Rollback slot booking if we booked one
+      if (!alreadyInterviewed && slotId) {
+        await supabaseAdmin
+          .from('interview_slots')
+          .update({ is_booked: false, booked_by_user_id: null })
+          .eq('id', slotId);
+      }
       return NextResponse.json({ error: historyError.message }, { status: 500 });
     }
 
-    // Upsert profile with usernames and optional testimonial
+    // 5. Upsert profile
     const { error: profileUpsertError } = await supabaseAdmin
       .from('profiles')
       .upsert({
@@ -156,26 +168,20 @@ export async function POST(request: NextRequest) {
         tiktok_user: normalizedTiktok,
         link_status: 'pending',
         testimonial: testimonial ? String(testimonial).trim() : null,
-        testimonial_approved: false
+        testimonial_approved: false,
       }, { onConflict: 'id' });
 
     if (profileUpsertError) {
-      // rollback slot booking if profile update fails
-      await supabaseAdmin
-        .from('interview_slots')
-        .update({
-          is_booked: false,
-          booked_by_user_id: null,
-        })
-        .eq('id', slotId);
-
+      if (!alreadyInterviewed && slotId) {
+        await supabaseAdmin
+          .from('interview_slots')
+          .update({ is_booked: false, booked_by_user_id: null })
+          .eq('id', slotId);
+      }
       return NextResponse.json({ error: profileUpsertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      interview: historyData,
-    });
+    return NextResponse.json({ success: true, interview: historyData });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

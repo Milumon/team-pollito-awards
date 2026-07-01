@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
       if (diff < cooldownLimit) {
         const remaining = Math.ceil((cooldownLimit - diff) / 1000);
         return NextResponse.json({
-          error: `Tenés que esperar ${remaining}s antes de enviar otro ${type === 'tts' ? 'TTS' : 'sonido'}`
+          error: `Tienes que esperar ${remaining}s antes de enviar otro ${type === 'tts' ? 'TTS' : 'sonido'}`
         }, { status: 429 });
       }
     }

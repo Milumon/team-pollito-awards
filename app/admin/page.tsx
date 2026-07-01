@@ -565,7 +565,7 @@ export default function AdminPage() {
 
   const handleCreateSlot = async () => {
     if (!newSlotDate || !newSlotTime) {
-      setError('Ingresá una fecha y hora para el slot.');
+      setError('Ingresa una fecha y hora para el slot.');
       return;
     }
     setCreatingSlot(true);
@@ -685,7 +685,7 @@ export default function AdminPage() {
   const handleUploadSound = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!soundFile || !soundName.trim()) {
-      setError('Por favor, ingresá un nombre y elegí un archivo de sonido.');
+      setError('Por favor, ingresa un nombre y elige un archivo de sonido.');
       return;
     }
     setSubmittingSound(true);
@@ -798,7 +798,7 @@ export default function AdminPage() {
   const handleManualAddNominee = async () => {
     const friendId = manualFriendId.trim();
     if (!friendId) {
-      setError('Ingresá un friendId válido');
+      setError('Ingresa un friendId válido');
       return;
     }
     setManualAdding(true);

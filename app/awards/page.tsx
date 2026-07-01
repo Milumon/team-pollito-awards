@@ -907,7 +907,7 @@ export default function LandingPage() {
                           </p>
                           <p className="font-sans text-[10px] text-[#0369A1] font-bold mt-1.5 uppercase leading-tight">
                             {userHits === results.length 
-                              ? '🏆 ¡INCREÍBLE! ¡SOS UN ADIVINO EXPERTO! 🐣' 
+                              ? '🏆 ¡INCREÍBLE! ¡ERES UN ADIVINO EXPERTO! 🐣' 
                               : userHits >= 8 
                               ? '🔥 ¡Excelente puntería, pollito! 💛' 
                               : userHits >= 6 
@@ -1195,7 +1195,7 @@ export default function LandingPage() {
                       </button>
                     )}
                     <div className="flex justify-center items-center gap-1.5 text-gray-500 font-sans font-bold text-[10px] mt-2 uppercase tracking-wider">
-                      {timeLeft.isOver ? '👉 ¡Entrá a ver si les atinaste!' : '🐣 ¡Es rápido y divertido!'}
+                      {timeLeft.isOver ? '👉 ¡Entra a ver si les atinaste!' : '🐣 ¡Es rápido y divertido!'}
                     </div>
                   </div>
                 </motion.div>
@@ -1240,13 +1240,13 @@ export default function LandingPage() {
                           <div className="bg-white border-2 border-black p-2.5 rounded-xl text-[11px] font-sans font-bold text-gray-600">
                             <p className="mb-1 text-black font-bold">👉 Para poder votar:</p>
                             <ol className="list-decimal list-inside space-y-1 font-bold">
-                              <li>Copiá el enlace arriba.</li>
-                              <li>Abrí Chrome o Safari en tu celu.</li>
-                              <li>Pegá el enlace y listo.</li>
+                              <li>Copia el enlace de arriba.</li>
+                              <li>Abre Chrome o Safari en tu celular.</li>
+                              <li>Pega el enlace y listo.</li>
                             </ol>
                             {webViewBrand !== 'TikTok' && (
                               <p className="mt-2 text-[10px] text-gray-500 font-bold border-t border-dashed border-gray-300 pt-1.5">
-                                Alternativa: Tocá los 3 puntitos <span className="text-black font-bold">(⋮ o ...)</span> y elegí <span className="text-black font-bold">&quot;Abrir en el navegador&quot;</span>.
+                                Alternativa: Toca los 3 puntitos <span className="text-black font-bold">(⋮ o ...)</span> y elige <span className="text-black font-bold">&quot;Abrir en el navegador&quot;</span>.
                               </p>
                             )}
                           </div>

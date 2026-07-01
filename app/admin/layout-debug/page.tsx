@@ -288,7 +288,7 @@ export default function LayoutDebugPage() {
                   🐣 Nominados Reales (Base de Datos)
                 </p>
                 <p className="text-[10px] text-gray-500 font-bold uppercase mb-3 leading-snug">
-                  Elegí cualquier nominado para ver cómo se renderizan su imagen y nombre reales en las coordenadas seleccionadas.
+                  Elige cualquier nominado para ver cómo se renderizan su imagen y nombre reales en las coordenadas seleccionadas.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
