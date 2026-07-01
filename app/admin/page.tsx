@@ -235,6 +235,8 @@ export default function AdminPage() {
   const [adminIsDuplicate, setAdminIsDuplicate] = useState(false);
   const [adminConflictedEmail, setAdminConflictedEmail] = useState('');
   const [adminForceClaim, setAdminForceClaim] = useState(false);
+  const [adminVerifiedProfile, setAdminVerifiedProfile] = useState<{ id: number; displayName: string; avatarUrl: string | null; username: string } | null>(null);
+  const [adminRobloxConfirmed, setAdminRobloxConfirmed] = useState(false);
 
   // Active Nominee Drawer State
   const [editingNominee, setEditingNominee] = useState<AdminNominee | null>(null);
@@ -906,6 +908,8 @@ export default function AdminPage() {
     setAdminConflictedEmail('');
     setAdminForceClaim(false);
     setIsValidatingRoblox(false);
+    setAdminVerifiedProfile(null);
+    setAdminRobloxConfirmed(false);
   };
 
   const handleAdminVerifyRoblox = async () => {
@@ -932,8 +936,17 @@ export default function AdminPage() {
           setAdminIsDuplicate(true);
           setAdminConflictedEmail(data.conflictedEmail || '');
         }
+        setAdminVerifiedProfile(null);
+        setAdminRobloxConfirmed(false);
         setEditFormError(data.error || 'No se pudo validar el usuario de Roblox.');
       } else {
+        setAdminVerifiedProfile({
+          id: data.id,
+          displayName: data.displayName,
+          avatarUrl: data.avatarUrl || null,
+          username: editForm.robloxUsername.trim(),
+        });
+        setAdminRobloxConfirmed(true);
         setStatus('Usuario de Roblox verificado correctamente.');
       }
     } catch (err) {
@@ -3628,7 +3641,13 @@ export default function AdminPage() {
 
               <div className="flex items-center gap-3 mb-4 border-b-2 border-black pb-3 shrink-0">
                 <div className="w-11 h-11 rounded-lg border border-neutral-700/60 bg-[#171A20] overflow-hidden flex items-center justify-center shrink-0 ">
-                  {editingUser.robloxAvatarUrl ? (
+                  {adminVerifiedProfile ? (
+                    adminVerifiedProfile.avatarUrl ? (
+                      <img src={adminVerifiedProfile.avatarUrl} alt={adminVerifiedProfile.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl">🐣</span>
+                    )
+                  ) : editingUser.robloxAvatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={editingUser.robloxAvatarUrl} alt={editingUser.robloxUser || 'User'} className="w-full h-full object-cover" />
                   ) : (
@@ -3637,8 +3656,8 @@ export default function AdminPage() {
                 </div>
                 <div className="min-w-0 pr-8">
                   <p className="text-[10px] text-gray-500 tracking-wide">Gestión de Perfil</p>
-                  <h3 className="font-display font-semibold text-base text-white truncate" title={editingUser.robloxDisplayName || editingUser.email}>
-                    {editingUser.robloxDisplayName || editingUser.email}
+                  <h3 className="font-display font-semibold text-base text-white truncate" title={adminVerifiedProfile ? adminVerifiedProfile.displayName : (editingUser.robloxDisplayName || editingUser.email)}>
+                    {adminVerifiedProfile ? adminVerifiedProfile.displayName : (editingUser.robloxDisplayName || editingUser.email)}
                   </h3>
                   <p className="text-xs text-gray-400 font-medium mt-0.5">ID: {editingUser.id.substring(0, 8)}...</p>
                 </div>
@@ -3774,7 +3793,12 @@ export default function AdminPage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={updatingUser}
+                      disabled={
+                        updatingUser ||
+                        (editForm.robloxUsername.trim() !== (editingUser.robloxUser || '').trim() &&
+                          !adminRobloxConfirmed &&
+                          !adminForceClaim)
+                      }
                       className="flex-1 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {updatingUser && <Loader className="w-3.5 h-3.5 animate-spin" />}
