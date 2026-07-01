@@ -223,13 +223,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (Object.keys(historyUpdate).length > 0) {
-      const { error: historyError } = await supabaseAdmin
+      // Obtener el registro más reciente en el historial para este usuario
+      const { data: latestHistory } = await supabaseAdmin
         .from('interview_history')
-        .update(historyUpdate)
-        .eq('user_id', userId);
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (historyError) {
-        console.warn('[Admin Users Update]: Fallo al sincronizar interview_history:', historyError.message);
+      if (latestHistory) {
+        const { error: historyError } = await supabaseAdmin
+          .from('interview_history')
+          .update(historyUpdate)
+          .eq('id', latestHistory.id);
+
+        if (historyError) {
+          console.warn('[Admin Users Update]: Fallo al sincronizar interview_history:', historyError.message);
+        }
       }
     }
 
