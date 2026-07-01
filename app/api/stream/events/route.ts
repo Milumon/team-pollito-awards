@@ -184,6 +184,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // C. Sound-Specific Cooldown Check
+    if (type === 'sound') {
+      const soundId = content.trim();
+      const { data: soundData, error: soundError } = await supabaseAdmin
+        .from('soundboard_sounds')
+        .select('name, cooldown_seconds')
+        .eq('id', soundId)
+        .maybeSingle();
+
+      if (soundError) {
+        console.error('Error fetching sound for cooldown check:', soundError.message);
+      }
+
+      if (soundData && soundData.cooldown_seconds && soundData.cooldown_seconds > 0) {
+        const { data: lastSoundEvent, error: lastSoundEventError } = await supabaseAdmin
+          .from('stream_events')
+          .select('created_at')
+          .eq('type', 'sound')
+          .eq('content', soundId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastSoundEventError) {
+          console.error('Error fetching last sound event:', lastSoundEventError.message);
+        }
+
+        if (lastSoundEvent) {
+          const diff = now - new Date(lastSoundEvent.created_at).getTime();
+          const soundLimit = soundData.cooldown_seconds * 1000;
+          if (diff < soundLimit) {
+            const remaining = Math.ceil((soundLimit - diff) / 1000);
+            return NextResponse.json({
+              error: `El sonido "${soundData.name}" está en cooldown. Espera ${remaining}s.`
+            }, { status: 429 });
+          }
+        }
+      }
+    }
+
     // 6. Insert new stream event
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')

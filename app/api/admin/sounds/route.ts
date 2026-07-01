@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const name = formData.get('name') as string | null;
     const idInput = formData.get('id') as string | null;
+    const cooldownSecondsInput = formData.get('cooldownSeconds');
+    const cooldownSeconds = cooldownSecondsInput ? Math.max(0, parseInt(String(cooldownSecondsInput)) || 0) : 0;
 
     if (!file || !name || !name.trim() || !idInput || !idInput.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (file, name, id)' }, { status: 400 });
@@ -114,6 +116,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         file_path: storagePath,
         url: publicUrl,
+        cooldown_seconds: cooldownSeconds,
       })
       .select()
       .single();

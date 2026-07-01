@@ -113,6 +113,7 @@ type SoundItem = {
   name: string;
   url: string;
   created_at: string;
+  cooldown_seconds?: number | null;
 };
 
 const getSoundColor = (soundId: string) => {
@@ -228,6 +229,10 @@ export default function AdminPage() {
   const [soundName, setSoundName] = useState('');
   const [soundFile, setSoundFile] = useState<File | null>(null);
   const [soundTrim, setSoundTrim] = useState<{ start: number; end: number } | null>(null);
+  const [soundCooldown, setSoundCooldown] = useState<string>('0');
+  const [editingSound, setEditingSound] = useState<SoundItem | null>(null);
+  const [editingSoundName, setEditingSoundName] = useState('');
+  const [editingSoundCooldown, setEditingSoundCooldown] = useState('0');
   const [submittingSound, setSubmittingSound] = useState(false);
 
   // Audit Logs
@@ -690,6 +695,28 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateSound = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSound || !editingSoundName.trim()) return;
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/admin/sounds/${editingSound.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editingSoundName.trim(),
+          cooldownSeconds: parseInt(editingSoundCooldown) || 0,
+        }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el sonido');
+      setEditingSound(null);
+      await loadSounds();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar el sonido');
+    }
+  };
+
   const handleUploadSound = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!soundFile || !soundName.trim()) {
@@ -734,6 +761,7 @@ export default function AdminPage() {
       formData.append('file', processedFile, fileName);
       formData.append('name', soundName.trim());
       formData.append('id', soundId);
+      formData.append('cooldownSeconds', soundCooldown);
 
       const response = await apiFetch('/api/admin/sounds', {
         method: 'POST',
@@ -747,6 +775,7 @@ export default function AdminPage() {
       setSoundName('');
       setSoundFile(null);
       setSoundTrim(null);
+      setSoundCooldown('0');
       await loadSounds();
       await loadAuditLogs();
       setTimeout(() => setStatus(null), 3000);
@@ -1766,6 +1795,18 @@ export default function AdminPage() {
           </label>
 
           <label className="block space-y-1">
+            <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
+            <input
+              type="number"
+              min={0}
+              value={soundCooldown}
+              onChange={(e) => setSoundCooldown(e.target.value)}
+              placeholder="0 (sin cooldown)"
+              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors "
+            />
+          </label>
+
+          <label className="block space-y-1">
             <span className="text-xs text-gray-500">Archivo de Audio o Video</span>
             <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
               <input
@@ -1826,21 +1867,44 @@ export default function AdminPage() {
             {sounds.map((sound) => {
               const soundStyles = getSoundColor(sound.id);
               return (
-                <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3flex flex-col justify-between gap-3 group transition-all  hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSound(sound.id)}
-                    className="absolute top-2 right-2 p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-2xl border border-neutral-700/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer  active:scale-[0.97]"
-                    title="Borrar de la botonera"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingSound(sound);
+                        setEditingSoundName(sound.name);
+                        setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
+                      }}
+                      className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
+                      title="Editar sonido"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSound(sound.id)}
+                      className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
+                      title="Borrar de la botonera"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
                   <div className="text-center pt-2">
                     <span className="text-2xl block mb-1">📢</span>
                     <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
                       {sound.name}
                     </h3>
+                    {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
+                      <span className="text-[9px] text-gray-500 font-mono mt-0.5 block font-semibold">
+                        ⏱ {sound.cooldown_seconds}s cooldown
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-gray-500 font-mono mt-0.5 block opacity-40">
+                        Sin cooldown
+                      </span>
+                    )}
                   </div>
 
                   <button
@@ -1857,6 +1921,75 @@ export default function AdminPage() {
           </div>
         )}
       </main>
+
+      {/* Modal para Editar Sonido */}
+      <AnimatePresence>
+        {editingSound && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
+                <h3 className="font-display font-bold text-white text-base">Editar Sonido</h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingSound(null)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateSound} className="space-y-4">
+                <label className="block space-y-1">
+                  <span className="text-xs text-gray-500">Nombre del sonido</span>
+                  <input
+                    type="text"
+                    value={editingSoundName}
+                    onChange={(e) => setEditingSoundName(e.target.value)}
+                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                  />
+                </label>
+
+                <label className="block space-y-1">
+                  <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingSoundCooldown}
+                    onChange={(e) => setEditingSoundCooldown(e.target.value)}
+                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                  />
+                </label>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSound(null)}
+                    className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 

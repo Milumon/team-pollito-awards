@@ -71,3 +71,62 @@ export async function DELETE(
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }
+
+// PATCH: Actualizar nombre o cooldown de un sonido
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  if (!await isAuthorized(request)) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
+  try {
+    const authHeader = request.headers.get('Authorization');
+    let adminEmail = 'admin-token@system';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring('Bearer '.length);
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user?.email) adminEmail = user.email;
+    }
+
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Falta el parámetro id' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { name, cooldownSeconds } = body;
+
+    const updates: Record<string, any> = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (cooldownSeconds !== undefined) {
+      updates.cooldown_seconds = cooldownSeconds === null ? 0 : Math.max(0, parseInt(String(cooldownSeconds)) || 0);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No se enviaron campos para actualizar' }, { status: 400 });
+    }
+
+    const { data: updatedSound, error: dbError } = await supabaseAdmin
+      .from('soundboard_sounds')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+
+    // Registrar log de auditoría
+    await logAdminAction(adminEmail, 'Sonido actualizado', {
+      sound_id: id,
+      updates,
+    });
+
+    return NextResponse.json({ success: true, sound: updatedSound });
+  } catch (error) {
+    console.error('[Sounds PATCH Error]:', error);
+    const errorMsg = error instanceof Error ? error.message : 'Error desconocido al actualizar el sonido';
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
+  }
+}
