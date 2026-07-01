@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
       returnReason,
       testimonial,
       alreadyInterviewed, // NEW: user claims they already had an interview
+      forceClaim,
+      claimReason,
     } = body;
 
     // Validate required fields
@@ -109,6 +111,39 @@ export async function POST(request: NextRequest) {
         { error: 'El usuario de Roblox ingresado no existe en Roblox. Por favor, verifica el nombre.' },
         { status: 404 }
       );
+    }
+
+    // Verificar si el robloxUserId ya está vinculado a OTRO usuario
+    const { data: duplicateProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('roblox_user_id', robloxUserId)
+      .not('id', 'eq', user.id)
+      .maybeSingle();
+
+    let isClaim = false;
+    if (duplicateProfile) {
+      if (!forceClaim) {
+        const { data: { user: conflictedUser } } = await supabaseAdmin.auth.admin.getUserById(duplicateProfile.id);
+        const emailText = conflictedUser?.email ? conflictedUser.email : 'otro usuario';
+        
+        const maskEmail = (email: string) => {
+          const [localPart, domain] = email.split('@');
+          if (localPart.length <= 3) return `${localPart[0]}***@${domain}`;
+          return `${localPart.substring(0, 2)}***${localPart.substring(localPart.length - 1)}@${domain}`;
+        };
+        const masked = maskEmail(emailText);
+
+        return NextResponse.json(
+          { 
+            error: `Esta cuenta de Roblox ya está vinculada al correo ${masked}.`,
+            isDuplicate: true,
+            conflictedEmail: masked
+          },
+          { status: 400 }
+        );
+      }
+      isClaim = true;
     }
 
     // Check if the user is already an official member
@@ -218,7 +253,7 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .upsert({
         id: user.id,
-        roblox_user_id: robloxUserId,
+        roblox_user_id: isClaim ? null : robloxUserId, // Null si es un reclamo temporal para no romper clave única
         roblox_user: finalRobloxName,
         roblox_display_name: finalRobloxName,
         roblox_avatar_url: avatarUrl,
@@ -226,6 +261,7 @@ export async function POST(request: NextRequest) {
         link_status: 'pending',
         testimonial: testimonial ? String(testimonial).trim() : null,
         testimonial_approved: false,
+        rejection_reason: isClaim ? (claimReason ? `RECLAMO: ${claimReason.trim()}` : 'RECLAMO: Sin motivo') : null,
       }, { onConflict: 'id' });
 
     if (profileUpsertError) {

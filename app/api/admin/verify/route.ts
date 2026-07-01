@@ -4,6 +4,26 @@ import { tagRobloxUser } from '@/lib/robloxAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
 
+async function fetchRobloxUserIdFromUsername(username: string): Promise<number | null> {
+  try {
+    const response = await fetch('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+      },
+      body: JSON.stringify({ usernames: [username.trim()] }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { data?: { id?: number }[] };
+    const userRecord = data.data?.[0];
+    return Number.isFinite(userRecord?.id) ? (userRecord?.id as number) : null;
+  } catch (error) {
+    console.error('Error fetching Roblox User ID from username:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!await isAuthorized(request)) {
@@ -45,13 +65,53 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'approve') {
-      // Approve profile link
+      let robloxUserId = profile.roblox_user_id ? Number(profile.roblox_user_id) : null;
+
+      if (!robloxUserId && profile.roblox_user) {
+        // Resolver robloxUserId si estaba en null por reclamo
+        robloxUserId = await fetchRobloxUserIdFromUsername(profile.roblox_user);
+      }
+
+      if (robloxUserId) {
+        // 1. Buscar si hay otro usuario que tenga este roblox_user_id vinculado
+        const { data: conflictedProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id, roblox_user_id')
+          .eq('roblox_user_id', robloxUserId)
+          .not('id', 'eq', userId)
+          .maybeSingle();
+
+        if (conflictedProfile) {
+          // Desvincular al usuario anterior
+          await supabaseAdmin
+            .from('profiles')
+            .update({
+              roblox_user_id: null,
+              roblox_user: null,
+              roblox_display_name: null,
+              roblox_avatar_url: null,
+              roblox_verified_at: null,
+              link_status: 'none',
+              rejection_reason: 'Tu cuenta de Roblox fue reasignada a otro usuario por el administrador.',
+            })
+            .eq('id', conflictedProfile.id);
+
+          try {
+            await tagRobloxUser(Number(conflictedProfile.roblox_user_id), 'remove');
+          } catch (tagErr) {
+            console.error('Error al remover prefijo del usuario desvinculado:', tagErr);
+          }
+        }
+      }
+
+      // 2. Aprobar la postulación del nuevo usuario
       const { error: updateProfileError } = await supabaseAdmin
         .from('profiles')
         .update({
           link_status: 'approved',
           roblox_verified_at: new Date().toISOString(),
-          rejection_reason: null,
+          roblox_user_id: robloxUserId, // Guardar el ID definitivo
+          rejection_reason: null, // Limpiar justificación de reclamo
         })
         .eq('id', userId);
 
@@ -77,12 +137,11 @@ export async function POST(request: NextRequest) {
       }
 
       // Trigger Roblox tag addition
-      if (profile.roblox_user_id) {
+      if (robloxUserId) {
         try {
-          await tagRobloxUser(Number(profile.roblox_user_id), 'add');
+          await tagRobloxUser(robloxUserId, 'add');
         } catch (tagErr) {
           console.error('Error al poner prefijo en Roblox:', tagErr);
-          // Don't fail the request, just log it. The DB state is updated successfully.
         }
       }
 

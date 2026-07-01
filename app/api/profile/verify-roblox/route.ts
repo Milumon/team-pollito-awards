@@ -7,6 +7,14 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 3) {
+    return `${localPart[0]}***@${domain}`;
+  }
+  return `${localPart.substring(0, 2)}***${localPart.substring(localPart.length - 1)}@${domain}`;
+}
+
 let cachedBotId: number | null = null;
 
 async function getBotUserId(cookie: string): Promise<number | null> {
@@ -150,6 +158,27 @@ export async function POST(request: NextRequest) {
     } else {
       return NextResponse.json(
         { error: 'robloxUsername or robloxUserId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar si el robloxUserId ya está vinculado a OTRO usuario
+    const { data: duplicateProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('roblox_user_id', robloxUserId)
+      .not('id', 'eq', user.id)
+      .maybeSingle();
+
+    if (duplicateProfile) {
+      const { data: { user: conflictedUser } } = await supabaseAdmin.auth.admin.getUserById(duplicateProfile.id);
+      const emailText = conflictedUser?.email ? maskEmail(conflictedUser.email) : 'otro usuario';
+      return NextResponse.json(
+        { 
+          error: `Esta cuenta de Roblox ya está vinculada al correo ${emailText}.`,
+          isDuplicate: true,
+          conflictedEmail: emailText
+        },
         { status: 400 }
       );
     }

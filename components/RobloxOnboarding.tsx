@@ -42,6 +42,11 @@ export default function RobloxOnboarding({
     avatarUrl: string | null;
   } | null>(null);
 
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [conflictedEmail, setConflictedEmail] = useState('');
+  const [forceClaim, setForceClaim] = useState(false);
+  const [claimReason, setClaimReason] = useState('');
+
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
   if (isOpen !== prevIsOpen) {
@@ -65,17 +70,27 @@ export default function RobloxOnboarding({
       }
       setDisplayData(null);
       setError(null);
+      setIsDuplicate(false);
+      setConflictedEmail('');
+      setForceClaim(false);
+      setClaimReason('');
     } else {
       setStep('input');
       setRobloxUsername('');
       setTiktokUsername('');
       setDisplayData(null);
       setError(null);
+      setIsDuplicate(false);
+      setConflictedEmail('');
+      setForceClaim(false);
+      setClaimReason('');
     }
   }
 
   const handleVerify = async () => {
     setError(null);
+    setIsDuplicate(false);
+    setConflictedEmail('');
 
     if (!robloxUsername.trim()) {
       setError('Por favor ingresá tu nombre de usuario de Roblox');
@@ -101,6 +116,10 @@ export default function RobloxOnboarding({
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.isDuplicate) {
+          setIsDuplicate(true);
+          setConflictedEmail(data.conflictedEmail || '');
+        }
         setError(data.error || 'No se pudo verificar el usuario de Roblox');
         setStep('input');
         return;
@@ -118,7 +137,7 @@ export default function RobloxOnboarding({
     }
   };
 
-  const handleConfirmAndLink = async () => {
+  const handleConfirmAndLink = async (forceClaimValue?: boolean, claimReasonValue?: string) => {
     setError(null);
     setStep('confirming');
 
@@ -132,6 +151,8 @@ export default function RobloxOnboarding({
         body: JSON.stringify({
           robloxUsername: robloxUsername.trim(),
           tiktokUsername: tiktokUsername.trim(),
+          forceClaim: forceClaimValue !== undefined ? forceClaimValue : forceClaim,
+          claimReason: claimReasonValue !== undefined ? claimReasonValue : claimReason,
         }),
       });
 
@@ -139,7 +160,7 @@ export default function RobloxOnboarding({
 
       if (!response.ok) {
         setError(data.error || 'Error al vincular las cuentas');
-        setStep('confirmed');
+        setStep(isDuplicate ? 'input' : 'confirmed');
         return;
       }
 
@@ -147,7 +168,7 @@ export default function RobloxOnboarding({
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de red');
-      setStep('confirmed');
+      setStep(isDuplicate ? 'input' : 'confirmed');
     }
   };
 
@@ -205,6 +226,10 @@ export default function RobloxOnboarding({
                       onChange={(e) => {
                         setRobloxUsername(e.target.value);
                         setError(null);
+                        setIsDuplicate(false);
+                        setConflictedEmail('');
+                        setForceClaim(false);
+                        setClaimReason('');
                       }}
                       className="w-full px-4 py-2.5 border-3 border-black rounded-xl font-comic text-black text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 transition-all"
                     />
@@ -226,6 +251,38 @@ export default function RobloxOnboarding({
                     />
                   </div>
 
+                  {isDuplicate && (
+                    <div className="bg-amber-50 border-2 border-black rounded-xl p-3 space-y-2">
+                      <p className="text-xs font-comic font-bold text-amber-800">
+                        Esta cuenta ya está vinculada al correo <span className="underline">{conflictedEmail}</span>. ¿Es tu personaje pero perdiste acceso a tu mail anterior?
+                      </p>
+                      <label className="flex items-center gap-2 text-xs font-comic font-black text-amber-900 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={forceClaim}
+                          onChange={(e) => {
+                            setForceClaim(e.target.checked);
+                            if (e.target.checked) setError(null);
+                          }}
+                          className="rounded text-orange-500 border-2 border-black focus:ring-orange-500"
+                        />
+                        Solicitar vinculación de todas formas
+                      </label>
+                      {forceClaim && (
+                        <div className="mt-2">
+                          <label className="block text-[10px] font-comic font-black text-amber-800 mb-0.5">Motivo del reclamo (opcional)</label>
+                          <textarea
+                            value={claimReason}
+                            onChange={(e) => setClaimReason(e.target.value)}
+                            placeholder="Ej: Perdí mi correo anterior"
+                            rows={2}
+                            className="w-full px-2 py-1 bg-white border-2 border-black rounded-lg font-comic text-xs text-black focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {error && (
                     <div className="bg-red-50 border-2 border-black p-3 rounded-lg">
                       <p className="text-xs font-comic font-bold text-red-700">⚠️ {error}</p>
@@ -239,13 +296,22 @@ export default function RobloxOnboarding({
                     >
                       Cancelar
                     </button>
-                    <button
-                      onClick={handleVerify}
-                      disabled={!robloxUsername.trim() || !tiktokUsername.trim()}
-                      className="flex-1 px-3 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white rounded-lg font-comic text-xs uppercase font-black border-2 border-black active:translate-y-1 disabled:cursor-not-allowed transition-all"
-                    >
-                      Buscar →
-                    </button>
+                    {forceClaim ? (
+                      <button
+                        onClick={() => handleConfirmAndLink(true, claimReason)}
+                        className="flex-1 px-3 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-comic text-xs uppercase font-black border-2 border-black active:translate-y-1 transition-all"
+                      >
+                        ✓ Enviar Solicitud
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleVerify}
+                        disabled={!robloxUsername.trim() || !tiktokUsername.trim()}
+                        className="flex-1 px-3 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white rounded-lg font-comic text-xs uppercase font-black border-2 border-black active:translate-y-1 disabled:cursor-not-allowed transition-all"
+                      >
+                        Validar →
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -321,7 +387,7 @@ export default function RobloxOnboarding({
                       ← Editar
                     </button>
                     <button
-                      onClick={handleConfirmAndLink}
+                      onClick={() => handleConfirmAndLink()}
                       className="flex-1 px-3 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-comic text-xs uppercase font-black border-2 border-black active:translate-y-1 transition-all"
                     >
                       ✓ Enviar Solicitud

@@ -132,6 +132,11 @@ export default function ComunidadPage() {
   const [showHowItWorks, setShowHowItWorks] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [conflictedEmail, setConflictedEmail] = useState('');
+  const [forceClaim, setForceClaim] = useState(false);
+  const [claimReason, setClaimReason] = useState('');
+
   const fetchMembers = async () => {
     try {
       const res = await fetch('/api/members');
@@ -183,6 +188,19 @@ export default function ComunidadPage() {
         setStatusInfo(data);
         if (data.testimonial) {
           setUserTestimonial(data.testimonial);
+        }
+        if (data.roblox_user) {
+          setRobloxUser(data.roblox_user);
+          setVerifiedRobloxProfile({
+            id: data.roblox_user_id || 0,
+            displayName: data.roblox_user,
+            avatarUrl: data.avatar_url || null,
+            username: data.roblox_user,
+          });
+          setRobloxProfileConfirmed(true);
+        }
+        if (data.tiktok_user) {
+          setTiktokUser(data.tiktok_user);
         }
       } else {
         const errText = await res.text();
@@ -274,10 +292,16 @@ export default function ComunidadPage() {
   const resetRobloxVerification = () => {
     setVerifiedRobloxProfile(null);
     setRobloxProfileConfirmed(false);
+    setIsDuplicate(false);
+    setConflictedEmail('');
+    setForceClaim(false);
+    setClaimReason('');
   };
 
   const handleVerifyRobloxForInterview = async () => {
     setFormError(null);
+    setIsDuplicate(false);
+    setConflictedEmail('');
 
     if (!robloxUser.trim()) {
       setFormError('El nombre de usuario de Roblox es obligatorio.');
@@ -299,6 +323,10 @@ export default function ComunidadPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.isDuplicate) {
+          setIsDuplicate(true);
+          setConflictedEmail(data.conflictedEmail || '');
+        }
         setVerifiedRobloxProfile(null);
         setRobloxProfileConfirmed(false);
         setFormError(data.error || 'No se pudo validar ese usuario de Roblox.');
@@ -1215,132 +1243,175 @@ export default function ComunidadPage() {
                                   </button>
                                 </div>
 
-                                <div className="space-y-2 text-left">
-                                  <div>
-                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario Roblox</label>
-                                    <input
-                                      type="text"
-                                      value={robloxUser}
-                                      onChange={(e) => {
-                                        setRobloxUser(e.target.value);
-                                        resetRobloxVerification();
-                                      }}
-                                      placeholder="Ej: MilumonRoblox"
-                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario TikTok</label>
-                                    <input
-                                      type="text"
-                                      value={tiktokUser}
-                                      onChange={(e) => setTiktokUser(e.target.value)}
-                                      placeholder="Ej: @Milumon"
-                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                                    />
-                                  </div>
-                                  {verifiedRobloxProfile && (
-                                    <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
-                                      <div className="flex items-center gap-3">
-                                        {verifiedRobloxProfile.avatarUrl ? (
-                                          <img
-                                            src={verifiedRobloxProfile.avatarUrl}
-                                            alt={verifiedRobloxProfile.displayName}
-                                            className="w-14 h-14 rounded-xl object-cover border border-white"
+                                  <div className="space-y-2 text-left">
+                                    <div>
+                                      <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario Roblox</label>
+                                      <div className="flex gap-2">
+                                        <input
+                                          type="text"
+                                          value={robloxUser}
+                                          onChange={(e) => {
+                                            setRobloxUser(e.target.value);
+                                            resetRobloxVerification();
+                                          }}
+                                          placeholder="Ej: MilumonRoblox"
+                                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={verifyingRoblox || !robloxUser.trim()}
+                                          onClick={handleVerifyRobloxForInterview}
+                                          className="px-4 py-2 bg-[#2b2d31] hover:bg-neutral-800 text-white font-display font-semibold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                                        >
+                                          {verifyingRoblox ? 'Validando...' : 'Validar'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {isDuplicate && (
+                                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                                        <p className="text-xs text-amber-800 font-sans font-medium">
+                                          Esta cuenta ya está vinculada al correo <span className="font-semibold">{conflictedEmail}</span>. ¿Es tu cuenta de Roblox pero perdiste acceso a tu correo anterior?
+                                        </p>
+                                        <label className="flex items-center gap-2 text-xs font-semibold text-amber-900 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={forceClaim}
+                                            onChange={(e) => {
+                                              setForceClaim(e.target.checked);
+                                              if (e.target.checked) {
+                                                setFormError(null);
+                                              }
+                                            }}
+                                            className="rounded text-[#FFC200] focus:ring-[#FFC200]/30"
                                           />
-                                        ) : (
-                                          <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
-                                            🐣
+                                          Solicitar vinculación de todas formas
+                                        </label>
+                                        {forceClaim && (
+                                          <div className="mt-2">
+                                            <label className="block text-[10px] font-sans font-semibold text-amber-800 mb-0.5">Explicación del reclamo (opcional)</label>
+                                            <textarea
+                                              value={claimReason}
+                                              onChange={(e) => setClaimReason(e.target.value)}
+                                              placeholder="Ej: Perdí mi correo anterior o cambié de cuenta principal"
+                                              rows={2}
+                                              className="w-full px-2 py-1 bg-white border border-amber-200 rounded-lg font-sans text-xs focus:outline-none text-gray-800"
+                                            />
                                           </div>
                                         )}
-                                        <div className="min-w-0 flex-1">
-                                          <p className="font-display font-semibold text-sm text-[#2D3139] truncate">
-                                            {verifiedRobloxProfile.displayName}
-                                          </p>
-                                          <p className="font-sans text-xs text-gray-500 truncate">
-                                            @{verifiedRobloxProfile.username} · ID {verifiedRobloxProfile.id}
-                                          </p>
-                                          <p className={`font-sans text-[11px] font-semibold mt-1 ${robloxProfileConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                            {robloxProfileConfirmed ? 'Perfil confirmado' : 'Confirma que este es tu perfil de Roblox'}
-                                          </p>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario TikTok</label>
+                                      <input
+                                        type="text"
+                                        value={tiktokUser}
+                                        onChange={(e) => setTiktokUser(e.target.value)}
+                                        placeholder="Ej: @Milumon"
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                      />
+                                    </div>
+                                    {verifiedRobloxProfile && (
+                                      <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
+                                        <div className="flex items-center gap-3">
+                                          {verifiedRobloxProfile.avatarUrl ? (
+                                            <img
+                                              src={verifiedRobloxProfile.avatarUrl}
+                                              alt={verifiedRobloxProfile.displayName}
+                                              className="w-14 h-14 rounded-xl object-cover border border-white"
+                                            />
+                                          ) : (
+                                            <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
+                                              🐣
+                                            </div>
+                                          )}
+                                          <div className="min-w-0 flex-1">
+                                            <p className="font-display font-semibold text-sm text-[#2D3139] truncate">
+                                              {verifiedRobloxProfile.displayName}
+                                            </p>
+                                            <p className="font-sans text-xs text-gray-500 truncate">
+                                              @{verifiedRobloxProfile.username} · ID {verifiedRobloxProfile.id}
+                                            </p>
+                                            <p className={`font-sans text-[11px] font-semibold mt-1 ${robloxProfileConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                              {robloxProfileConfirmed ? 'Perfil confirmado' : 'Confirma que este es tu perfil de Roblox'}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {!robloxProfileConfirmed && (
+                                          <div className="grid grid-cols-2 gap-2 mt-3">
+                                            <button
+                                              type="button"
+                                              onClick={resetRobloxVerification}
+                                              className="py-2 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                            >
+                                              Editar usuario
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setRobloxProfileConfirmed(true);
+                                                setFormError(null);
+                                              }}
+                                              className="py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                                            >
+                                              Sí, es mi perfil
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
+                                      <textarea
+                                        value={userTestimonial}
+                                        onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
+                                        placeholder="Cuéntanos brevemente qué opinas del Team (Máx. 150 caracteres)"
+                                        rows={2}
+                                        maxLength={150}
+                                        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                      />
+                                    </div>
+
+                                    {isReturning && (
+                                      <div className="space-y-2 pt-1 border-t border-gray-100">
+                                        <div>
+                                          <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Motivo del ban?</label>
+                                          <textarea
+                                            value={banReason}
+                                            onChange={(e) => setBanReason(e.target.value)}
+                                            rows={2}
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Por qué deberías volver?</label>
+                                          <textarea
+                                            value={returnReason}
+                                            onChange={(e) => setReturnReason(e.target.value)}
+                                            rows={2}
+                                            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                          />
                                         </div>
                                       </div>
-
-                                      {!robloxProfileConfirmed && (
-                                        <div className="grid grid-cols-2 gap-2 mt-3">
-                                          <button
-                                            type="button"
-                                            onClick={resetRobloxVerification}
-                                            className="py-2 bg-white hover:bg-gray-50 text-[#2D3139] border border-gray-200 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
-                                          >
-                                            Editar usuario
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setRobloxProfileConfirmed(true);
-                                              setFormError(null);
-                                            }}
-                                            className="py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
-                                          >
-                                            Sí, es mi perfil
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                  <div>
-                                    <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
-                                    <textarea
-                                      value={userTestimonial}
-                                      onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
-                                      placeholder="Cuéntanos brevemente qué opinas del Team (Máx. 150 caracteres)"
-                                      rows={2}
-                                      maxLength={150}
-                                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                                    />
+                                    )}
                                   </div>
 
-                                  {isReturning && (
-                                    <div className="space-y-2 pt-1 border-t border-gray-100">
-                                      <div>
-                                        <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Motivo del ban?</label>
-                                        <textarea
-                                          value={banReason}
-                                          onChange={(e) => setBanReason(e.target.value)}
-                                          rows={2}
-                                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">¿Por qué deberías volver?</label>
-                                        <textarea
-                                          value={returnReason}
-                                          onChange={(e) => setReturnReason(e.target.value)}
-                                          rows={2}
-                                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                                        />
-                                      </div>
+                                  {formError && (
+                                    <div className="bg-red-50 border border-red-100 p-2.5 rounded-xl flex items-start gap-1.5 text-red-500">
+                                      <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                                      <p className="font-sans text-sm">{formError}</p>
                                     </div>
                                   )}
-                                </div>
 
-                                {formError && (
-                                  <div className="bg-red-50 border border-red-100 p-2.5 rounded-xl flex items-start gap-1.5 text-red-500">
-                                    <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                                    <p className="font-sans text-sm">{formError}</p>
-                                  </div>
-                                )}
-
-                                <button
-                                  type="submit"
-                                  disabled={submitting || verifyingRoblox}
-                                  className={`w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer ${isReturning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-[#FFC200] hover:brightness-105 text-black'} active:scale-[0.97]`}
-                                >
-                                  {verifyingRoblox ? 'Buscando perfil...' : submitting ? 'Reservando...' : robloxProfileConfirmed ? 'Confirmar Reserva' : 'Buscar perfil de Roblox'}
-                                </button>
-                              </form>
-                            )}
+                                  <button
+                                    type="submit"
+                                    disabled={submitting || (!robloxProfileConfirmed && !forceClaim)}
+                                    className={`w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isReturning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-[#FFC200] hover:brightness-105 text-black'} active:scale-[0.97]`}
+                                  >
+                                    {submitting ? 'Reservando...' : 'Enviar Postulación'}
+                                  </button>
+                                </form>
+                              )}
                           </div>
                         )}
                       </div>
@@ -1353,17 +1424,60 @@ export default function ComunidadPage() {
                           <div className="space-y-2 text-left">
                             <div>
                               <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario de Roblox</label>
-                              <input
-                                type="text"
-                                value={robloxUser}
-                                onChange={(e) => {
-                                  setRobloxUser(e.target.value);
-                                  resetRobloxVerification();
-                                }}
-                                placeholder="Ej: MilumonRoblox"
-                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
-                              />
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={robloxUser}
+                                  onChange={(e) => {
+                                    setRobloxUser(e.target.value);
+                                    resetRobloxVerification();
+                                  }}
+                                  placeholder="Ej: MilumonRoblox"
+                                  className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 text-[#2D3139]"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={verifyingRoblox || !robloxUser.trim()}
+                                  onClick={handleVerifyRobloxForInterview}
+                                  className="px-4 py-2 bg-[#2b2d31] hover:bg-neutral-800 text-white font-display font-semibold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer shrink-0"
+                                >
+                                  {verifyingRoblox ? 'Validando...' : 'Validar'}
+                                </button>
+                              </div>
                             </div>
+                            {isDuplicate && (
+                              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                                <p className="text-xs text-amber-800 font-sans font-medium">
+                                  Esta cuenta ya está vinculada al correo <span className="font-semibold">{conflictedEmail}</span>. ¿Es tu cuenta de Roblox pero perdiste acceso a tu correo anterior?
+                                </p>
+                                <label className="flex items-center gap-2 text-xs font-semibold text-amber-900 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={forceClaim}
+                                    onChange={(e) => {
+                                      setForceClaim(e.target.checked);
+                                      if (e.target.checked) {
+                                        setFormError(null);
+                                      }
+                                    }}
+                                    className="rounded text-[#FFC200] focus:ring-[#FFC200]/30"
+                                  />
+                                  Solicitar vinculación de todas formas
+                                </label>
+                                {forceClaim && (
+                                  <div className="mt-2">
+                                    <label className="block text-[10px] font-sans font-semibold text-amber-800 mb-0.5">Explicación del reclamo (opcional)</label>
+                                    <textarea
+                                      value={claimReason}
+                                      onChange={(e) => setClaimReason(e.target.value)}
+                                      placeholder="Ej: Perdí mi correo anterior o cambié de cuenta principal"
+                                      rows={2}
+                                      className="w-full px-2 py-1 bg-white border border-amber-200 rounded-lg font-sans text-xs focus:outline-none text-gray-800"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div>
                               <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Usuario de TikTok</label>
                               <input
@@ -1446,10 +1560,10 @@ export default function ComunidadPage() {
 
                           <button
                             type="submit"
-                            disabled={submitting || verifyingRoblox}
-                            className="w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 cursor-pointer bg-[#FFC200] hover:brightness-105 text-black active:scale-[0.97]"
+                            disabled={submitting || (!robloxProfileConfirmed && !forceClaim)}
+                            className="w-full py-2.5 font-display font-semibold text-sm rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-[#FFC200] hover:brightness-105 text-black active:scale-[0.97]"
                           >
-                            {verifyingRoblox ? 'Buscando perfil...' : submitting ? 'Enviando...' : robloxProfileConfirmed ? 'Enviar Solicitud' : 'Buscar perfil de Roblox'}
+                            {submitting ? 'Enviando...' : 'Enviar Solicitud'}
                           </button>
                         </form>
                       </div>

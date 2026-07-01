@@ -7,6 +7,14 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 3) {
+    return `${localPart[0]}***@${domain}`;
+  }
+  return `${localPart.substring(0, 2)}***${localPart.substring(localPart.length - 1)}@${domain}`;
+}
+
 type RobloxProfile = {
   id: number;
   name: string;
@@ -85,6 +93,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const robloxUsername = body.robloxUsername;
     const tiktokUsername = body.tiktokUsername;
+    const forceClaim = !!body.forceClaim;
+    const claimReason = body.claimReason || '';
 
     if (!robloxUsername || !tiktokUsername) {
       return NextResponse.json(
@@ -100,6 +110,31 @@ export async function POST(request: NextRequest) {
         { error: 'Usuario no encontrado en Roblox. Verifica tu nombre de usuario.' },
         { status: 404 }
       );
+    }
+
+    // Verificar si el robloxUserId ya está vinculado a OTRO usuario
+    const { data: duplicateProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('roblox_user_id', robloxUserId)
+      .not('id', 'eq', user.id)
+      .maybeSingle();
+
+    let isClaim = false;
+    if (duplicateProfile) {
+      if (!forceClaim) {
+        const { data: { user: conflictedUser } } = await supabaseAdmin.auth.admin.getUserById(duplicateProfile.id);
+        const emailText = conflictedUser?.email ? maskEmail(conflictedUser.email) : 'otro usuario';
+        return NextResponse.json(
+          { 
+            error: `Esta cuenta de Roblox ya está vinculada al correo ${emailText}.`,
+            isDuplicate: true,
+            conflictedEmail: emailText
+          },
+          { status: 400 }
+        );
+      }
+      isClaim = true;
     }
 
     // Fetch profile and avatar
@@ -132,7 +167,7 @@ export async function POST(request: NextRequest) {
       .eq('status', 'official')
       .maybeSingle();
 
-    const isAlreadyOfficial = !!historyMatch;
+    const isAlreadyOfficial = !!historyMatch && !isClaim; // Si es reclamo, no puede ser auto-aprobado inmediatamente
     const linkStatus = isAlreadyOfficial ? 'approved' : 'pending';
     const robloxVerifiedAt = isAlreadyOfficial ? new Date().toISOString() : null;
 
@@ -152,14 +187,14 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           id: user.id,
-          roblox_user_id: robloxUserId,
+          roblox_user_id: isClaim ? null : robloxUserId, // Null si es un reclamo temporal para no romper clave única
           roblox_user: robloxUser,
           roblox_display_name: finalDisplayName,
           roblox_avatar_url: avatarUrl,
           roblox_verified_at: robloxVerifiedAt,
           tiktok_user: normalizedTiktok,
           link_status: linkStatus,
-          rejection_reason: null, // Clear rejection reason on new submission
+          rejection_reason: isClaim ? (claimReason ? `RECLAMO: ${claimReason.trim()}` : 'RECLAMO: Sin motivo') : null,
         },
         { onConflict: 'id' }
       )

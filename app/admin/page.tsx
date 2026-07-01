@@ -13,6 +13,16 @@ import dynamic from 'next/dynamic';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 import { Header } from '@/components/ui/Header';
 
+function maskEmail(email: string): string {
+  if (!email) return '';
+  const [localPart, domain] = email.split('@');
+  if (!domain) return email;
+  if (localPart.length <= 3) {
+    return `${localPart[0]}***@${domain}`;
+  }
+  return `${localPart.substring(0, 2)}***${localPart.substring(localPart.length - 1)}@${domain}`;
+}
+
 type AdminNominee = {
   id: string;
   category_id: number;
@@ -209,6 +219,18 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [inspectingUser, setInspectingUser] = useState<AdminUser | null>(null);
+
+  // User CRUD / Edit States
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [editingUserTab, setEditingUserTab] = useState<'profile' | 'votes'>('profile');
+  const [updatingUser, setUpdatingUser] = useState(false);
+  const [editForm, setEditForm] = useState({
+    robloxUsername: '',
+    tiktokUsername: '',
+    linkStatus: 'none' as 'none' | 'pending' | 'approved' | 'rejected',
+    rejectionReason: '',
+  });
+  const [editFormError, setEditFormError] = useState<string | null>(null);
 
   // Active Nominee Drawer State
   const [editingNominee, setEditingNominee] = useState<AdminNominee | null>(null);
@@ -866,6 +888,48 @@ export default function AdminPage() {
     }
   };
 
+  const startEditingUser = (u: AdminUser) => {
+    setEditingUser(u);
+    setEditingUserTab('profile');
+    setEditForm({
+      robloxUsername: u.robloxUser || '',
+      tiktokUsername: u.tiktokUser || '',
+      linkStatus: u.linkStatus || 'none',
+      rejectionReason: u.rejectionReason || '',
+    });
+    setEditFormError(null);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setUpdatingUser(true);
+    setEditFormError(null);
+    try {
+      const response = await apiFetch('/api/admin/users/update', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: editingUser.id,
+          robloxUsername: editForm.robloxUsername,
+          tiktokUsername: editForm.tiktokUsername,
+          linkStatus: editForm.linkStatus,
+          rejectionReason: editForm.rejectionReason,
+        }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el usuario');
+      
+      setStatus('Usuario actualizado correctamente.');
+      setEditingUser(null);
+      await loadStats();
+      await loadAuditLogs();
+    } catch (err) {
+      setEditFormError(err instanceof Error ? err.message : 'Error al actualizar el usuario');
+    } finally {
+      setUpdatingUser(false);
+    }
+  };
+
   const handlePlaySound = async (soundId: string) => {
     try {
       const response = await apiFetch('/api/stream/events', {
@@ -1500,7 +1564,6 @@ export default function AdminPage() {
                   <th className="py-3 px-2">Usuario Roblox</th>
                   <th className="py-3 px-2">Detalles</th>
                   <th className="py-3 px-2">Estado</th>
-                  <th className="py-3 px-2 text-center">Progreso</th>
                   <th className="py-3 px-2 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -1543,18 +1606,14 @@ export default function AdminPage() {
                         {u.linkStatus.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-3 px-2 text-center font-semibold">
-                      <span className="text-white">{u.votedCount}/{u.totalCategories}</span>
-                      <span className="text-gray-500 text-[10px] block font-mono">({u.votedPercentage}%)</span>
-                    </td>
                     <td className="py-3 px-2 text-right">
                       <div className="inline-flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setInspectingUser(u)}
-                          className="px-2.5 py-1.5 bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 text-white rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97]"
+                          onClick={() => startEditingUser(u)}
+                          className="px-2.5 py-1.5 bg-[#FFC200] hover:brightness-105 text-black border border-black rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97]"
                         >
-                          Votos
+                          Editar
                         </button>
                         
                         <button
@@ -1563,7 +1622,7 @@ export default function AdminPage() {
                           className={`px-2.5 py-1.5 border rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97] ${
                             u.isAdmin
                               ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border-red-500/20'
-                              : 'bg-[#FFC200] text-black border-black'
+                              : 'bg-[#2b2d31] hover:bg-[#20242D] text-white border border-neutral-700/60'
                           }`}
                         >
                           {u.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
@@ -1648,6 +1707,38 @@ export default function AdminPage() {
                     <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">{u.email}</p>
                   </div>
                 </div>
+
+                {/* Detección de Colisiones y Motivos de Reclamación */}
+                {(() => {
+                  const conflictedUser = stats?.users?.find(
+                    (other) =>
+                      other.id !== u.id &&
+                      other.linkStatus === 'approved' &&
+                      other.robloxUser &&
+                      u.robloxUser &&
+                      other.robloxUser.toLowerCase().trim() === u.robloxUser.toLowerCase().trim()
+                  );
+                  const isClaim = u.rejectionReason?.startsWith('RECLAMO:');
+                  
+                  if (!conflictedUser && !isClaim) return null;
+
+                  return (
+                    <div className="mt-2 p-2.5 bg-black/25 border border-neutral-700/60 rounded-xl space-y-1 text-[11px] font-sans">
+                      {conflictedUser && (
+                        <p className="text-amber-400 font-semibold flex items-center gap-1">
+                          <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                          <span>Conflicto: Ya vinculada a {maskEmail(conflictedUser.email)}</span>
+                        </p>
+                      )}
+                      {isClaim && (
+                        <p className="text-gray-300">
+                          <span className="font-semibold text-gray-400">Motivo del reclamo:</span>{" "}
+                          <span className="italic text-white">&quot;{u.rejectionReason?.replace('RECLAMO:', '').trim()}&quot;</span>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="flex gap-2 pt-2 border-t border-black/20">
                   <a
@@ -3458,6 +3549,199 @@ export default function AdminPage() {
               >
                 Cerrar Planilla
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL DE EDICIÓN / CRUD DE USUARIO */}
+      <AnimatePresence>
+        {editingUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-[#111318] border border-neutral-700/60 rounded-2xl p-6 w-full max-w-md relative text-gray-200 flex flex-col max-h-[85vh] shadow-[0_8px_24px_rgba(0,0,0,.5)]"
+            >
+              <button
+                onClick={() => setEditingUser(null)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center border border-neutral-700/60 rounded-lg bg-[#171A20] cursor-pointer active:scale-[0.97]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4 border-b-2 border-black pb-3 shrink-0">
+                <div className="w-11 h-11 rounded-lg border border-neutral-700/60 bg-[#171A20] overflow-hidden flex items-center justify-center shrink-0 ">
+                  {editingUser.robloxAvatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={editingUser.robloxAvatarUrl} alt={editingUser.robloxUser || 'User'} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl">🐣</span>
+                  )}
+                </div>
+                <div className="min-w-0 pr-8">
+                  <p className="text-[10px] text-gray-500 tracking-wide">Gestión de Perfil</p>
+                  <h3 className="font-display font-semibold text-base text-white truncate" title={editingUser.robloxDisplayName || editingUser.email}>
+                    {editingUser.robloxDisplayName || editingUser.email}
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium mt-0.5">ID: {editingUser.id.substring(0, 8)}...</p>
+                </div>
+              </div>
+
+              {/* TABS DENTRO DEL MODAL */}
+              <div className="flex border-b border-neutral-700/60 mb-5 shrink-0 font-medium">
+                <button
+                  type="button"
+                  onClick={() => setEditingUserTab('profile')}
+                  className={`flex-1 pb-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${
+                    editingUserTab === 'profile'
+                      ? 'border-[#FFC200] text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Perfil (CRUD)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingUserTab('votes')}
+                  className={`flex-1 pb-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${
+                    editingUserTab === 'votes'
+                      ? 'border-[#FFC200] text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Premios y Votos
+                </button>
+              </div>
+
+              {editingUserTab === 'profile' ? (
+                <form onSubmit={handleUpdateUser} className="flex flex-col flex-grow overflow-y-auto space-y-4 pr-1">
+                  {editFormError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs font-semibold">
+                      {editFormError}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Usuario Roblox</label>
+                    <input
+                      type="text"
+                      value={editForm.robloxUsername}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, robloxUsername: e.target.value }))}
+                      placeholder="Username de Roblox..."
+                      className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium"
+                    />
+                    <p className="text-[9px] text-gray-500 font-medium">Se validará contra la API oficial de Roblox al guardar.</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Usuario TikTok</label>
+                    <input
+                      type="text"
+                      value={editForm.tiktokUsername}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, tiktokUsername: e.target.value }))}
+                      placeholder="Username de TikTok..."
+                      className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-medium"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Estado de Vinculación</label>
+                    <select
+                      value={editForm.linkStatus}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, linkStatus: e.target.value as any }))}
+                      className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-semibold"
+                    >
+                      <option value="none">NONE (Sin verificar)</option>
+                      <option value="pending">PENDING (Pendiente)</option>
+                      <option value="approved">APPROVED (Aprobado)</option>
+                      <option value="rejected">REJECTED (Rechazado)</option>
+                    </select>
+                  </div>
+
+                  {editForm.linkStatus === 'rejected' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold tracking-wider text-gray-400">Motivo del Rechazo</label>
+                      <textarea
+                        value={editForm.rejectionReason}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, rejectionReason: e.target.value }))}
+                        placeholder="Razón del rechazo..."
+                        rows={2}
+                        className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors resize-none font-medium"
+                      />
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingUser(null)}
+                      className="flex-1 py-3 bg-[#171A20] hover:bg-neutral-800 border border-neutral-700/60 text-white font-display font-semibold text-xs rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={updatingUser}
+                      className="flex-1 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updatingUser && <Loader className="w-3.5 h-3.5 animate-spin" />}
+                      Guardar
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-col flex-grow overflow-hidden">
+                  <div className="flex justify-between items-center bg-[#171A20] border border-neutral-700/60 p-3 rounded-xl mb-4 font-display font-medium text-xs text-gray-400 shrink-0 ">
+                    <span className="text-gray-300 font-semibold">Progreso General</span>
+                    <span className={editingUser.votedCount >= editingUser.totalCategories ? 'text-[#FFC200]' : 'text-orange-400'}>
+                      {editingUser.votedCount}/{editingUser.totalCategories} Categorías
+                    </span>
+                  </div>
+
+                  <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-2.5 mb-4 max-h-[300px]">
+                    {CATEGORIES.map((cat: Category) => {
+                      const vote = editingUser.votes?.find((v: { categoryId: number; nomineeName: string }) => v.categoryId === cat.id);
+                      return (
+                        <div key={cat.id} className={`border-2 rounded-xl p-3 flex items-center justify-between gap-3 text-xs  ${
+                          vote ? 'bg-[#171A20] border-black' : 'bg-red-500/5 border-dashed border-red-500/20'
+                        }`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base shrink-0">{cat.emoji || '🏆'}</span>
+                            <span className="font-semibold text-gray-300 truncate" title={cat.title}>
+                              {cat.title}
+                            </span>
+                          </div>
+                          
+                          {vote ? (
+                            <span className="font-bold text-[#FFC200] shrink-0 bg-[#FFC200]/10 border border-[#FFC200]/20 px-2.5 py-0.5 rounded-lg truncate max-w-[120px]" title={vote.nomineeName}>
+                              {vote.nomineeName}
+                            </span>
+                          ) : (
+                            <span className="font-bold text-red-400 shrink-0 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-lg uppercase text-[9px] tracking-wider animate-pulse">
+                              Sin Votar
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingUser(null)}
+                    className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-colors cursor-pointer shrink-0 active:scale-[0.97]"
+                  >
+                    Cerrar Planilla
+                  </button>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
