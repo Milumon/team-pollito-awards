@@ -134,6 +134,7 @@ export default function MemberConsolePage() {
   const [savingSoundEdit, setSavingSoundEdit] = useState(false);
   const [loadingSounds, setLoadingSounds] = useState(true);
   const [audioTrim, setAudioTrim] = useState<{ start: number; end: number } | null>(null);
+  const [showUploadForm, setShowUploadForm] = useState(false);
 
   // Stream Settings State
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
@@ -1143,6 +1144,107 @@ export default function MemberConsolePage() {
                         <span>Conectado via Supabase Realtime</span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* SUBIR AUDIO — colapsable */}
+                  <div className="mt-4 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowUploadForm(v => !v)}
+                      className="w-full flex items-center justify-between bg-[#2b2d31] border border-neutral-700/60 rounded-2xl px-5 py-3 cursor-pointer hover:bg-[#303236] transition-colors shadow-[0_2px_8px_rgba(0,0,0,.25)]"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <FileAudio className="w-4 h-4 text-[#FFC200]" />
+                        <span className="font-display font-semibold text-sm text-white">Enviar Audio</span>
+                      </div>
+                      <span className="text-[10px] text-gray-500 font-bold">{showUploadForm ? '▲ Colapsar' : '▼ Expandir'}</span>
+                    </button>
+
+                    {showUploadForm && (
+                      <div className="mt-2 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-3">
+                        <p className="text-[11px] text-gray-400 font-semibold leading-relaxed">El audio será revisado por un admin antes de aparecer en la botonera.</p>
+
+                        <form onSubmit={handleSubmitAudio} className="space-y-3">
+                          <label className="block space-y-1">
+                            <span className="text-xs text-gray-500">Nombre del botón</span>
+                            <input
+                              type="text"
+                              value={audioName}
+                              onChange={(e) => setAudioName(e.target.value)}
+                              placeholder="Ej: Mi Risa, Clásico, Épico..."
+                              maxLength={40}
+                              className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                            />
+                          </label>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <label className="block space-y-1">
+                              <span className="text-xs text-gray-500">Cooldown sugerido (seg)</span>
+                              <input
+                                type="number" min={0} max={300}
+                                value={audioCooldown}
+                                onChange={(e) => setAudioCooldown(e.target.value)}
+                                className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
+                              />
+                            </label>
+                            <div className="space-y-1">
+                              <span className="text-xs text-gray-500 block">Visibilidad</span>
+                              <button
+                                type="button"
+                                onClick={() => setAudioIsPublic(p => !p)}
+                                className={`w-full h-[38px] rounded-xl border text-xs font-display font-semibold transition-all cursor-pointer ${
+                                  audioIsPublic
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                }`}
+                              >
+                                {audioIsPublic ? '🌐 Público' : '🔒 Solo yo'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <label className="block space-y-1">
+                            <span className="text-xs text-gray-500">Archivo de audio (MP3, WAV, M4A — máx 2MB)</span>
+                            <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#35373d] hover:bg-[#3a3c42] cursor-pointer transition-colors text-center">
+                              <input
+                                type="file" accept="audio/*"
+                                onChange={(e) => {
+                                  setAudioFile(e.target.files?.[0] || null);
+                                  setAudioTrim(null);
+                                }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              <FileAudio className="w-6 h-6 text-gray-500 mx-auto mb-1" />
+                              <p className="text-[10px] text-gray-400 font-medium truncate">
+                                {audioFile ? audioFile.name : 'Elegir archivo de audio'}
+                              </p>
+                            </div>
+                          </label>
+
+                          {audioFile && (
+                            <AudioPreview
+                              file={audioFile}
+                              onTrimChange={(start, end) => setAudioTrim({ start, end })}
+                            />
+                          )}
+
+                          {audioSubmitStatus && (
+                            <p className={`text-xs font-semibold ${
+                              audioSubmitStatus.startsWith('✓') ? 'text-emerald-400' : 'text-[#FFC200]'
+                            }`}>{audioSubmitStatus}</p>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={submittingAudio || !audioFile || !audioName.trim()}
+                            className="w-full py-3 bg-[#FFC200] hover:bg-[#ffe359] text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {submittingAudio ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileAudio className="w-4 h-4" />}
+                            {submittingAudio ? 'Enviando...' : 'Enviar para revisión'}
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </div>
 
                   {/* ACCESOS RÁPIDOS */}
