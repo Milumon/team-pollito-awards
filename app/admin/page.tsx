@@ -2745,93 +2745,111 @@ export default function AdminPage() {
                   <p className="text-xs text-gray-400 mt-1 font-medium">Usá el botón “Agregar Sonido” para crear el primer botón.</p>
                 </div>
               ) : (
-                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-                  {sounds.map((sound) => {
-                    const soundStyles = getSoundColor(sound.id);
-                    const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || null;
-                    return (
-                      <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
-                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleSoundPublic(sound.id, !(sound.is_public ?? true))}
-                            className={`p-1 rounded-lg border transition-all cursor-pointer active:scale-[0.97] ${
-                              sound.is_public
-                                ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                                : 'bg-neutral-700/50 hover:bg-neutral-700 text-gray-400 border-neutral-600'
-                            }`}
-                            title={sound.is_public ? 'Público — click para hacer privado' : 'Privado — click para hacer público'}
-                          >
-                            {sound.is_public ? '🌍' : '🔒'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingSound(sound);
-                              setEditingSoundName(sound.name);
-                              setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
-                              setEditingSoundAudioEnabled(false);
-                              setEditingSoundAudioFile(null);
-                              setEditingSoundAudioTrim(null);
-                              setEditingSoundAudioLoading(false);
-                              setEditingSoundAudioError('');
-                            }}
-                            className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
-                            title="Editar sonido"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSound(sound.id)}
-                            className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
-                            title="Borrar de la botonera"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="text-center pt-2">
-                          <span className="text-2xl block mb-1">📢</span>
-                          <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
-                            {sound.name}
-                          </h3>
-                          {ownerName && (
-                            <span className="text-[9px] text-gray-500 font-semibold mt-0.5 block">
-                              👤 {ownerName}
-                            </span>
-                          )}
-                          <div className="flex items-center justify-center gap-2 mt-1">
-                            {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
-                              <span className="text-[9px] text-gray-500 font-mono font-semibold">
-                                ⏱ {sound.cooldown_seconds}s
-                              </span>
-                            ) : (
-                              <span className="text-[9px] text-gray-500 font-mono opacity-40">
-                                Sin CD
-                              </span>
-                            )}
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
-                              sound.is_public
-                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                : 'bg-neutral-700 text-gray-400 border-neutral-600'
-                            }`}>
-                              {sound.is_public ? 'PÚBLICO' : 'PRIVADO'}
-                            </span>
+                <div className="space-y-4">
+                  {Object.entries(
+                    sounds.reduce((acc, sound) => {
+                      const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || 'Comunidad';
+                      if (!acc[ownerName]) acc[ownerName] = { avatar: sound.profiles?.roblox_avatar_url ?? null, sounds: [] };
+                      acc[ownerName].sounds.push(sound);
+                      return acc;
+                    }, {} as Record<string, { avatar: string | null; sounds: typeof sounds }>)
+                  ).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
+                    <div key={ownerName}>
+                      <div className="flex items-center gap-2.5 mb-2 px-1">
+                        {avatar ? (
+                          <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-600 shrink-0">
+                            <img src={avatar} alt={ownerName} className="w-full h-full object-cover" style={{ transform: 'scale(1.4)', transformOrigin: 'center 30%', objectPosition: 'center top' }} />
                           </div>
-                        </div>
+                        ) : (
+                          <span className="text-sm">🐣</span>
+                        )}
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
+                        <span className="text-[9px] text-gray-600 font-mono">({ownerSounds.length})</span>
+                      </div>
+                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
+                      {ownerSounds.map((sound) => {
+                        const soundStyles = getSoundColor(sound.id);
+                        return (
+                          <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
+                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSoundPublic(sound.id, !(sound.is_public ?? true))}
+                                className={`p-1 rounded-lg border transition-all cursor-pointer active:scale-[0.97] ${
+                                  sound.is_public
+                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-neutral-700/50 hover:bg-neutral-700 text-gray-400 border-neutral-600'
+                                }`}
+                                title={sound.is_public ? 'Público — click para hacer privado' : 'Privado — click para hacer público'}
+                              >
+                                {sound.is_public ? '🌍' : '🔒'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSound(sound);
+                                  setEditingSoundName(sound.name);
+                                  setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
+                                  setEditingSoundAudioEnabled(false);
+                                  setEditingSoundAudioFile(null);
+                                  setEditingSoundAudioTrim(null);
+                                  setEditingSoundAudioLoading(false);
+                                  setEditingSoundAudioError('');
+                                }}
+                                className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
+                                title="Editar sonido"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSound(sound.id)}
+                                className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
+                                title="Borrar de la botonera"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handlePlaySound(sound.id)}
-                          className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
-                        >
-                          <Play className="w-3 h-3 fill-current" />
-                          Testear OBS
-                        </button>
-                      </article>
-                    );
-                  })}
+                            <div className="text-center pt-2">
+                              <span className="text-2xl block mb-1">📢</span>
+                              <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
+                                {sound.name}
+                              </h3>
+                              <div className="flex items-center justify-center gap-2 mt-1">
+                                {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
+                                  <span className="text-[9px] text-gray-500 font-mono font-semibold">
+                                    ⏱ {sound.cooldown_seconds}s
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] text-gray-500 font-mono opacity-40">
+                                    Sin CD
+                                  </span>
+                                )}
+                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
+                                  sound.is_public
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-neutral-700 text-gray-400 border-neutral-600'
+                                }`}>
+                                  {sound.is_public ? 'PÚBLICO' : 'PRIVADO'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handlePlaySound(sound.id)}
+                              className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                              Testear OBS
+                            </button>
+                          </article>
+                        );
+                      })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )
             ) : loadingSubmissions ? (
