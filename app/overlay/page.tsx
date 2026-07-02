@@ -233,11 +233,15 @@ export default function ObsOverlayPage() {
       remoteLog('INFO', `Reproduciendo voice message: url=${voiceUrl}`);
       if (audioPlayerRef.current) {
         audioPlayerRef.current.src = voiceUrl;
+        // Race: play() vs timeout (play() can hang forever if blocked)
+        const playPromise = audioPlayerRef.current.play();
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('play() timeout')), 5000)
+        );
         try {
-          remoteLog('DEBUG', 'Llamando a audio.play() para voice...');
-          await audioPlayerRef.current.play();
-          remoteLog('DEBUG', 'Voice play() completado con éxito.');
-          // Fallback timeout: si el audio no dispara onEnded en 30s, forzar avance
+          await Promise.race([playPromise, timeoutPromise]);
+          remoteLog('DEBUG', 'Voice play() iniciado con éxito.');
+          // Fallback: si onEnded no dispara en 30s, forzar avance
           setTimeout(async () => {
             if (currentEventRef.current?.id === nextEvent.id) {
               remoteLog('WARN', 'Voice timeout - forzando avance');
@@ -247,7 +251,14 @@ export default function ObsOverlayPage() {
           }, 30000);
         } catch (err) {
           const error = err as Error;
-          remoteLog('ERROR', `Fallo al reproducir voice: ${error.name} - ${error.message}`);
+          remoteLog('ERROR', `Fallo al reproducir voice: ${error.message}`);
+          // Try loading the audio via fetch to verify URL is accessible
+          try {
+            const resp = await fetch(voiceUrl, { method: 'HEAD' });
+            remoteLog('DEBUG', `Voice URL check: status=${resp.status}, type=${resp.headers.get('content-type')}`);
+          } catch (fetchErr) {
+            remoteLog('ERROR', `Voice URL inaccesible: ${fetchErr}`);
+          }
           await markEventAsPlayed(nextEvent.id);
           setTimeout(() => { playNextRef.current(); }, 500);
         }
