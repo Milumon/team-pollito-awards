@@ -858,6 +858,27 @@ export default function AdminPage() {
     };
   }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions, loadAuditLogs, pingAlexaVM]);
 
+  // Load admin's own Roblox profile for preview avatar
+  useEffect(() => {
+    if (!isAdmin || !session?.access_token || adminVerifiedProfile) return;
+    void (async () => {
+      try {
+        const res = await fetch('/api/profile/verify-roblox', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await res.json();
+        if (data.profile?.roblox_avatar_url) {
+          setAdminVerifiedProfile({
+            id: data.profile.roblox_user_id || 0,
+            displayName: data.profile.roblox_display_name || data.profile.roblox_user || 'Admin',
+            avatarUrl: data.profile.roblox_avatar_url,
+            username: data.profile.roblox_user || '',
+          });
+        }
+      } catch {}
+    })();
+  }, [isAdmin, session?.access_token, adminVerifiedProfile]);
+
   useEffect(() => {
     if (!isAdmin) return;
     if (activeTab === 'agenda') {
