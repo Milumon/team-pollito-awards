@@ -11,6 +11,7 @@ interface AudioPreviewProps {
 }
 
 function formatTime(sec: number): string {
+  if (!isFinite(sec) || isNaN(sec)) return '0:00.0';
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   const ms = Math.floor((sec % 1) * 10);
@@ -93,9 +94,24 @@ export default function AudioPreview({ file, onTrimChange, embedded = false }: A
   const handleLoadedMetadata = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    setDuration(audio.duration);
-    setTrimEnd(Math.min(audio.duration, 30));
-    onTrimChange(0, Math.min(audio.duration, 30));
+    const dur = audio.duration;
+    // On some mobile browsers, duration is NaN until the audio is played
+    if (!isFinite(dur) || isNaN(dur)) {
+      // Try to get duration by playing briefly
+      audio.play().then(() => {
+        audio.pause();
+        const retryDur = audioRef.current?.duration;
+        if (retryDur && isFinite(retryDur) && !isNaN(retryDur)) {
+          setDuration(retryDur);
+          setTrimEnd(Math.min(retryDur, 30));
+          onTrimChange(0, Math.min(retryDur, 30));
+        }
+      }).catch(() => {});
+      return;
+    }
+    setDuration(dur);
+    setTrimEnd(Math.min(dur, 30));
+    onTrimChange(0, Math.min(dur, 30));
   }, [onTrimChange]);
 
   const handleTimeUpdate = useCallback(() => {
