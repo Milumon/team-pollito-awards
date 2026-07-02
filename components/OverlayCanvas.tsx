@@ -120,14 +120,11 @@ export function OverlayCanvas({
 }: OverlayCanvasProps) {
   const top = settings.overlay_notification_top ?? 48;
   const width = settings.overlay_notification_width ?? 288;
-  const badgeSize = settings.overlay_notification_badge_size ?? 10;
+  const avatarSize = settings.overlay_notification_badge_size ?? 32;
   const contentSize = settings.overlay_notification_content_size ?? 14;
   const senderSize = settings.overlay_notification_sender_size ?? 11;
 
   const sender = senderLabel ?? event?.sender_roblox_user ?? 'VIP';
-
-  const badgeLabel =
-    event?.type === 'sound' ? 'VIP Sound' : event?.type === 'tts' ? 'VIP Speak' : 'VIP FX';
 
   const contentLabel =
     event?.type === 'tts'
@@ -229,11 +226,15 @@ export function OverlayCanvas({
               <img
                 src={event.sender_avatar_url}
                 alt={sender}
-                className="w-8 h-8 rounded-lg border border-black object-cover shrink-0"
+                style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
+                className="rounded-lg border border-black object-cover shrink-0"
               />
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0">
-                {event.type === 'sound' ? '🔊' : event.type === 'tts' ? '🗣️' : '✨'}
+              <div
+                style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
+                className="rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0"
+              >
+                {event.type === 'sound' ? '🔊' : '🗣️'}
               </div>
             )}
             <div className="min-w-0 text-left flex-1">

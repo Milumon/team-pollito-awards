@@ -2432,17 +2432,17 @@ export default function AdminPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
-                      <span>Badge</span>
+                      <span>Avatar</span>
                       <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_badge_size ?? 10}px</span>
                     </label>
                     <input
-                      type="range" min="8" max="30" step="1"
+                      type="range" min="24" max="64" step="1"
                       value={streamSettings.overlay_notification_badge_size ?? 10}
                       disabled={updatingStreamSettings}
                       onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: parseInt(e.target.value, 10) } : null)}
                       className="w-full accent-[#FFC200] cursor-pointer"
                     />
-                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px</span><span>30px</span></div>
+                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>24px</span><span>64px</span></div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
