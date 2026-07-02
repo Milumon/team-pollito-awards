@@ -27,10 +27,12 @@ export function NotificationPopup({
       ? `"${event.content}"`
       : event.type === 'sound'
       ? `Sonido: ${event.content}`
+      : event.type === 'voice'
+      ? 'Audio de voz'
       : `Animación: ${event.content ?? ''}`;
 
   const typeLabel =
-    event.type === 'tts' ? 'mensaje' : event.type === 'sound' ? 'sonido' : 'evento';
+    event.type === 'tts' ? 'mensaje' : event.type === 'sound' ? 'sonido' : event.type === 'voice' ? 'audio' : 'evento';
 
   return (
     <div

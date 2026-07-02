@@ -237,21 +237,19 @@ export default function ObsOverlayPage() {
           remoteLog('DEBUG', 'Llamando a audio.play() para voice...');
           await audioPlayerRef.current.play();
           remoteLog('DEBUG', 'Voice play() completado con éxito.');
+          // Fallback timeout: si el audio no dispara onEnded en 30s, forzar avance
+          setTimeout(async () => {
+            if (currentEventRef.current?.id === nextEvent.id) {
+              remoteLog('WARN', 'Voice timeout - forzando avance');
+              await markEventAsPlayed(nextEvent.id);
+              playNextRef.current();
+            }
+          }, 30000);
         } catch (err) {
           const error = err as Error;
           remoteLog('ERROR', `Fallo al reproducir voice: ${error.name} - ${error.message}`);
-          if (error.name === 'NotAllowedError') {
-            remoteLog('WARN', 'Autoplay bloqueado para voice. Mostrando pantalla de interacción.');
-            setNeedsInteraction(true);
-            queueRef.current.unshift(nextEvent);
-            setIsPlaying(false);
-            isPlayingRef.current = false;
-            setCurrentEvent(null);
-            currentEventRef.current = null;
-          } else {
-            await markEventAsPlayed(nextEvent.id);
-            setTimeout(() => { playNextRef.current(); }, 500);
-          }
+          await markEventAsPlayed(nextEvent.id);
+          setTimeout(() => { playNextRef.current(); }, 500);
         }
       }
     } else if (nextEvent.type === 'animation') {
