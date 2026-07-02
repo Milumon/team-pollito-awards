@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       .from('sound_submissions')
       .select(`
         *,
-        profiles!sound_submissions_submitted_by_user_id_fkey (
+        profiles!sound_submissions_submitted_by_user_id_profiles_fkey (
           roblox_user,
           roblox_display_name,
           roblox_avatar_url
