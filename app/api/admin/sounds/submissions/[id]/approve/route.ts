@@ -120,7 +120,7 @@ export async function POST(
           url: finalUrl,
         cooldown_seconds: finalCooldown,
         is_public: submission.is_public,
-        owner_user_id: submission.is_public ? null : submission.submitted_by_user_id,
+        owner_user_id: submission.submitted_by_user_id,
       });
 
     if (insertError) throw insertError;

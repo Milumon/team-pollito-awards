@@ -56,10 +56,12 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
     let adminEmail = 'admin-token@system';
+    let adminUserId = '';
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring('Bearer '.length);
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       if (user?.email) adminEmail = user.email;
+      if (user?.id) adminUserId = user.id;
     }
 
     const formData = await request.formData();
@@ -144,6 +146,7 @@ export async function POST(request: NextRequest) {
         file_path: storagePath,
         url: publicUrl,
         cooldown_seconds: cooldownSeconds,
+        owner_user_id: adminUserId || null,
       })
       .select()
       .single();
