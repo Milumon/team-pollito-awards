@@ -70,6 +70,7 @@ type AdminUser = {
   totalCategories: number;
   votedPercentage: number;
   isAdmin: boolean;
+  soundboardDisabled: boolean;
   testimonial: string | null;
   testimonialApproved: boolean;
   votes: { categoryId: number; nomineeName: string }[];
@@ -1005,6 +1006,24 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleSoundboard = async (targetUserId: string, disabled: boolean) => {
+    setError(null);
+    setStatus(null);
+    try {
+      const response = await apiFetch('/api/admin/users/soundboard-toggle', {
+        method: 'POST',
+        body: JSON.stringify({ userId: targetUserId, disabled }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo cambiar acceso');
+      setStatus(disabled ? 'Botonera deshabilitada para este usuario.' : 'Botonera habilitada para este usuario.');
+      await loadStats();
+      await loadAuditLogs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar acceso');
+    }
+  };
+
   const startEditingUser = (u: AdminUser) => {
     setEditingUser(u);
     setEditingUserTab('profile');
@@ -1834,6 +1853,19 @@ export default function AdminPage() {
                           }`}
                         >
                           {u.isAdmin ? 'Quitar Admin' : 'Hacer Admin'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSoundboard(u.id, u.soundboardDisabled)}
+                          className={`px-2.5 py-1.5 border rounded-2xl font-display font-medium text-xs transition-colors cursor-pointer active:scale-[0.97] ${
+                            u.soundboardDisabled
+                              ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
+                              : 'bg-[#2b2d31] hover:bg-[#20242D] text-gray-400 border border-neutral-700/60'
+                          }`}
+                          title={u.soundboardDisabled ? 'Habilitar botonera' : 'Deshabilitar botonera'}
+                        >
+                          {u.soundboardDisabled ? '🔓 Habilitar' : '🚫 Bloquear'}
                         </button>
                       </div>
                     </td>

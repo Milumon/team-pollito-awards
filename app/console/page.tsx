@@ -48,6 +48,7 @@ type StoredRobloxProfile = {
   link_status?: 'none' | 'pending' | 'approved' | 'rejected' | null;
   rejection_reason?: string | null;
   last_nickname_updated_at?: string | null;
+  soundboard_disabled?: boolean;
 };
 
 type StreamEvent = {
@@ -323,6 +324,12 @@ export default function MemberConsolePage() {
     if (!session) return;
     setError(null);
     setSuccess(null);
+
+    // Check if user is disabled from soundboard
+    if (profile && (profile as Record<string, unknown>).soundboard_disabled) {
+      setError('Tu acceso a la botonera fue deshabilitado por un administrador.');
+      return;
+    }
 
     // Anti-spam popup check
     if (!bypassConfirm && confirmSpamGuard && !isLocalTestMode) {

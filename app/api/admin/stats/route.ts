@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // 4. Fetch profiles
     const { data: profData, error: profError } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin, testimonial, testimonial_approved');
+      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin, soundboard_disabled, testimonial, testimonial_approved');
 
     const hasProfilesTable = !profError;
     
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
       link_status: 'none' | 'pending' | 'approved' | 'rejected';
       rejection_reason: string | null;
       is_admin: boolean;
+      soundboard_disabled: boolean;
       testimonial: string | null;
       testimonial_approved: boolean;
     }
@@ -156,6 +157,7 @@ export async function GET(request: NextRequest) {
           link_status: 'none',
           rejection_reason: null,
           is_admin: false,
+          soundboard_disabled: false,
           testimonial: null,
           testimonial_approved: false,
         };
@@ -192,6 +194,7 @@ export async function GET(request: NextRequest) {
         linkStatus: robloxProfile?.link_status || 'none',
         rejectionReason: robloxProfile?.rejection_reason || null,
         isAdmin: robloxProfile?.is_admin || false,
+        soundboardDisabled: robloxProfile?.soundboard_disabled || false,
         testimonial: robloxProfile?.testimonial || null,
         testimonialApproved: robloxProfile?.testimonial_approved || false,
         alreadyInterviewed: !!historyItem?.already_interviewed,

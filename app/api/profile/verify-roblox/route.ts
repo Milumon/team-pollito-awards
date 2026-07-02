@@ -289,7 +289,7 @@ export async function GET(request: NextRequest) {
     // Get user's profile
     const { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason')
+      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, soundboard_disabled')
       .eq('id', user.id)
       .maybeSingle();
 
