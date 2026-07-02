@@ -36,10 +36,33 @@ export async function GET(request: NextRequest) {
 
     if (votesError) throw new Error(votesError.message);
 
-    // 4. Fetch profiles
-    const { data: profData, error: profError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin, soundboard_disabled, testimonial, testimonial_approved');
+    // 4. Fetch profiles (soundboard_disabled may not exist yet, handle gracefully)
+    let profData: unknown[] = [];
+    let profError: unknown = null;
+    try {
+      const result = await supabaseAdmin
+        .from('profiles')
+        .select('id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, is_admin, testimonial, testimonial_approved');
+      profData = result.data || [];
+      profError = result.error;
+    } catch (e) {
+      profError = e;
+    }
+
+    // Try adding soundboard_disabled if first query worked
+    if (!profError) {
+      try {
+        const result2 = await supabaseAdmin
+          .from('profiles')
+          .select('id, soundboard_disabled');
+        if (!result2.error && result2.data) {
+          const sbMap = new Map(result2.data.map((r: { id: string; soundboard_disabled: boolean }) => [r.id, r.soundboard_disabled]));
+          (profData as Record<string, unknown>[]).forEach((p: Record<string, unknown>) => {
+            p.soundboard_disabled = sbMap.get(p.id as string) || false;
+          });
+        }
+      } catch {}
+    }
 
     const hasProfilesTable = !profError;
     
