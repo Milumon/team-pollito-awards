@@ -1269,7 +1269,6 @@ export default function MemberConsolePage() {
                                   <AudioPreview
                                     file={recordedFile}
                                     onTrimChange={(start, end) => setAudioTrim({ start, end })}
-                                    embedded
                                   />
                                 )}
                               </div>
