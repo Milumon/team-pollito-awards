@@ -52,11 +52,14 @@ export default function ObsOverlayPage() {
   const [soundsMap, setSoundsMap] = useState<Record<string, { url: string; name: string }>>({});
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const [isDebug, setIsDebug] = useState(false);
+  const [soundVolume, setSoundVolume] = useState(1);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       setIsDebug(params.get('debug') === 'true');
+      const vol = parseFloat(params.get('volume') ?? '1');
+      if (!isNaN(vol)) setSoundVolume(Math.max(0, Math.min(1, vol)));
     }
   }, []);
 
@@ -173,6 +176,7 @@ export default function ObsOverlayPage() {
 
       if (audioPlayerRef.current) {
         audioPlayerRef.current.src = audioUrl;
+        audioPlayerRef.current.volume = soundVolume;
         try {
           remoteLog('DEBUG', 'Llamando a audio.play()...');
           await audioPlayerRef.current.play();
