@@ -223,12 +223,17 @@ export function OverlayCanvas({
               .join(' ')}
           >
             {event.sender_avatar_url ? (
-              <img
-                src={event.sender_avatar_url}
-                alt={sender}
+              <div
                 style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
-                className="rounded-lg border border-black object-cover object-top shrink-0"
-              />
+                className="rounded-lg border border-black overflow-hidden shrink-0"
+              >
+                <img
+                  src={event.sender_avatar_url}
+                  alt={sender}
+                  className="w-full h-full object-cover"
+                  style={{ transform: 'scale(1.5)', objectPosition: 'center' }}
+                />
+              </div>
             ) : (
               <div
                 style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
