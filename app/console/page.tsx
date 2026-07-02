@@ -691,22 +691,8 @@ export default function MemberConsolePage() {
     setSendingVoice(true);
     setError(null);
     try {
-      // Convert to MP3 with trim applied
-      let processedFile: File;
-      try {
-        processedFile = await convertAudioToMp3(
-          recordedFile,
-          audioTrim?.start,
-          audioTrim?.end
-        );
-      } catch (convErr) {
-        // Fallback: send original if conversion fails
-        console.warn('MP3 conversion failed, sending original:', convErr);
-        processedFile = recordedFile;
-      }
-
       const formData = new FormData();
-      formData.append('file', processedFile);
+      formData.append('file', recordedFile);
       const res = await fetch('/api/stream/events/voice', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token}` },
