@@ -1746,7 +1746,7 @@ export default function AdminPage() {
                         <div className="w-9 h-9 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] overflow-hidden shrink-0 flex items-center justify-center ">
                           {u.robloxAvatarUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                            <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                           ) : (
                             <span className="text-sm">🐣</span>
                           )}
@@ -1866,7 +1866,7 @@ export default function AdminPage() {
                   <div className="w-12 h-12 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] overflow-hidden flex items-center justify-center shrink-0 ">
                     {u.robloxAvatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                      <img src={u.robloxAvatarUrl} alt={u.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                     ) : (
                       <span className="text-xl">🐣</span>
                     )}
@@ -1993,7 +1993,7 @@ export default function AdminPage() {
                     <div className="w-8 h-8 rounded-full bg-[#1e1f22] overflow-hidden shrink-0">
                       {u.robloxAvatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={u.robloxAvatarUrl} alt={u.robloxUser || ''} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                        <img src={u.robloxAvatarUrl} alt={u.robloxUser || ''} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-sm">🐣</div>
                       )}
@@ -3812,7 +3812,7 @@ export default function AdminPage() {
                 <div className="w-11 h-11 rounded-lg border border-neutral-700/60 bg-[#171A20] overflow-hidden flex items-center justify-center shrink-0 ">
                   {inspectingUser.robloxAvatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={inspectingUser.robloxAvatarUrl} alt={inspectingUser.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                    <img src={inspectingUser.robloxAvatarUrl} alt={inspectingUser.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                   ) : (
                     <span className="text-xl">🐣</span>
                   )}
@@ -3901,13 +3901,13 @@ export default function AdminPage() {
                 <div className="w-11 h-11 rounded-lg border border-neutral-700/60 bg-[#171A20] overflow-hidden flex items-center justify-center shrink-0 ">
                   {adminVerifiedProfile ? (
                     adminVerifiedProfile.avatarUrl ? (
-                      <img src={adminVerifiedProfile.avatarUrl} alt={adminVerifiedProfile.displayName} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                      <img src={adminVerifiedProfile.avatarUrl} alt={adminVerifiedProfile.displayName} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                     ) : (
                       <span className="text-xl">🐣</span>
                     )
                   ) : editingUser.robloxAvatarUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={editingUser.robloxAvatarUrl} alt={editingUser.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                    <img src={editingUser.robloxAvatarUrl} alt={editingUser.robloxUser || 'User'} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                   ) : (
                     <span className="text-xl">🐣</span>
                   )}

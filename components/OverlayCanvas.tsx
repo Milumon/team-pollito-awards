@@ -231,7 +231,7 @@ export function OverlayCanvas({
                   src={event.sender_avatar_url}
                   alt={sender}
                   className="w-full h-full object-cover"
-                  style={{ transform: 'scale(1.5)', objectPosition: 'center' }}
+                  style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
                 />
               </div>
             ) : (

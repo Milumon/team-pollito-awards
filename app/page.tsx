@@ -885,7 +885,7 @@ export default function ComunidadPage() {
                     <div key={idx} className="py-4 flex items-start gap-3">
                       <div className="w-10 h-10 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
                         {t.roblox_avatar_url ? (
-                          <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center' }} />
+                          <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }} />
                         ) : (
                           <span className="text-lg">🐣</span>
                         )}
@@ -1321,7 +1321,7 @@ export default function ComunidadPage() {
                                               src={verifiedRobloxProfile.avatarUrl}
                                               alt={verifiedRobloxProfile.displayName}
                                               className="w-14 h-14 rounded-xl object-cover border border-white"
-                                              style={{ transform: 'scale(1.5)', objectPosition: 'center' }}
+                                              style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
                                             />
                                           ) : (
                                             <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
@@ -1500,7 +1500,7 @@ export default function ComunidadPage() {
                                       src={verifiedRobloxProfile.avatarUrl}
                                       alt={verifiedRobloxProfile.displayName}
                                       className="w-14 h-14 rounded-xl object-cover border border-white"
-                                      style={{ transform: 'scale(1.5)', objectPosition: 'center' }}
+                                      style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
                                     />
                                   ) : (
                                     <div className="w-14 h-14 rounded-xl bg-white border border-amber-100 flex items-center justify-center text-2xl">
@@ -1633,7 +1633,7 @@ export default function ComunidadPage() {
                               src={member.roblox_avatar_url}
                               alt={member.roblox_display_name}
                               className="w-full h-full object-cover"
-                              style={{ transform: 'scale(1.5)', objectPosition: 'center' }}
+                              style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
                             />
                           ) : (
                             <span className="text-2xl">🐣</span>
