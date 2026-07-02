@@ -919,9 +919,11 @@ export default function MemberConsolePage() {
                             }, {} as Record<string, { avatar: string | null; sounds: typeof sounds }>)
                           ).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
                             <div key={ownerName}>
-                              <div className="flex items-center gap-2 mb-2 px-1">
+                              <div className="flex items-center gap-2.5 mb-2 px-1">
                                 {avatar ? (
-                                  <img src={avatar} alt={ownerName} className="w-5 h-5 rounded-full border border-neutral-600 object-cover" style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }} />
+                                  <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-600 shrink-0">
+                                    <img src={avatar} alt={ownerName} className="w-full h-full object-cover" style={{ transform: 'scale(1.4)', transformOrigin: 'center 30%', objectPosition: 'center top' }} />
+                                  </div>
                                 ) : (
                                   <span className="text-sm">🐣</span>
                                 )}
