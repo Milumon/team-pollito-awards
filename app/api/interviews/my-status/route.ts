@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const isAdminUser = !!profile?.is_admin || user.email === 'kpopxfull@gmail.com';
+    const isAdminUser = !!profile?.is_admin;
 
     if (profile?.link_status === 'approved') {
       return NextResponse.json({

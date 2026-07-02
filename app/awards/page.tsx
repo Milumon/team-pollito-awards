@@ -107,6 +107,7 @@ export default function LandingPage() {
   const [miloModalOpen, setMiloModalOpen] = useState<boolean>(false);
   const [dateModalOpen, setDateModalOpen] = useState<boolean>(false);
   const [robloxOnboardingOpen, setRobloxOnboardingOpen] = useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   const checkRobloxProfile = useCallback(async (session: Session | null) => {
     if (!session?.access_token) return;
@@ -279,6 +280,17 @@ export default function LandingPage() {
       }
 
       if (!session) return;
+
+      // Fetch admin status
+      try {
+        const statusRes = await fetch('/api/interviews/my-status', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setIsAdmin(!!statusData.is_admin);
+        }
+      } catch {}
 
       // Check if user has completed their Roblox profile
       await checkRobloxProfile(session);
@@ -691,7 +703,7 @@ export default function LandingPage() {
       <div className="hidden md:block w-full">
         <Header
           session={session}
-          isAdmin={session?.user?.email === 'kpopxfull@gmail.com'}
+          isAdmin={isAdmin}
           showMobileToggle={false}
         />
       </div>

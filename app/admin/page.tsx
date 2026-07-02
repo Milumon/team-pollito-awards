@@ -465,12 +465,6 @@ export default function AdminPage() {
     }
 
     try {
-      if (currentSession.user.email === 'kpopxfull@gmail.com') {
-        setIsAdmin(true);
-        setCheckingAuth(false);
-        return;
-      }
-
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('is_admin')

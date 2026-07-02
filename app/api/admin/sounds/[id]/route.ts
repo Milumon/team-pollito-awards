@@ -3,6 +3,46 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
 
+// GET: Obtener un sonido por ID (autenticado, sin restricción de privacidad)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+  const token = authHeader.substring('Bearer '.length);
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ error: 'Falta el parámetro id' }, { status: 400 });
+    }
+
+    const { data: sound, error } = await supabaseAdmin
+      .from('soundboard_sounds')
+      .select('id, name, url, is_public, owner_user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!sound) {
+      return NextResponse.json({ error: 'Sonido no encontrado' }, { status: 404 });
+    }
+
+    return NextResponse.json({ sound });
+  } catch (error) {
+    console.error('[Sounds GET by ID Error]:', error);
+    const msg = error instanceof Error ? error.message : 'Error desconocido';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 // DELETE: Eliminar un sonido (solo administradores)
 export async function DELETE(
   request: NextRequest,

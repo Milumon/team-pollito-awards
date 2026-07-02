@@ -139,6 +139,7 @@ export default function MemberConsolePage() {
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [submittingNickname, setSubmittingNickname] = useState(false);
   const [isBotAccount, setIsBotAccount] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Error/Success state
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +201,17 @@ export default function MemberConsolePage() {
           setNewNickname(cleanName);
         }
       }
+
+      // Fetch admin status
+      try {
+        const statusRes = await fetch('/api/interviews/my-status', {
+          headers: { Authorization: `Bearer ${currentSession.access_token}` },
+        });
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setIsAdmin(!!statusData.is_admin);
+        }
+      } catch {}
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -708,7 +720,7 @@ export default function MemberConsolePage() {
       {/* HEADER SUPERIOR */}
       <Header
         session={session}
-        isAdmin={isBotAccount || session?.user?.email === 'kpopxfull@gmail.com'}
+        isAdmin={isAdmin}
         onLogout={handleBackToLanding}
         panelName="Consola VIP"
         panelHref="/console"

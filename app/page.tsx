@@ -137,6 +137,8 @@ export default function ComunidadPage() {
   const [forceClaim, setForceClaim] = useState(false);
   const [claimReason, setClaimReason] = useState('');
 
+  const isAdmin = statusInfo?.is_admin || false;
+
   const fetchMembers = async () => {
     try {
       const res = await fetch('/api/members');
@@ -562,7 +564,7 @@ export default function ComunidadPage() {
         {/* HEADER NAVBAR */}
         <Header
           session={session}
-          isAdmin={statusInfo.is_admin || session?.user?.email === 'kpopxfull@gmail.com'}
+          isAdmin={isAdmin}
           onLogin={handleLogin}
           onLogout={handleLogout}
           isMobileMenuOpen={isMobileMenuOpen}
@@ -577,7 +579,7 @@ export default function ComunidadPage() {
           onClose={() => setIsMobileMenuOpen(false)}
           scrollToSection={scrollToSection}
           session={session}
-          statusInfo={{ is_admin: statusInfo.is_admin || session?.user?.email === 'kpopxfull@gmail.com' }}
+          statusInfo={{ is_admin: isAdmin }}
           onLogin={handleLogin}
           onLogout={handleLogout}
         />

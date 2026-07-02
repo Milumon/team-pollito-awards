@@ -145,8 +145,29 @@ export default function ObsOverlayPage() {
 
     if (nextEvent.type === 'sound') {
       const cleanKey = nextEvent.content.replace('.mp3', '');
-      const soundData = soundsMap[cleanKey];
-      const audioUrl = soundData ? soundData.url : `/sounds/${nextEvent.content}`;
+      let soundData = soundsMap[cleanKey];
+      let audioUrl = soundData ? soundData.url : `/sounds/${nextEvent.content}`;
+
+      // Si el sonido no está en el mapa (puede ser privado), resolverlo por ID
+      if (!soundData && token) {
+        try {
+          remoteLog('DEBUG', `Sonido ${cleanKey} no encontrado en mapa. Fetch individual...`);
+          const res = await fetch(`/api/admin/sounds/${encodeURIComponent(cleanKey)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.sound?.url) {
+              audioUrl = data.sound.url;
+              // Cache para no volver a pedir
+              setSoundsMap(prev => ({ ...prev, [cleanKey]: { url: data.sound.url, name: data.sound.name } }));
+              remoteLog('INFO', `Sonido ${cleanKey} resuelto por fetch individual: ${audioUrl}`);
+            }
+          }
+        } catch (fetchErr) {
+          remoteLog('ERROR', `Error fetch sonido individual: ${fetchErr}`);
+        }
+      }
       
       remoteLog('INFO', `Sonido: key=${cleanKey}, enMapa=${!!soundData}, url=${audioUrl}`);
 
