@@ -1106,13 +1106,19 @@ export default function MemberConsolePage() {
                                       {duration ? `${Math.ceil(duration)}s` : '...'}
                                       {sound.cooldown_seconds ? ` · CD: ${sound.cooldown_seconds}s` : ''}
                                     </span>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isCooldown && !isMuted) void triggerEvent('sound', sound.id); }}
-                                      disabled={!isLocalTestMode && (isCooldown || triggeringId !== null || isMuted)}
-                                      className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                                    >
-                                      {isLocalTestMode ? 'PRUEBA' : '▶ ENVIAR'}
-                                    </button>
+                                    {!isLocalTestMode && isCooldown ? (
+                                      <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                                        ⏳ {soundCooldown}s
+                                      </span>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isMuted) void triggerEvent('sound', sound.id); }}
+                                        disabled={isCooldown || triggeringId !== null || isMuted}
+                                        className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:text-gray-500 disabled:border-gray-600 disabled:bg-neutral-800"
+                                      >
+                                        ▶ ENVIAR
+                                      </button>
+                                    )}
                                   </div>
                               </div>
                             );
