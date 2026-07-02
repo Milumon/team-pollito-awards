@@ -1329,7 +1329,7 @@ export default function LandingPage() {
                         <img
                           src={robloxProfile.avatarUrl}
                           alt={robloxProfile.displayName}
-                          className="w-24 h-24 rounded-full border-4 border-black object-cover bg-[#FCF9F2]"
+                          className="w-24 h-24 rounded-full border-4 border-black object-cover object-top bg-[#FCF9F2]"
                         />
                       ) : (
                         <span className="text-7xl select-none">🐣</span>

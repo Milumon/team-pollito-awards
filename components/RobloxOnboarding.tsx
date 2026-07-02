@@ -351,7 +351,7 @@ export default function RobloxOnboarding({
                       <img
                         src={displayData.avatarUrl}
                         alt="Avatar"
-                        className="w-20 h-20 rounded-full mx-auto mb-3 object-cover border-3 border-black shadow-md"
+                        className="w-20 h-20 rounded-full mx-auto mb-3 object-cover object-top border-3 border-black shadow-md"
                       />
                     ) : (
                       <div className="w-20 h-20 rounded-full mx-auto mb-3 bg-yellow-200 border-3 border-black flex items-center justify-center text-3xl">

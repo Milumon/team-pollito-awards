@@ -227,7 +227,7 @@ export function OverlayCanvas({
                 src={event.sender_avatar_url}
                 alt={sender}
                 style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
-                className="rounded-lg border border-black object-cover shrink-0"
+                className="rounded-lg border border-black object-cover object-top shrink-0"
               />
             ) : (
               <div
