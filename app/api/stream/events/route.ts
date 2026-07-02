@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let profile: { id: string; roblox_user: string | null; tiktok_user: string | null; link_status: string | null } | null = null;
+    let profile: { id: string; roblox_user: string | null; tiktok_user: string | null; link_status: string | null; roblox_avatar_url: string | null } | null = null;
     let finalUserId: string = '';
 
     const bridgeToken = request.headers.get('x-bridge-token');
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       // Look up profile by tiktok_user
       const { data, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('id, roblox_user, tiktok_user, link_status')
+        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url')
         .ilike('tiktok_user', tiktokUser.trim())
         .maybeSingle();
 
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       // 2. Fetch user's profile and check approved status
       const { data, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('id, roblox_user, tiktok_user, link_status')
+        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -233,6 +233,7 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         sender_roblox_user: profile.roblox_user,
         sender_tiktok_user: profile.tiktok_user,
+        sender_avatar_url: profile.roblox_avatar_url,
         played: false,
       })
       .select()

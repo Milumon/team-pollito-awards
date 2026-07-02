@@ -299,6 +299,7 @@ export default function AdminPage() {
     type: 'tts' as const,
     content: '¡Hola stream, este es el pop-up!',
     sender_roblox_user: 'MilumonGaming',
+    sender_avatar_url: adminVerifiedProfile?.avatarUrl || null,
   } : null;
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
@@ -2593,6 +2594,7 @@ export default function AdminPage() {
                           type: simulatedEvent.type,
                           content: simulatedEvent.content,
                           sender_roblox_user: simulatedEvent.senderRobloxUser,
+                          sender_avatar_url: adminVerifiedProfile?.avatarUrl || null,
                         }
                       : staticPreviewEvent
                   }

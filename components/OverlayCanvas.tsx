@@ -18,6 +18,7 @@ export type OverlayEvent = {
   content: string;
   sender_roblox_user?: string | null;
   sender_tiktok_user?: string | null;
+  sender_avatar_url?: string | null;
 };
 
 export type OverlayParticle = {
@@ -224,30 +225,34 @@ export function OverlayCanvas({
               .filter(Boolean)
               .join(' ')}
           >
-            <div className="w-8 h-8 rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0">
-              {event.type === 'sound' ? '🔊' : event.type === 'tts' ? '🗣️' : '✨'}
-            </div>
+            {event.sender_avatar_url ? (
+              <img
+                src={event.sender_avatar_url}
+                alt={sender}
+                className="w-8 h-8 rounded-lg border border-black object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0">
+                {event.type === 'sound' ? '🔊' : event.type === 'tts' ? '🗣️' : '✨'}
+              </div>
+            )}
             <div className="min-w-0 text-left flex-1">
-              <span
-                style={{ fontSize: `${badgeSize}px` }}
-                className="bg-[#ea580c] text-white border border-black rounded px-1.5 font-black uppercase inline-block leading-tight"
-              >
-                {badgeLabel}
-              </span>
               <p
                 style={{ fontSize: `${contentSize}px` }}
-                className={`font-black text-black mt-0.5 leading-tight ${
+                className={`font-black text-black leading-tight ${
                   event?.type === 'tts' ? 'line-clamp-3' : 'truncate'
                 }`}
               >
                 {contentLabel}
               </p>
-              <p
-                style={{ fontSize: `${senderSize}px` }}
-                className="font-black text-gray-500 truncate mt-0.5"
-              >
-                Por: @{sender}
-              </p>
+              {event.type !== 'animation' && (
+                <p
+                  style={{ fontSize: `${senderSize}px` }}
+                  className="font-black text-gray-500 truncate mt-0.5"
+                >
+                  Por: @{sender}
+                </p>
+              )}
             </div>
           </div>
         )}

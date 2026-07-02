@@ -11,6 +11,7 @@ type StreamEvent = {
   content: string;
   sender_roblox_user: string | null;
   sender_tiktok_user: string | null;
+  sender_avatar_url: string | null;
   created_at: string;
   played: boolean;
 };
