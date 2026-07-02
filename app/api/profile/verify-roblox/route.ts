@@ -286,12 +286,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's profile
-    const { data, error } = await supabaseAdmin
+    // Get user's profile — try with soundboard_disabled first, fall back without it
+    let { data, error } = await supabaseAdmin
       .from('profiles')
       .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, soundboard_disabled')
       .eq('id', user.id)
       .maybeSingle();
+
+    if (error) {
+      // Retry without soundboard_disabled if column doesn't exist yet
+      const retry = await supabaseAdmin
+        .from('profiles')
+        .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason')
+        .eq('id', user.id)
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       if (!isMissingProfilesTable(error)) {

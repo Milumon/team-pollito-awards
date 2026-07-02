@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // Get user profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url')
@@ -24,35 +23,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
     }
 
-    // Get the uploaded file
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     if (!file) {
       return NextResponse.json({ error: 'Falta el archivo de audio' }, { status: 400 });
     }
 
-    // Upload to storage
+    // Upload using same pattern as sound_submissions
+    const fileExt = file.name.split('.').pop() || 'mp3';
+    const storagePath = `voice-messages/${user.id}/voice-${Date.now()}.${fileExt}`;
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    const storagePath = `voice-messages/${user.id}-${Date.now()}.webm`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('soundboard-files')
       .upload(storagePath, buffer, {
-        contentType: file.type || 'audio/webm',
+        contentType: file.type || 'audio/mpeg',
         upsert: false,
       });
 
     if (uploadError) {
       console.error('[Voice Upload Error]:', uploadError);
-      return NextResponse.json({ error: 'Error al subir audio' }, { status: 500 });
+      return NextResponse.json({ error: `Error al subir: ${uploadError.message}` }, { status: 500 });
     }
 
     const { data: { publicUrl } } = supabaseAdmin.storage
       .from('soundboard-files')
       .getPublicUrl(storagePath);
 
-    // Create stream event
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')
       .insert({
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('[Voice Event Insert Error]:', insertError);
+      console.error('[Voice Insert Error]:', insertError);
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
