@@ -225,6 +225,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Insert new stream event
+    console.log('[Events POST] Insertando evento:', {
+      type,
+      sender_roblox_user: profile.roblox_user,
+      sender_avatar_url: profile.roblox_avatar_url,
+    });
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')
       .insert({

@@ -485,6 +485,7 @@ export default function ObsOverlayPage() {
           }
 
           console.log('[Overlay] Nuevo evento recibido en tiempo real:', newEvent);
+          console.log('[Overlay] Avatar URL del evento:', newEvent.sender_avatar_url);
           queueRef.current.push(newEvent);
 
           if (!isPlayingRef.current) {
