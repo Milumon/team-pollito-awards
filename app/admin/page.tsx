@@ -130,6 +130,7 @@ type SoundItem = {
   cooldown_seconds?: number | null;
   is_public?: boolean;
   owner_user_id?: string | null;
+  profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null;
 };
 
 type SoundSubmission = {
@@ -1150,6 +1151,21 @@ export default function AdminPage() {
       await loadAuditLogs();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al borrar el sonido');
+    }
+  };
+
+  const handleToggleSoundPublic = async (soundId: string, isPublic: boolean) => {
+    setError(null);
+    try {
+      const response = await apiFetch(`/api/admin/sounds/${soundId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublic }),
+      });
+      if (!response.ok) throw new Error('No se pudo cambiar visibilidad');
+      setSounds(prev => prev.map(s => s.id === soundId ? { ...s, is_public: isPublic } : s));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error');
     }
   };
 
@@ -2732,9 +2748,22 @@ export default function AdminPage() {
                 <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
                   {sounds.map((sound) => {
                     const soundStyles = getSoundColor(sound.id);
+                    const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || null;
                     return (
                       <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSoundPublic(sound.id, !(sound.is_public ?? true))}
+                            className={`p-1 rounded-lg border transition-all cursor-pointer active:scale-[0.97] ${
+                              sound.is_public
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                                : 'bg-neutral-700/50 hover:bg-neutral-700 text-gray-400 border-neutral-600'
+                            }`}
+                            title={sound.is_public ? 'Público — click para hacer privado' : 'Privado — click para hacer público'}
+                          >
+                            {sound.is_public ? '🌍' : '🔒'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -2767,15 +2796,29 @@ export default function AdminPage() {
                           <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
                             {sound.name}
                           </h3>
-                          {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
-                            <span className="text-[9px] text-gray-500 font-mono mt-0.5 block font-semibold">
-                              ⏱ {sound.cooldown_seconds}s cooldown
-                            </span>
-                          ) : (
-                            <span className="text-[9px] text-gray-500 font-mono mt-0.5 block opacity-40">
-                              Sin cooldown
+                          {ownerName && (
+                            <span className="text-[9px] text-gray-500 font-semibold mt-0.5 block">
+                              👤 {ownerName}
                             </span>
                           )}
+                          <div className="flex items-center justify-center gap-2 mt-1">
+                            {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
+                              <span className="text-[9px] text-gray-500 font-mono font-semibold">
+                                ⏱ {sound.cooldown_seconds}s
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-gray-500 font-mono opacity-40">
+                                Sin CD
+                              </span>
+                            )}
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
+                              sound.is_public
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                : 'bg-neutral-700 text-gray-400 border-neutral-600'
+                            }`}>
+                              {sound.is_public ? 'PÚBLICO' : 'PRIVADO'}
+                            </span>
+                          </div>
                         </div>
 
                         <button

@@ -13,7 +13,19 @@ export async function GET(request: NextRequest) {
       .select('*');
 
     if (!isAdminUser) {
-      query = query.eq('is_public', true);
+      // Return public sounds + user's own sounds (even if private)
+      const authHeader = request.headers.get('Authorization');
+      let userId = '';
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring('Bearer '.length);
+        const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+        if (user?.id) userId = user.id;
+      }
+      if (userId) {
+        query = query.or(`is_public.eq.true,owner_user_id.eq.${userId}`);
+      } else {
+        query = query.eq('is_public', true);
+      }
     }
 
     const { data: sounds, error } = await query.order('created_at', { ascending: true });

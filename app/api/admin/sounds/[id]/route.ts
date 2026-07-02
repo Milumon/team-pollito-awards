@@ -138,18 +138,21 @@ export async function PATCH(
     const contentType = request.headers.get('content-type') || '';
     let name: unknown;
     let cooldownSeconds: unknown;
+    let isPublic: unknown;
     let file: File | null = null;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       name = formData.get('name');
       cooldownSeconds = formData.get('cooldownSeconds');
+      isPublic = formData.get('isPublic');
       const uploadedFile = formData.get('file');
       file = uploadedFile instanceof File ? uploadedFile : null;
     } else {
       const body = await request.json();
       name = body.name;
       cooldownSeconds = body.cooldownSeconds;
+      isPublic = body.isPublic;
     }
 
     const updates: Record<string, any> = {};
@@ -159,6 +162,9 @@ export async function PATCH(
     }
     if (cooldownSeconds !== undefined && cooldownSeconds !== null) {
       updates.cooldown_seconds = cooldownSeconds === null ? 0 : Math.max(0, parseInt(String(cooldownSeconds)) || 0);
+    }
+    if (isPublic !== undefined && isPublic !== null) {
+      updates.is_public = isPublic === true || isPublic === 'true';
     }
 
     if (file) {
