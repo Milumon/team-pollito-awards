@@ -10,14 +10,7 @@ export async function GET(request: NextRequest) {
     
     let query = supabaseAdmin
       .from('soundboard_sounds')
-      .select(`
-        *,
-        profiles!soundboard_sounds_owner_user_id_fkey (
-          roblox_user,
-          roblox_display_name,
-          roblox_avatar_url
-        )
-      `);
+      .select('*');
 
     if (!isAdminUser) {
       query = query.eq('is_public', true);
@@ -27,7 +20,27 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ sounds: sounds || [] });
+    // Enrich with owner profiles
+    const ownerIds = [...new Set((sounds || []).map((s: { owner_user_id: string | null }) => s.owner_user_id).filter(Boolean))] as string[];
+    let ownerMap: Record<string, { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null }> = {};
+    if (ownerIds.length > 0) {
+      const { data: owners } = await supabaseAdmin
+        .from('profiles')
+        .select('id, roblox_user, roblox_display_name, roblox_avatar_url')
+        .in('id', ownerIds);
+      if (owners) {
+        owners.forEach((o: { id: string; roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null }) => {
+          ownerMap[o.id] = o;
+        });
+      }
+    }
+
+    const enriched = (sounds || []).map((s: Record<string, unknown>) => ({
+      ...s,
+      profiles: s.owner_user_id ? ownerMap[s.owner_user_id as string] ?? null : null,
+    }));
+
+    return NextResponse.json({ sounds: enriched });
   } catch (error) {
     console.error('[Sounds GET Error]:', error);
     return NextResponse.json({ error: 'Error al obtener los sonidos del soundboard' }, { status: 500 });
