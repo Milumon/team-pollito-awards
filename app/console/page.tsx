@@ -410,7 +410,11 @@ export default function MemberConsolePage() {
 
   const fetchSounds = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/sounds');
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch('/api/admin/sounds', { headers });
       const data = await response.json();
       if (data.sounds) {
         setSounds(data.sounds);
@@ -435,7 +439,7 @@ export default function MemberConsolePage() {
     } finally {
       setLoadingSounds(false);
     }
-  }, []);
+  }, [session?.access_token]);
 
   const loadMySubmissions = useCallback(async (currentSession: Session) => {
     setLoadingMySubmissions(true);
