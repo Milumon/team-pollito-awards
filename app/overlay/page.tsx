@@ -230,38 +230,48 @@ export default function ObsOverlayPage() {
     } else if (nextEvent.type === 'voice') {
       // Voice message: content is the audio URL directly
       const voiceUrl = nextEvent.content;
-      remoteLog('INFO', `Reproduciendo voice message: url=${voiceUrl}`);
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.src = voiceUrl;
-        // Race: play() vs timeout (play() can hang forever if blocked)
-        const playPromise = audioPlayerRef.current.play();
-        const timeoutPromise = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('play() timeout')), 5000)
-        );
-        try {
-          await Promise.race([playPromise, timeoutPromise]);
-          remoteLog('DEBUG', 'Voice play() iniciado con éxito.');
-          // Fallback: si onEnded no dispara en 30s, forzar avance
-          setTimeout(async () => {
-            if (currentEventRef.current?.id === nextEvent.id) {
-              remoteLog('WARN', 'Voice timeout - forzando avance');
-              await markEventAsPlayed(nextEvent.id);
-              playNextRef.current();
-            }
-          }, 30000);
-        } catch (err) {
-          const error = err as Error;
-          remoteLog('ERROR', `Fallo al reproducir voice: ${error.message}`);
-          // Try loading the audio via fetch to verify URL is accessible
-          try {
-            const resp = await fetch(voiceUrl, { method: 'HEAD' });
-            remoteLog('DEBUG', `Voice URL check: status=${resp.status}, type=${resp.headers.get('content-type')}`);
-          } catch (fetchErr) {
-            remoteLog('ERROR', `Voice URL inaccesible: ${fetchErr}`);
+      remoteLog('INFO', `[VOICE] URL: ${voiceUrl}`);
+      
+      if (!audioPlayerRef.current) {
+        remoteLog('ERROR', '[VOICE] audioPlayerRef is null');
+        await markEventAsPlayed(nextEvent.id);
+        setTimeout(() => { playNextRef.current(); }, 500);
+        return;
+      }
+
+      // Check URL accessibility first
+      try {
+        const headResp = await fetch(voiceUrl, { method: 'HEAD' });
+        remoteLog('INFO', `[VOICE] URL check: status=${headResp.status}, type=${headResp.headers.get('content-type')}, size=${headResp.headers.get('content-length')}`);
+      } catch (fetchErr) {
+        remoteLog('ERROR', `[VOICE] URL inaccesible: ${fetchErr}`);
+      }
+
+      audioPlayerRef.current.src = voiceUrl;
+      
+      // Race: play() vs 5s timeout
+      const playPromise = audioPlayerRef.current.play();
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error('play() timeout 5s')), 5000)
+      );
+      
+      try {
+        remoteLog('DEBUG', '[VOICE] Esperando play()...');
+        await Promise.race([playPromise, timeoutPromise]);
+        remoteLog('INFO', '[VOICE] play() OK - audio reproduciendo');
+        // Fallback: si onEnded no dispara en 30s, forzar avance
+        setTimeout(async () => {
+          if (currentEventRef.current?.id === nextEvent.id) {
+            remoteLog('WARN', '[VOICE] 30s timeout - forzando avance');
+            await markEventAsPlayed(nextEvent.id);
+            playNextRef.current();
           }
-          await markEventAsPlayed(nextEvent.id);
-          setTimeout(() => { playNextRef.current(); }, 500);
-        }
+        }, 30000);
+      } catch (err) {
+        const error = err as Error;
+        remoteLog('ERROR', `[VOICE] play() falló: ${error.message}`);
+        await markEventAsPlayed(nextEvent.id);
+        setTimeout(() => { playNextRef.current(); }, 500);
       }
     } else if (nextEvent.type === 'animation') {
       // Setup particles
