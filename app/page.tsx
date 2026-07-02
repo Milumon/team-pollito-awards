@@ -394,7 +394,9 @@ export default function ComunidadPage() {
           banReason: isReturning ? banReason.trim() : null,
           returnReason: isReturning ? returnReason.trim() : null,
           testimonial: userTestimonial.trim() || null,
-          alreadyInterviewed
+          alreadyInterviewed,
+          forceClaim,
+          claimReason: forceClaim ? claimReason.trim() : null
         })
       });
 
