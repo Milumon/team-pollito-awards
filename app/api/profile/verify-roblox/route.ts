@@ -300,7 +300,7 @@ export async function GET(request: NextRequest) {
         .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason')
         .eq('id', user.id)
         .maybeSingle();
-      data = retry.data;
+      data = retry.data as typeof data;
       error = retry.error;
     }
 
