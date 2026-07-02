@@ -207,7 +207,7 @@ export function OverlayCanvas({
         )}
 
         {/* ── Widget de notificación ── */}
-        {event && (isObs ? !isMuted : true) && (
+        {event && event.type !== 'animation' && (isObs ? !isMuted : true) && (
           <div
             style={{
               top: `${top}px`,
@@ -245,14 +245,12 @@ export function OverlayCanvas({
               >
                 {contentLabel}
               </p>
-              {event.type !== 'animation' && (
-                <p
-                  style={{ fontSize: `${senderSize}px` }}
-                  className="font-black text-gray-500 truncate mt-0.5"
-                >
-                  Por: @{sender}
-                </p>
-              )}
+              <p
+                style={{ fontSize: `${senderSize}px` }}
+                className="font-black text-gray-500 truncate mt-0.5"
+              >
+                Por: @{sender}
+              </p>
             </div>
           </div>
         )}
