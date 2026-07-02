@@ -112,7 +112,7 @@ export default function MemberConsolePage() {
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
 
   // Dynamic Sounds Board
-  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string }[]>([]);
+  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; owner_user_id?: string | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
   const [loadingSounds, setLoadingSounds] = useState(true);
   const [audioTrim, setAudioTrim] = useState<{ start: number; end: number } | null>(null);
 
@@ -909,8 +909,26 @@ export default function MemberConsolePage() {
                           No hay sonidos disponibles en este momento.
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 p-1">
-                          {sounds.map((sound) => {
+                        <div className="space-y-4 p-1">
+                          {Object.entries(
+                            sounds.reduce((acc, sound) => {
+                              const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || 'Comunidad';
+                              if (!acc[ownerName]) acc[ownerName] = { avatar: sound.profiles?.roblox_avatar_url ?? null, sounds: [] };
+                              acc[ownerName].sounds.push(sound);
+                              return acc;
+                            }, {} as Record<string, { avatar: string | null; sounds: typeof sounds }>)
+                          ).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
+                            <div key={ownerName}>
+                              <div className="flex items-center gap-2 mb-2 px-1">
+                                {avatar ? (
+                                  <img src={avatar} alt={ownerName} className="w-5 h-5 rounded-full border border-neutral-600 object-cover" style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }} />
+                                ) : (
+                                  <span className="text-sm">🐣</span>
+                                )}
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                              {ownerSounds.map((sound) => {
                             const isCooldown = soundCooldown > 0;
                             
                             const handleSoundClick = () => {
@@ -977,6 +995,9 @@ export default function MemberConsolePage() {
                               </button>
                             );
                           })}
+                          </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

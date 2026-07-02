@@ -10,7 +10,14 @@ export async function GET(request: NextRequest) {
     
     let query = supabaseAdmin
       .from('soundboard_sounds')
-      .select('*');
+      .select(`
+        *,
+        profiles!soundboard_sounds_owner_user_id_fkey (
+          roblox_user,
+          roblox_display_name,
+          roblox_avatar_url
+        )
+      `);
 
     if (!isAdminUser) {
       query = query.eq('is_public', true);
