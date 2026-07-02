@@ -236,7 +236,9 @@ export function OverlayCanvas({
               </span>
               <p
                 style={{ fontSize: `${contentSize}px` }}
-                className="font-black text-black truncate mt-0.5 leading-tight"
+                className={`font-black text-black mt-0.5 leading-tight ${
+                  event?.type === 'tts' ? 'line-clamp-3' : 'truncate'
+                }`}
               >
                 {contentLabel}
               </p>
