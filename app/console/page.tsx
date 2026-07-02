@@ -125,7 +125,12 @@ export default function MemberConsolePage() {
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
 
   // Dynamic Sounds Board
-  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; owner_user_id?: string | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
+  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
+  const [soundDurations, setSoundDurations] = useState<Record<string, number>>({});
+  const [editingSound, setEditingSound] = useState<{ id: string; name: string; url: string; is_public: boolean; cooldown_seconds: number } | null>(null);
+  const [editSoundName, setEditSoundName] = useState('');
+  const [editSoundPublic, setEditSoundPublic] = useState(true);
+  const [savingSoundEdit, setSavingSoundEdit] = useState(false);
   const [loadingSounds, setLoadingSounds] = useState(true);
   const [audioTrim, setAudioTrim] = useState<{ start: number; end: number } | null>(null);
 
@@ -409,6 +414,21 @@ export default function MemberConsolePage() {
       const data = await response.json();
       if (data.sounds) {
         setSounds(data.sounds);
+        // Fetch durations for each sound
+        const durations: Record<string, number> = {};
+        await Promise.all(data.sounds.map(async (s: { id: string; url?: string }) => {
+          if (!s.url) return;
+          try {
+            const audio = new Audio();
+            audio.src = s.url;
+            await new Promise<void>((resolve) => {
+              audio.onloadedmetadata = () => { durations[s.id] = audio.duration; resolve(); };
+              audio.onerror = () => resolve();
+              setTimeout(() => resolve(), 3000);
+            });
+          } catch {}
+        }));
+        setSoundDurations(durations);
       }
     } catch (err) {
       console.error('Error fetching sounds:', err);
@@ -1039,12 +1059,14 @@ export default function MemberConsolePage() {
                             };
 
                             const soundStyles = getSoundColor(sound.id);
+                            const duration = soundDurations[sound.id];
+                            const isOwner = session?.user?.id === sound.owner_user_id;
                             return (
-                              <button
+                              <div
                                 key={sound.id}
-                                disabled={!isLocalTestMode && (isCooldown || triggeringId !== null || isMuted)}
-                                onClick={handleSoundClick}
-                                className="relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none cursor-pointer overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97] disabled:shadow-none disabled:translate-y-0 "
+                                className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] ${
+                                  !isLocalTestMode && (isCooldown || triggeringId !== null || isMuted) ? 'opacity-50' : ''
+                                }`}
                               >
                                   {/* Background cooldown loading bar */}
                                   {isCooldown && !isLocalTestMode && (
@@ -1057,30 +1079,42 @@ export default function MemberConsolePage() {
                                   )}
 
                                   <div className="flex items-center justify-between w-full relative z-10">
-                                    <span className="text-2xl">🐣</span>
-                                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border ${
-                                      isCooldown && !isLocalTestMode 
-                                        ? 'bg-red-500/10 text-red-400 border-red-500/20' 
-                                        : soundStyles.badge
-                                    }`}>
-                                      {isCooldown && !isLocalTestMode ? 'COOLDOWN' : 'LISTO'}
-                                    </span>
+                                    <span className="text-lg">🔊</span>
+                                    <div className="flex items-center gap-1.5">
+                                      {isOwner && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setEditingSound({ id: sound.id, name: sound.name, url: sound.url || '', is_public: sound.is_public ?? true, cooldown_seconds: sound.cooldown_seconds ?? 0 }); setEditSoundName(sound.name); setEditSoundPublic(sound.is_public ?? true); }}
+                                          className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
+                                        >✏️</button>
+                                      )}
+                                      <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border ${
+                                        isCooldown && !isLocalTestMode 
+                                          ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                                          : soundStyles.badge
+                                      }`}>
+                                        {isCooldown && !isLocalTestMode ? `${soundCooldown}s` : 'LISTO'}
+                                      </span>
+                                    </div>
                                   </div>
 
                                   <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${soundStyles.text}`} title={sound.name}>
                                     {sound.name}
                                   </span>
 
-                                  {isCooldown && !isLocalTestMode ? (
-                                    <span className="text-xs font-mono font-bold text-red-500 z-10">
-                                      {soundCooldown}s
+                                  <div className="flex items-center justify-between w-full relative z-10">
+                                    <span className="text-[9px] text-gray-500 font-bold">
+                                      {duration ? `${Math.ceil(duration)}s` : '...'}
+                                      {sound.cooldown_seconds ? ` · CD: ${sound.cooldown_seconds}s` : ''}
                                     </span>
-                                  ) : (
-                                    <span className="text-[9px] text-gray-500 font-bold z-10">
-                                      {isLocalTestMode ? 'PRUEBA LOCAL' : 'DISPARAR'}
-                                    </span>
-                                  )}
-                              </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isCooldown && !isMuted) void triggerEvent('sound', sound.id); }}
+                                      disabled={!isLocalTestMode && (isCooldown || triggeringId !== null || isMuted)}
+                                      className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                    >
+                                      {isLocalTestMode ? 'PRUEBA' : '▶ ENVIAR'}
+                                    </button>
+                                  </div>
+                              </div>
                             );
                           })}
                           </div>
@@ -2248,6 +2282,71 @@ export default function MemberConsolePage() {
           rejectionReason: profile.rejection_reason || null,
         } : null}
       />
+
+      {/* EDIT SOUND MODAL */}
+      {editingSound && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => setEditingSound(null)}>
+          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 w-full max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display font-bold text-sm text-white mb-4">Editar Sonido</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nombre</label>
+                <input
+                  type="text"
+                  value={editSoundName}
+                  onChange={(e) => setEditSoundName(e.target.value)}
+                  className="w-full bg-[#35373d] border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FFC200]"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Visibilidad</label>
+                <button
+                  onClick={() => setEditSoundPublic(!editSoundPublic)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                    editSoundPublic
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : 'bg-neutral-700 text-gray-400 border-neutral-600'
+                  }`}
+                >
+                  {editSoundPublic ? '🌍 Público' : '🔒 Privado'}
+                </button>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setEditingSound(null)} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer">
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!editingSound || !editSoundName.trim()) return;
+                    setSavingSoundEdit(true);
+                    try {
+                      const res = await fetch('/api/console/sounds/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+                        body: JSON.stringify({ soundId: editingSound.id, name: editSoundName.trim(), isPublic: editSoundPublic }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error);
+                      setSounds(prev => prev.map(s => s.id === editingSound.id ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic } : s));
+                      setEditingSound(null);
+                      setSuccess('Sonido actualizado ✓');
+                      setTimeout(() => setSuccess(null), 3000);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : 'Error');
+                    } finally {
+                      setSavingSoundEdit(false);
+                    }
+                  }}
+                  disabled={savingSoundEdit || !editSoundName.trim()}
+                  className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {savingSoundEdit ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
