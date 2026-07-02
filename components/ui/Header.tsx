@@ -157,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
           {showMobileToggle && setIsMobileMenuOpen && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`md:hidden p-1.5 rounded-lg transition-all cursor-pointer focus:outline-none ${
+              className={`lg:hidden p-1.5 rounded-lg transition-all cursor-pointer focus:outline-none ${
                 isDark ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
               }`}
               aria-label="Menu"

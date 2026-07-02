@@ -2237,16 +2237,16 @@ export default function AdminPage() {
                   </p>
                 </div>
                 <span className="text-xs font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2.5 py-1 rounded-2xl ">
-                  {streamSettings.global_cooldown_seconds}s
+                  {streamSettings.global_cooldown_seconds === 0 ? 'Sin cooldown' : `${streamSettings.global_cooldown_seconds}s`}
                 </span>
               </div>
 
               <div className="space-y-2">
                 <input
                   type="range"
-                  min="5"
+                  min="0"
                   max="180"
-                  step="5"
+                  step="1"
                   value={streamSettings.global_cooldown_seconds}
                   disabled={updatingStreamSettings}
                   onChange={(e) => {
@@ -2256,7 +2256,7 @@ export default function AdminPage() {
                   className="w-full accent-[#FFC200] cursor-pointer"
                 />
                 <div className="flex justify-between text-[9px] text-gray-500 font-mono font-bold">
-                  <span>5 segundos</span>
+                  <span>Sin cooldown</span>
                   <span>3 minutos</span>
                 </div>
               </div>
@@ -2280,16 +2280,16 @@ export default function AdminPage() {
                   </p>
                 </div>
                 <span className="text-xs font-bold bg-[#FFC200]/10 text-[#FFC200] border border-neutral-700/60 px-2.5 py-1 rounded-2xl ">
-                  {Math.floor(streamSettings.personal_cooldown_seconds / 60)} min
+                  {streamSettings.personal_cooldown_seconds === 0 ? 'Sin cooldown' : streamSettings.personal_cooldown_seconds < 60 ? `${streamSettings.personal_cooldown_seconds}s` : `${Math.floor(streamSettings.personal_cooldown_seconds / 60)} min`}
                 </span>
               </div>
 
               <div className="space-y-2">
                 <input
                   type="range"
-                  min="60"
+                  min="0"
                   max="1200"
-                  step="60"
+                  step="1"
                   value={streamSettings.personal_cooldown_seconds}
                   disabled={updatingStreamSettings}
                   onChange={(e) => {
@@ -2299,7 +2299,7 @@ export default function AdminPage() {
                   className="w-full accent-[#FFC200] cursor-pointer"
                 />
                 <div className="flex justify-between text-[9px] text-gray-500 font-mono font-bold">
-                  <span>1 minuto</span>
+                  <span>Sin cooldown</span>
                   <span>20 minutos</span>
                 </div>
               </div>
