@@ -1330,7 +1330,7 @@ export default function LandingPage() {
                           src={robloxProfile.avatarUrl}
                           alt={robloxProfile.displayName}
                           className="w-24 h-24 rounded-full border-4 border-black object-cover bg-[#FCF9F2]"
-                          style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
+                          style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
                         />
                       ) : (
                         <span className="text-7xl select-none">🐣</span>

@@ -352,7 +352,7 @@ export default function RobloxOnboarding({
                         src={displayData.avatarUrl}
                         alt="Avatar"
                         className="w-20 h-20 rounded-full mx-auto mb-3 object-cover border-3 border-black shadow-md"
-                        style={{ transform: 'scale(1.5)', objectPosition: 'center 25%' }}
+                        style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
                       />
                     ) : (
                       <div className="w-20 h-20 rounded-full mx-auto mb-3 bg-yellow-200 border-3 border-black flex items-center justify-center text-3xl">
