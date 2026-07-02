@@ -356,9 +356,10 @@ export default function AdminPage() {
       });
       const data = await readApiPayload(response);
       if (!response.ok) throw new Error(data.error || 'Error al disparar evento de prueba');
-      alert('¡Alerta de prueba enviada con éxito al OBS en vivo!');
+      setStatus('¡Alerta de prueba enviada con éxito al OBS en vivo!');
+      setTimeout(() => setStatus(null), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Error al enviar evento de prueba');
+      setError(err instanceof Error ? err.message : 'Error al enviar evento de prueba');
     } finally {
       setSendingTestEvent(false);
     }
@@ -1956,11 +1957,11 @@ export default function AdminPage() {
         await loadStats(statsPhase);
       } else {
         const err = await response.json();
-        alert(`Error: ${err.error || 'No se pudo procesar el testimonio'}`);
+        setError(err.error || 'No se pudo procesar el testimonio');
       }
     } catch (err) {
       console.error(err);
-      alert('Error de red al moderar testimonio.');
+      setError('Error de red al moderar testimonio.');
     } finally {
       setModeratingTestimonial(null);
     }

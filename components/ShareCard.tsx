@@ -271,6 +271,7 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
   const [downloading, setDownloading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const mvpCategoryId = 1;
   const mvpNomineeId = votes[mvpCategoryId];
@@ -325,7 +326,8 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
       document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading story image:', error);
-      alert('Hubo un problema al guardar la imagen. ¡Volvé a intentarlo!');
+      setShareError('Hubo un problema al guardar la imagen. ¡Volvé a intentarlo!');
+      setTimeout(() => setShareError(null), 4000);
     } finally {
       setDownloading(false);
     }
@@ -353,7 +355,8 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      alert('¡Mensaje listo para copiar!');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     }
   };
 
@@ -403,6 +406,12 @@ export default function ShareCard({ votes, robloxProfile, categories, nominees }
         <Download className={`w-5 h-5 ${downloading ? 'animate-spin' : 'animate-bounce'}`} />
         {downloading ? 'GUARDANDO IMAGEN...' : 'DESCARGAR IMAGEN 📸'}
       </button>
+
+      {shareError && (
+        <div className="w-[85%] mt-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-2 text-xs font-bold text-red-600 text-center animate-fade-in">
+          {shareError}
+        </div>
+      )}
 
       {/* Botón Compartir en Discord */}
       <button

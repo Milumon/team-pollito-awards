@@ -136,6 +136,7 @@ export default function ComunidadPage() {
   const [conflictedEmail, setConflictedEmail] = useState('');
   const [forceClaim, setForceClaim] = useState(false);
   const [claimReason, setClaimReason] = useState('');
+  const [comingSoon, setComingSoon] = useState(false);
 
   const isAdmin = statusInfo?.is_admin || false;
 
@@ -1587,12 +1588,18 @@ export default function ComunidadPage() {
                 👥 Miembros Oficiales
               </h3>
               <button
-                onClick={() => alert('Próximamente grilla expandida con filtros.')}
+                onClick={() => { setComingSoon(true); setTimeout(() => setComingSoon(false), 2500); }}
                 className="px-3 py-1.5 text-sm font-sans text-gray-400 hover:text-[#2D3139] transition-colors cursor-pointer"
               >
                 Ver todos →
               </button>
             </div>
+
+            {comingSoon && (
+              <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 text-xs font-semibold text-gray-500 mb-3 text-center animate-fade-in">
+                Próximamente grilla expandida con filtros.
+              </div>
+            )}
 
             {loadingMembers ? (
               <div className="flex justify-center items-center py-12">
