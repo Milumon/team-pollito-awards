@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { NotificationPopup } from '@/components/overlay/NotificationPopup';
 
 // ─── Tipos públicos ─────────────────────────────────────────────────────────
 
@@ -14,7 +15,7 @@ export type OverlaySettings = {
 
 export type OverlayEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation';
+  type: 'sound' | 'tts' | 'animation' | 'voice';
   content: string;
   sender_roblox_user?: string | null;
   sender_tiktok_user?: string | null;
@@ -124,15 +125,6 @@ export function OverlayCanvas({
   const contentSize = settings.overlay_notification_content_size ?? 14;
   const senderSize = settings.overlay_notification_sender_size ?? 11;
 
-  const sender = senderLabel ?? event?.sender_roblox_user ?? 'VIP';
-
-  const contentLabel =
-    event?.type === 'tts'
-      ? `"${event.content}"`
-      : event?.type === 'sound'
-      ? `Sonido: ${event.content}`
-      : `Animación: ${event?.content ?? ''}`;
-
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
 
@@ -214,50 +206,15 @@ export function OverlayCanvas({
               transform: 'translateX(-50%)',
               position: 'absolute',
             }}
-            className={[
-              'bg-white border-2 border-black p-3 rounded-xl shadow-[4px_4px_0_0_rgba(0,0,0,1)]',
-              'flex items-center gap-2.5 z-30',
-              staticPreview ? '' : 'animate-slide-in',
-            ]
-              .filter(Boolean)
-              .join(' ')}
           >
-            {event.sender_avatar_url ? (
-              <div
-                style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
-                className="rounded-lg border border-black overflow-hidden shrink-0"
-              >
-                <img
-                  src={event.sender_avatar_url}
-                  alt={sender}
-                  className="w-full h-full object-cover"
-                  style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
-                />
-              </div>
-            ) : (
-              <div
-                style={{ width: `${avatarSize}px`, height: `${avatarSize}px` }}
-                className="rounded-lg bg-yellow-100 border border-black flex items-center justify-center text-lg shrink-0"
-              >
-                {event.type === 'sound' ? '🔊' : '🗣️'}
-              </div>
-            )}
-            <div className="min-w-0 text-left flex-1">
-              <p
-                style={{ fontSize: `${contentSize}px` }}
-                className={`font-black text-black leading-tight ${
-                  event?.type === 'tts' ? 'line-clamp-3' : 'truncate'
-                }`}
-              >
-                {contentLabel}
-              </p>
-              <p
-                style={{ fontSize: `${senderSize}px` }}
-                className="font-black text-gray-500 truncate mt-0.5"
-              >
-                Por: @{sender}
-              </p>
-            </div>
+            <NotificationPopup
+              event={event}
+              avatarSize={avatarSize}
+              contentSize={contentSize}
+              senderSize={senderSize}
+              senderLabel={senderLabel}
+              className={staticPreview ? '' : 'animate-slide-in'}
+            />
           </div>
         )}
 

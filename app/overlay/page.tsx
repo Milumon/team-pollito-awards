@@ -7,7 +7,7 @@ import { OverlayCanvas, type OverlayParticle, type OverlayAnimationType } from '
 
 type StreamEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation';
+  type: 'sound' | 'tts' | 'animation' | 'voice';
   content: string;
   sender_roblox_user: string | null;
   sender_tiktok_user: string | null;
@@ -215,6 +215,33 @@ export default function ObsOverlayPage() {
           remoteLog('ERROR', `Fallo al reproducir TTS: ${error.name} - ${error.message}`);
           if (error.name === 'NotAllowedError') {
             remoteLog('WARN', 'Autoplay bloqueado para TTS. Mostrando pantalla de interacción.');
+            setNeedsInteraction(true);
+            queueRef.current.unshift(nextEvent);
+            setIsPlaying(false);
+            isPlayingRef.current = false;
+            setCurrentEvent(null);
+            currentEventRef.current = null;
+          } else {
+            await markEventAsPlayed(nextEvent.id);
+            setTimeout(() => { playNextRef.current(); }, 500);
+          }
+        }
+      }
+    } else if (nextEvent.type === 'voice') {
+      // Voice message: content is the audio URL directly
+      const voiceUrl = nextEvent.content;
+      remoteLog('INFO', `Reproduciendo voice message: url=${voiceUrl}`);
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.src = voiceUrl;
+        try {
+          remoteLog('DEBUG', 'Llamando a audio.play() para voice...');
+          await audioPlayerRef.current.play();
+          remoteLog('DEBUG', 'Voice play() completado con éxito.');
+        } catch (err) {
+          const error = err as Error;
+          remoteLog('ERROR', `Fallo al reproducir voice: ${error.name} - ${error.message}`);
+          if (error.name === 'NotAllowedError') {
+            remoteLog('WARN', 'Autoplay bloqueado para voice. Mostrando pantalla de interacción.');
             setNeedsInteraction(true);
             queueRef.current.unshift(nextEvent);
             setIsPlaying(false);

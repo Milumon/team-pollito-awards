@@ -14,6 +14,7 @@ import {
   Send, 
   Clock, 
   Sparkles, 
+  Mic,
   ShieldAlert, 
   ArrowLeft, 
   Loader2, 
@@ -106,6 +107,18 @@ export default function MemberConsolePage() {
   // TTS State
   const [ttsText, setTtsText] = useState('');
   const [sendingTts, setSendingTts] = useState(false);
+
+  // Voice Recording State
+  const [ttsMode, setTtsMode] = useState<'text' | 'voice'>('text');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedFile, setRecordedFile] = useState<File | null>(null);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const [sendingVoice, setSendingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordStartTimeRef = useRef<number>(0);
 
   // Sound/Animation Trigger State
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
@@ -624,6 +637,79 @@ export default function MemberConsolePage() {
     void triggerEvent('tts', ttsText);
   };
 
+  // Voice Recording Functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setRecordedBlob(blob);
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        setRecordedFile(file);
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordedBlob(null);
+      setRecordedFile(null);
+      setRecordDuration(0);
+      recordStartTimeRef.current = Date.now();
+      recordTimerRef.current = setInterval(() => {
+        setRecordDuration(Math.floor((Date.now() - recordStartTimeRef.current) / 1000));
+      }, 200);
+    } catch (err) {
+      console.error('Recording error:', err);
+      setError('No se pudo acceder al micrófono. Verificá los permisos del navegador.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    }
+  };
+
+  const discardRecording = () => {
+    setRecordedBlob(null);
+    setRecordedFile(null);
+    setRecordDuration(0);
+  };
+
+  const handleSendVoice = async () => {
+    if (!recordedFile || sendingVoice) return;
+    setSendingVoice(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', recordedFile);
+      const res = await fetch('/api/stream/events/voice', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al enviar audio');
+      setSuccess('¡Mensaje de voz enviado! 🎤');
+      setTimeout(() => setSuccess(null), 4000);
+      discardRecording();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar');
+    } finally {
+      setSendingVoice(false);
+    }
+  };
+
   const handleBackToLanding = () => {
     soundManager.playPop();
     window.location.href = '/';
@@ -1089,63 +1175,98 @@ export default function MemberConsolePage() {
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
                       <div className="flex items-center gap-2">
                         <Send className="w-5 h-5 text-gray-400" />
-                        <h2 className="font-display font-bold text-base md:text-lg text-white">Text-To-Speech (TTS)</h2>
+                        <h2 className="font-display font-bold text-base md:text-lg text-white">Mensaje de Voz</h2>
                       </div>
-                      <span className="text-[10px] bg-neutral-800 rounded-lg px-2.5 py-0.5 font-medium text-gray-500">
-                        Voz Neural
-                      </span>
+                      <div className="flex bg-[#1e1f22] rounded-lg p-0.5 border border-neutral-700/60">
+                        <button onClick={() => setTtsMode('text')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${ttsMode === 'text' ? 'bg-[#FFC200] text-black' : 'text-gray-500 hover:text-white'}`}>
+                          ✏️ Texto
+                        </button>
+                        <button onClick={() => setTtsMode('voice')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${ttsMode === 'voice' ? 'bg-[#FFC200] text-black' : 'text-gray-500 hover:text-white'}`}>
+                          🎤 Grabar
+                        </button>
+                      </div>
                     </div>
 
-                    <p className="text-[11px] font-semibold text-gray-400 mb-4 shrink-0 leading-relaxed">
-                      Escribí tu mensaje para que la voz del directo lo lea con entonación neural en vivo.
-                    </p>
-
                     <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
-                      <form onSubmit={handleTtsSubmit} className="space-y-4 p-1">
-                        <div className="relative">
-                          <textarea
-                            value={ttsText}
-                            onChange={(e) => setTtsText(e.target.value.slice(0, 120))}
-                            disabled={ttsCooldown > 0 || sendingTts || isMuted}
-                            placeholder={
-                              isMuted 
-                                ? "Consola silenciada temporalmente..." 
-                                : ttsCooldown > 0
-                                ? `TTS bloqueado. Esperá ${ttsCooldown}s...`
-                                : "Escribí un mensaje corto para el directo..."
-                            }
-                            className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl p-4 font-sans text-sm outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 min-h-[140px] resize-none disabled:opacity-50 disabled:cursor-not-allowed text-white placeholder-gray-500 "
-                          />
-                          <span className={`absolute bottom-4 right-4 text-[9px] font-mono ${
-                            ttsText.length >= 100 ? 'text-red-500' : 'text-gray-500'
-                          }`}>
-                            {ttsText.length}/120
-                          </span>
-                        </div>
+                      {ttsMode === 'text' ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-gray-400 mb-4 shrink-0 leading-relaxed">
+                            Escribí tu mensaje para que la voz del directo lo lea con entonación neural en vivo.
+                          </p>
+                          <form onSubmit={handleTtsSubmit} className="space-y-4 p-1">
+                            <div className="relative">
+                              <textarea
+                                value={ttsText}
+                                onChange={(e) => setTtsText(e.target.value.slice(0, 120))}
+                                disabled={ttsCooldown > 0 || sendingTts || isMuted}
+                                placeholder={isMuted ? "Consola silenciada..." : ttsCooldown > 0 ? `Bloqueado. Esperá ${ttsCooldown}s...` : "Escribí un mensaje corto..."}
+                                className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl p-4 font-sans text-sm outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 min-h-[140px] resize-none disabled:opacity-50 disabled:cursor-not-allowed text-white placeholder-gray-500"
+                              />
+                              <span className={`absolute bottom-4 right-4 text-[9px] font-mono ${ttsText.length >= 100 ? 'text-red-500' : 'text-gray-500'}`}>
+                                {ttsText.length}/120
+                              </span>
+                            </div>
+                            <button type="submit" disabled={ttsCooldown > 0 || !ttsText.trim() || sendingTts || isMuted}
+                              className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                              {sendingTts ? <><Loader2 className="w-4 h-4 animate-spin text-black" /> Generando...</> : ttsCooldown > 0 ? <><Clock className="w-4 h-4 text-black" /> Cooldown ({ttsCooldown}s)</> : <><Send className="w-4 h-4 text-black" /> Enviar Mensaje</>}
+                            </button>
+                          </form>
+                        </>
+                      ) : (
+                        <div className="p-1 space-y-4">
+                          <p className="text-[11px] font-semibold text-gray-400 leading-relaxed">
+                            Grabá tu voz directamente desde el micrófono. Podés pre-escuchar y recortar antes de enviar.
+                          </p>
 
-                        <button
-                          type="submit"
-                          disabled={ttsCooldown > 0 || !ttsText.trim() || sendingTts || isMuted}
-                          className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        >
-                          {sendingTts ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin text-black" />
-                              Generando Audio...
-                            </>
-                          ) : ttsCooldown > 0 ? (
-                            <>
-                              <Clock className="w-4 h-4 text-black" />
-                              Cooldown ({ttsCooldown}s)
-                            </>
+                          {/* Recording Controls */}
+                          {!recordedBlob ? (
+                            <div className="flex flex-col items-center gap-4 py-6">
+                              {isRecording ? (
+                                <>
+                                  <div className="w-20 h-20 rounded-full bg-red-500/20 border-4 border-red-500 flex items-center justify-center animate-pulse">
+                                    <div className="w-6 h-6 rounded-full bg-red-500" />
+                                  </div>
+                                  <span className="text-xs font-mono text-red-400 font-bold">{recordDuration}s</span>
+                                  <button onClick={stopRecording} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]">
+                                    Detener Grabación
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-20 h-20 rounded-full bg-[#FFC200]/10 border-4 border-[#FFC200]/40 flex items-center justify-center">
+                                    <Mic className="w-8 h-8 text-[#FFC200]" />
+                                  </div>
+                                  <button onClick={startRecording} disabled={ttsCooldown > 0 || isMuted}
+                                    className="px-6 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <Mic className="w-4 h-4" /> Empezar a Grabar
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           ) : (
                             <>
-                              <Send className="w-4 h-4 text-black" />
-                              Enviar Mensaje de Voz
+                              {/* Preview recorded audio */}
+                              <div className="bg-[#35373d] border border-neutral-700/60 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-white">🎧 Tu grabación ({recordDuration}s)</span>
+                                  <button onClick={discardRecording} className="text-[10px] text-red-400 hover:text-red-300 font-bold cursor-pointer">Descartar</button>
+                                </div>
+                                {recordedFile && (
+                                  <AudioPreview
+                                    file={recordedFile}
+                                    onTrimChange={(start, end) => setAudioTrim({ start, end })}
+                                    embedded
+                                  />
+                                )}
+                              </div>
+                              <button onClick={handleSendVoice} disabled={sendingVoice || ttsCooldown > 0 || isMuted}
+                                className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
+                                {sendingVoice ? <><Loader2 className="w-4 h-4 animate-spin text-black" /> Enviando...</> : ttsCooldown > 0 ? <><Clock className="w-4 h-4 text-black" /> Cooldown ({ttsCooldown}s)</> : <><Send className="w-4 h-4 text-black" /> Enviar Mensaje de Voz</>}
+                              </button>
                             </>
                           )}
-                        </button>
-                      </form>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
