@@ -2269,6 +2269,20 @@ export default function MemberConsolePage() {
         )}
       </AnimatePresence>
 
+      {/* ERROR/SUCCESS BANNERS */}
+      {error && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-950/90 border border-red-500/30 rounded-xl px-4 py-2.5 text-xs font-bold text-red-400 shadow-lg backdrop-blur-sm max-w-sm text-center animate-slide-in">
+          ⚠️ {error}
+          <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-300">✕</button>
+        </div>
+      )}
+      {success && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-emerald-950/90 border border-emerald-500/30 rounded-xl px-4 py-2.5 text-xs font-bold text-emerald-400 shadow-lg backdrop-blur-sm max-w-sm text-center animate-slide-in">
+          ✓ {success}
+          <button onClick={() => setSuccess(null)} className="ml-2 text-emerald-400 hover:text-emerald-300">✕</button>
+        </div>
+      )}
+
       {/* ROBLOX ONBOARDING MODAL */}
       <RobloxOnboarding
         isOpen={isRobloxOnboardingOpen}
