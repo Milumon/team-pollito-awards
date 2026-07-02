@@ -1017,57 +1017,24 @@ export default function MemberConsolePage() {
 
                   {/* ACCESOS RÁPIDOS */}
                   <div className="mt-4 shrink-0">
-                    <h3 className="text-[10px] font-medium text-gray-500 tracking-wider uppercase text-left mb-2 px-1">
-                      Accesos Rápidos
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => {
                           soundManager.playPop();
                           setIsLocalTestMode(!isLocalTestMode);
                         }}
-                        className={`py-3.5 px-4 border rounded-2xl font-display font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97] ${
+                        className={`py-3 px-4 border rounded-2xl font-display font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97] ${
                           isLocalTestMode 
                             ? 'bg-[#FFC200] text-black border-black shadow-[3px_3px_0_0_#000]' 
                             : 'bg-[#2b2d31] text-gray-400 border-black hover:text-white'
                         }`}
                       >
                         <span>🎧</span>
-                        <span>{isLocalTestMode ? 'MODO PRUEBA: ON' : 'PROBAR SONIDO'}</span>
+                        <span>{isLocalTestMode ? 'PRUEBA: ON — Escuchando local' : 'Escuchar antes de enviar'}</span>
                       </button>
-
-                      <button
-                        onClick={() => {
-                          soundManager.playPop();
-                          setActiveTab('tts');
-                        }}
-                        className="py-3.5 px-4 bg-[#2b2d31] border border-neutral-700/60 text-gray-400 hover:text-white rounded-2xl font-display font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97]"
-                      >
-                        <span>💬</span>
-                        <span>VISTA PREVIA TTS</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          soundManager.playPop();
-                          setActiveTab('animations');
-                        }}
-                        className="py-3.5 px-4 bg-[#2b2d31] border border-neutral-700/60 text-gray-400 hover:text-white rounded-2xl font-display font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97]"
-                      >
-                        <span>✨</span>
-                        <span>PROBAR EFECTO</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          soundManager.playPop();
-                          setActiveTab('feed');
-                        }}
-                        className="py-3.5 px-4 bg-[#2b2d31] border border-neutral-700/60 text-gray-400 hover:text-white rounded-2xl font-display font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97]"
-                      >
-                        <span>🕒</span>
-                        <span>HISTORIAL</span>
-                      </button>
+                      {isLocalTestMode && (
+                        <span className="text-[9px] text-[#FFC200] font-bold animate-pulse">Los sonidos se reproducen solo en tus auriculares</span>
+                      )}
                     </div>
                   </div>
 
