@@ -113,6 +113,8 @@ type StreamSettings = {
   overlay_notification_badge_size: number;
   overlay_notification_content_size: number;
   overlay_notification_sender_size: number;
+  overlay_media_top: number;
+  overlay_media_width: number;
 };
 
 type AuditLog = {
@@ -278,10 +280,13 @@ export default function AdminPage() {
 
   // Simulated Event Previews for Overlay Simulator
   const [simulatedEvent, setSimulatedEvent] = useState<{
-    type: 'sound' | 'tts' | 'animation';
+    type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video';
     content: string;
     senderRobloxUser: string;
     visible: boolean;
+    image_url?: string;
+    audio_url?: string;
+    video_url?: string;
   } | null>(null);
 
   const [simulatedParticles, setSimulatedParticles] = useState<OverlayParticle[]>([]);
@@ -307,12 +312,13 @@ export default function AdminPage() {
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
-  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation', content: string) => {
+  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     setSimulatedEvent({
       type,
       content,
       senderRobloxUser: 'MilumonGaming',
-      visible: true
+      visible: true,
+      ...extra
     });
     
     if (type === 'animation') {
@@ -346,7 +352,7 @@ export default function AdminPage() {
     }, 4000);
   };
 
-  const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation', content: string) => {
+  const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     setSendingTestEvent(true);
     try {
       const response = await apiFetch('/api/admin/stream/test-event', {
@@ -355,7 +361,8 @@ export default function AdminPage() {
           type,
           content,
           senderRobloxUser: 'PruebaAdmin',
-          senderTiktokUser: 'prueba_admin'
+          senderTiktokUser: 'prueba_admin',
+          ...extra
         })
       });
       const data = await readApiPayload(response);
@@ -801,6 +808,8 @@ export default function AdminPage() {
     overlayNotificationBadgeSize?: number;
     overlayNotificationContentSize?: number;
     overlayNotificationSenderSize?: number;
+    overlayMediaTop?: number;
+    overlayMediaWidth?: number;
   }) => {
     if (!isAdmin) return;
     setUpdatingStreamSettings(true);
@@ -2545,6 +2554,39 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Media Position */}
+              <div className="space-y-3 pt-3 border-t border-neutral-700/40">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-gray-500">Posición Media (IMG+Audio / Video)</p>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Distancia Superior (Y)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_top ?? 48}px</span>
+                  </label>
+                  <input
+                    type="range" min="0" max="1200" step="10"
+                    value={streamSettings.overlay_media_top ?? 48}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_top: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0px (Arriba)</span><span>1200px (Abajo)</span></div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Ancho del Media</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_width ?? 400}px</span>
+                  </label>
+                  <input
+                    type="range" min="200" max="700" step="10"
+                    value={streamSettings.overlay_media_width ?? 400}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_width: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>200px (compacto)</span><span>700px (ancho)</span></div>
+                </div>
+              </div>
+
               {/* Guardar + Pruebas */}
               <div className="space-y-3 pt-3 border-t border-neutral-700/40">
                 <button
@@ -2555,7 +2597,9 @@ export default function AdminPage() {
                     overlayNotificationWidth: streamSettings.overlay_notification_width,
                     overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
                     overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
-                    overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size
+                    overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size,
+                    overlayMediaTop: streamSettings.overlay_media_top,
+                    overlayMediaWidth: streamSettings.overlay_media_width
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
                 >
@@ -2580,6 +2624,14 @@ export default function AdminPage() {
                     <button type="button" onClick={() => triggerLocalTestEvent('animation', 'eggs')}
                       className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🐣 Huevos
+                    </button>
+                    <button type="button" onClick={() => triggerLocalTestEvent('image_audio', 'Prueba IMG+Audio', { image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400', audio_url: '/sounds/sorpresa.mp3' })}
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
+                      🖼️ IMG+Audio
+                    </button>
+                    <button type="button" onClick={() => triggerLocalTestEvent('video', 'Prueba Video', { video_url: 'https://www.w3schools.com/html/mov_bbb.mp4' })}
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
+                      🎬 Video
                     </button>
                   </div>
                 </div>
@@ -2665,6 +2717,9 @@ export default function AdminPage() {
                           content: simulatedEvent.content,
                           sender_roblox_user: simulatedEvent.senderRobloxUser,
                           sender_avatar_url: adminVerifiedProfile?.avatarUrl || null,
+                          image_url: simulatedEvent.image_url,
+                          audio_url: simulatedEvent.audio_url,
+                          video_url: simulatedEvent.video_url,
                         }
                       : staticPreviewEvent
                   }

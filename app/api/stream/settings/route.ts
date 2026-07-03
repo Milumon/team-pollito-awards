@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
       overlayNotificationWidth,
       overlayNotificationBadgeSize,
       overlayNotificationContentSize,
-      overlayNotificationSenderSize
+      overlayNotificationSenderSize,
+      overlayMediaTop,
+      overlayMediaWidth
     } = body;
 
     const updates: Record<string, string | number | boolean | null> = {};
@@ -81,6 +83,8 @@ export async function POST(request: NextRequest) {
     if (typeof overlayNotificationBadgeSize === 'number') updates.overlay_notification_badge_size = overlayNotificationBadgeSize;
     if (typeof overlayNotificationContentSize === 'number') updates.overlay_notification_content_size = overlayNotificationContentSize;
     if (typeof overlayNotificationSenderSize === 'number') updates.overlay_notification_sender_size = overlayNotificationSenderSize;
+    if (typeof overlayMediaTop === 'number') updates.overlay_media_top = overlayMediaTop;
+    if (typeof overlayMediaWidth === 'number') updates.overlay_media_width = overlayMediaWidth;
     
     updates.updated_at = new Date().toISOString();
 

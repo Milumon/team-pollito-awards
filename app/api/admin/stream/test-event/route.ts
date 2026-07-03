@@ -19,26 +19,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, content, senderRobloxUser, senderTiktokUser } = body;
+    const { type, content, senderRobloxUser, senderTiktokUser, image_url, audio_url, video_url } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (type, content)' }, { status: 400 });
     }
 
-    if (!['sound', 'tts', 'animation'].includes(type)) {
+    if (!['sound', 'tts', 'animation', 'image_audio', 'video'].includes(type)) {
       return NextResponse.json({ error: 'Tipo de evento de prueba inválido' }, { status: 400 });
     }
 
     // Insert the test event directly in stream_events
+    const insertPayload: Record<string, unknown> = {
+      type,
+      content: content.trim(),
+      sender_roblox_user: senderRobloxUser || 'PruebaAdmin',
+      sender_tiktok_user: senderTiktokUser || 'prueba_admin',
+      played: false
+    };
+
+    if (type === 'image_audio') {
+      if (image_url) insertPayload.image_url = image_url;
+      if (audio_url) insertPayload.audio_url = audio_url;
+    }
+    if (type === 'video') {
+      if (video_url) insertPayload.video_url = video_url;
+    }
+
     const { data: newEvent, error } = await supabaseAdmin
       .from('stream_events')
-      .insert({
-        type,
-        content: content.trim(),
-        sender_roblox_user: senderRobloxUser || 'PruebaAdmin',
-        sender_tiktok_user: senderTiktokUser || 'prueba_admin',
-        played: false
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
