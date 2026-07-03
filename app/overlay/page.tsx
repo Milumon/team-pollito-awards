@@ -7,11 +7,14 @@ import { OverlayCanvas, type OverlayParticle, type OverlayAnimationType } from '
 
 type StreamEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation' | 'voice';
+  type: 'sound' | 'tts' | 'animation' | 'voice' | 'image_audio' | 'video';
   content: string;
   sender_roblox_user: string | null;
   sender_tiktok_user: string | null;
   sender_avatar_url: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  video_url?: string | null;
   created_at: string;
   played: boolean;
 };
@@ -26,6 +29,8 @@ type StreamSettings = {
   overlay_notification_badge_size?: number;
   overlay_notification_content_size?: number;
   overlay_notification_sender_size?: number;
+  overlay_media_top?: number;
+  overlay_media_width?: number;
 };
 
 
@@ -273,6 +278,45 @@ export default function ObsOverlayPage() {
         await markEventAsPlayed(nextEvent.id);
         setTimeout(() => { playNextRef.current(); }, 500);
       }
+    } else if (nextEvent.type === 'image_audio') {
+      // Image + Audio: play audio, display image via overlay settings
+      const audioUrl = nextEvent.audio_url || nextEvent.content;
+      remoteLog('INFO', `[IMAGE_AUDIO] audio=${audioUrl}, image=${nextEvent.image_url}`);
+
+      if (audioPlayerRef.current && audioUrl) {
+        audioPlayerRef.current.src = audioUrl;
+        audioPlayerRef.current.volume = soundVolume;
+        const playPromise = audioPlayerRef.current.play();
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('play() timeout 5s')), 5000)
+        );
+        try {
+          await Promise.race([playPromise, timeoutPromise]);
+          remoteLog('INFO', '[IMAGE_AUDIO] play() OK');
+          setTimeout(async () => {
+            if (currentEventRef.current?.id === nextEvent.id) {
+              await markEventAsPlayed(nextEvent.id);
+              playNextRef.current();
+            }
+          }, 30000);
+        } catch (err) {
+          const error = err as Error;
+          remoteLog('ERROR', `[IMAGE_AUDIO] play() falló: ${error.message}`);
+          await markEventAsPlayed(nextEvent.id);
+          setTimeout(() => { playNextRef.current(); }, 500);
+        }
+      } else {
+        await markEventAsPlayed(nextEvent.id);
+        setTimeout(() => { playNextRef.current(); }, 500);
+      }
+    } else if (nextEvent.type === 'video') {
+      // Video: just display via overlay, auto-advance after timeout
+      remoteLog('INFO', `[VIDEO] url=${nextEvent.video_url}`);
+      // The video element in OverlayCanvas handles autoplay
+      setTimeout(async () => {
+        await markEventAsPlayed(nextEvent.id);
+        playNextRef.current();
+      }, 30000);
     } else if (nextEvent.type === 'animation') {
       // Setup particles
       const animType = nextEvent.content as 'eggs' | 'sparkles' | 'confetti';

@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 import { Header } from '@/components/ui/Header';
 import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
+import MediaSubmissionsPanel from '@/components/admin/MediaSubmissionsPanel';
 
 function maskEmail(email: string): string {
   if (!email) return '';
@@ -254,7 +255,7 @@ export default function AdminPage() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'stream-status' | 'testimonials'>('nominees');
+  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials'>('nominees');
   
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -3431,6 +3432,8 @@ export default function AdminPage() {
         return renderOverlayDesignTab();
       case 'soundboard':
         return renderSoundboardTab();
+      case 'media-submissions':
+        return <MediaSubmissionsPanel apiFetch={apiFetch} token="" />;
       case 'stream-status':
         return renderStreamStatusMobileTab();
       case 'testimonials':
@@ -3589,6 +3592,9 @@ export default function AdminPage() {
             </button>
             <button type="button" onClick={() => { setActiveTab('soundboard'); setMobileMenuOpen(false); }} className={navBtnClass('soundboard')}>
               <span>🔊</span> Botonera OBS
+            </button>
+            <button type="button" onClick={() => { setActiveTab('media-submissions'); setMobileMenuOpen(false); }} className={navBtnClass('media-submissions')}>
+              <span>🖼️</span> Media de Usuarios
             </button>
           </div>
 

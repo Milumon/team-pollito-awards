@@ -11,15 +11,20 @@ export type OverlaySettings = {
   overlay_notification_badge_size?: number;
   overlay_notification_content_size?: number;
   overlay_notification_sender_size?: number;
+  overlay_media_top?: number;
+  overlay_media_width?: number;
 };
 
 export type OverlayEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation' | 'voice';
+  type: 'sound' | 'tts' | 'animation' | 'voice' | 'image_audio' | 'video';
   content: string;
   sender_roblox_user?: string | null;
   sender_tiktok_user?: string | null;
   sender_avatar_url?: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  video_url?: string | null;
 };
 
 export type OverlayParticle = {
@@ -124,6 +129,8 @@ export function OverlayCanvas({
   const avatarSize = settings.overlay_notification_badge_size ?? 32;
   const contentSize = settings.overlay_notification_content_size ?? 14;
   const senderSize = settings.overlay_notification_sender_size ?? 11;
+  const mediaTop = settings.overlay_media_top ?? 48;
+  const mediaWidth = settings.overlay_media_width ?? 400;
 
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
@@ -196,7 +203,7 @@ export function OverlayCanvas({
         )}
 
         {/* ── Widget de notificación ── */}
-        {event && event.type !== 'animation' && (isObs ? !isMuted : true) && (
+        {event && event.type !== 'animation' && event.type !== 'image_audio' && event.type !== 'video' && (isObs ? !isMuted : true) && (
           <div
             style={{
               top: `${top}px`,
@@ -215,6 +222,60 @@ export function OverlayCanvas({
               senderLabel={senderLabel}
               className={staticPreview ? '' : 'animate-slide-in'}
             />
+          </div>
+        )}
+
+        {/* ── Media display (image_audio / video) ── */}
+        {event && (event.type === 'image_audio' || event.type === 'video') && (isObs ? !isMuted : true) && (
+          <div
+            style={{
+              top: `${mediaTop}px`,
+              width: `${mediaWidth}px`,
+              maxWidth: '90%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              position: 'absolute',
+            }}
+          >
+            {event.type === 'image_audio' && event.image_url && (
+              <div className="relative bg-black/80 border border-[#f5b94a]/50 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+                <img
+                  src={event.image_url}
+                  alt={event.content}
+                  className="w-full object-contain max-h-[60vh]"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a]">
+                    &gt;&gt;&gt; imagen + audio
+                  </p>
+                  <p className="text-xs font-black text-[#f4ead9] truncate">{event.content}</p>
+                  <p className="text-[10px] font-bold text-[#c99a5b] truncate">
+                    Por: @{event.sender_roblox_user ?? 'VIP'}
+                  </p>
+                </div>
+              </div>
+            )}
+            {event.type === 'video' && event.video_url && (
+              <div className="relative bg-black/80 border border-[#f5b94a]/50 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+                <video
+                  src={event.video_url}
+                  autoPlay
+                  loop={false}
+                  playsInline
+                  muted={false}
+                  className="w-full object-contain max-h-[60vh]"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a]">
+                    &gt;&gt;&gt; video
+                  </p>
+                  <p className="text-xs font-black text-[#f4ead9] truncate">{event.content}</p>
+                  <p className="text-[10px] font-bold text-[#c99a5b] truncate">
+                    Por: @{event.sender_roblox_user ?? 'VIP'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
