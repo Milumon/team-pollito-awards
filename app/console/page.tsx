@@ -29,7 +29,8 @@ import {
   Crown,
   FileAudio,
   Activity,
-  ExternalLink
+  ExternalLink,
+  Scissors
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
@@ -2421,43 +2422,49 @@ export default function MemberConsolePage() {
 
       {/* EDIT SOUND MODAL */}
       {editingSound && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}>
-          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 w-full max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-display font-bold text-sm text-white mb-4">Editar Sonido</h3>
-            <div className="space-y-4">
-              {/* Name */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nombre</label>
-                <input
-                  type="text"
-                  value={editSoundName}
-                  onChange={(e) => setEditSoundName(e.target.value)}
-                  className="w-full bg-[#35373d] border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FFC200]"
-                />
-              </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}>
+          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl w-full max-w-sm sm:max-w-lg lg:max-w-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[90vh] sm:max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-neutral-700/60 shrink-0">
+              <h3 className="font-display font-bold text-base text-white">Editar Sonido</h3>
+              <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">Modificá el nombre, cooldown, visibilidad o recortá el audio.</p>
+            </div>
 
-              {/* Cooldown */}
-              <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Cooldown (segundos)</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={300}
-                  value={editSoundCooldown}
-                  onChange={(e) => setEditSoundCooldown(e.target.value)}
-                  className="w-full bg-[#35373d] border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FFC200]"
-                />
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Row: Name + Cooldown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nombre</label>
+                  <input
+                    type="text"
+                    value={editSoundName}
+                    onChange={(e) => setEditSoundName(e.target.value)}
+                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/30 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Cooldown (segundos)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={300}
+                    value={editSoundCooldown}
+                    onChange={(e) => setEditSoundCooldown(e.target.value)}
+                    className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/30 transition-all"
+                  />
+                </div>
               </div>
 
               {/* Visibility */}
-              <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Visibilidad</label>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Visibilidad</label>
                 <button
                   onClick={() => setEditSoundPublic(!editSoundPublic)}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     editSoundPublic
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-neutral-700 text-gray-400 border-neutral-600'
+                      : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                   }`}
                 >
                   {editSoundPublic ? '🌍 Público' : '🔒 Privado'}
@@ -2469,22 +2476,25 @@ export default function MemberConsolePage() {
                 <button
                   type="button"
                   onClick={() => setEditingSoundAudioEnabled(v => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 bg-[#35373d] hover:bg-[#3a3c42] transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-4 py-3 bg-[#35373d] hover:bg-[#3a3c42] transition-colors cursor-pointer"
                 >
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Editar audio (recortar)</span>
-                  <span className="text-[9px] text-gray-500 font-bold">{editingSoundAudioEnabled ? '▲' : '▼'}</span>
+                  <div className="flex items-center gap-2">
+                    <Scissors className="w-3.5 h-3.5 text-[#FFC200]" />
+                    <span className="text-xs font-bold text-gray-300">Editar audio (recortar)</span>
+                  </div>
+                  <span className="text-[10px] text-gray-500 font-bold">{editingSoundAudioEnabled ? '▲ Colapsar' : '▼ Expandir'}</span>
                 </button>
 
                 {editingSoundAudioEnabled && (
-                  <div className="px-3 py-3 space-y-3 bg-[#2b2d31]">
+                  <div className="p-4 bg-[#2b2d31] border-t border-neutral-700/40">
                     {editingSoundAudioLoading ? (
-                      <div className="py-6 text-center text-gray-500 text-xs animate-pulse">
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#FFC200]" />
+                      <div className="py-8 text-center text-gray-500 text-xs animate-pulse">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FFC200]" />
                         Cargando audio actual...
                       </div>
                     ) : editingSoundAudioError ? (
-                      <div className="py-4 text-center">
-                        <p className="text-[10px] text-red-400 font-semibold">{editingSoundAudioError}</p>
+                      <div className="py-6 text-center">
+                        <p className="text-xs text-red-400 font-semibold">{editingSoundAudioError}</p>
                       </div>
                     ) : editingSoundAudioFile ? (
                       <>
@@ -2493,12 +2503,12 @@ export default function MemberConsolePage() {
                           onTrimChange={(start, end) => setEditingSoundAudioTrim({ start, end })}
                           embedded
                         />
-                        <p className="text-[9px] text-gray-500 text-center font-semibold">
+                        <p className="text-[10px] text-gray-500 text-center font-semibold mt-3">
                           Recortá el audio y presioná "Guardar todo" para aplicar los cambios.
                         </p>
                       </>
                     ) : (
-                      <div className="py-4 text-center text-gray-500 text-xs">
+                      <div className="py-6 text-center text-gray-500 text-xs">
                         No se pudo cargar el audio actual.
                       </div>
                     )}
@@ -2512,23 +2522,23 @@ export default function MemberConsolePage() {
                   {audioSubmitStatus}
                 </p>
               )}
+            </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}
-                  className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSaveSound}
-                  disabled={savingSoundEdit || !editSoundName.trim()}
-                  className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-                >
-                  {savingSoundEdit ? <><Loader2 className="w-3 h-3 animate-spin" /> Guardando...</> : 'Guardar todo'}
-                </button>
-              </div>
+            {/* Footer — fixed */}
+            <div className="px-6 py-4 border-t border-neutral-700/60 shrink-0 flex gap-3">
+              <button
+                onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}
+                className="flex-1 py-3 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveSound}
+                disabled={savingSoundEdit || !editSoundName.trim()}
+                className="flex-1 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-bold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingSoundEdit ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : 'Guardar todo'}
+              </button>
             </div>
           </div>
         </div>
