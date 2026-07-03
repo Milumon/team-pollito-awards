@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
     }
 
-    if (!['sound', 'tts', 'animation'].includes(type)) {
+    if (!['sound', 'tts', 'animation', 'image_audio', 'video'].includes(type)) {
       return NextResponse.json({ error: 'Tipo de evento inválido' }, { status: 400 });
     }
 

@@ -30,10 +30,14 @@ import {
   FileAudio,
   Activity,
   ExternalLink,
-  Scissors
+  Scissors,
+  Image
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
+import MediaUploadForm from '@/components/console/MediaUploadForm';
+import MediaGrid from '@/components/console/MediaGrid';
+import MediaSubmissionsHistory from '@/components/console/MediaSubmissionsHistory';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
@@ -102,7 +106,7 @@ export default function MemberConsolePage() {
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
 
   // Navigation state (app feel)
-  const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
+  const [activeTab, setActiveTab] = useState<'sounds' | 'media' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
 
@@ -145,6 +149,12 @@ export default function MemberConsolePage() {
   const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
   const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
   const [editingSource, setEditingSource] = useState<'soundboard' | 'submission'>('soundboard');
+
+  // Media state
+  const [mediaApproved, setMediaApproved] = useState<{ id: string; name: string; media_type: string; image_url?: string; audio_url?: string; video_url?: string; is_public?: boolean; owner_user_id?: string | null; cooldown_seconds?: number; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
+  const [mediaSubmissions, setMediaSubmissions] = useState<{ id: string; media_type: string; name: string; image_url: string | null; audio_url: string | null; video_url: string | null; is_public: boolean; status: string; rejection_reason: string | null; suggested_cooldown_seconds: number; created_at: string }[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(true);
+  const [loadingMediaSubs, setLoadingMediaSubs] = useState(false);
 
   // Stream Settings State
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
@@ -641,6 +651,39 @@ export default function MemberConsolePage() {
     }
   }, []);
 
+  // Fetch approved media from soundboard
+  const fetchMedia = useCallback(async () => {
+    setLoadingMedia(true);
+    try {
+      const response = await fetch('/api/admin/sounds');
+      const data = await response.json();
+      if (data.sounds) {
+        const mediaOnly = data.sounds.filter((s: Record<string, unknown>) => s.media_type === 'image_audio' || s.media_type === 'video');
+        setMediaApproved(mediaOnly);
+      }
+    } catch (err) {
+      console.error('Error fetching media:', err);
+    } finally {
+      setLoadingMedia(false);
+    }
+  }, []);
+
+  // Fetch user's media submissions
+  const loadMediaSubmissions = useCallback(async (currentSession: Session) => {
+    setLoadingMediaSubs(true);
+    try {
+      const response = await fetch('/api/console/media/my-submissions', {
+        headers: { Authorization: `Bearer ${currentSession.access_token}` },
+      });
+      const data = await response.json();
+      if (data.submissions) setMediaSubmissions(data.submissions);
+    } catch (err) {
+      console.error('Error loading media submissions:', err);
+    } finally {
+      setLoadingMediaSubs(false);
+    }
+  }, []);
+
   // Auth initialization
   useEffect(() => {
     const initAuth = async () => {
@@ -654,6 +697,8 @@ export default function MemberConsolePage() {
         await fetchStats();
         await loadMySubmissions(initialSession);
         await loadMyPrivateSounds(initialSession);
+        await fetchMedia();
+        await loadMediaSubmissions(initialSession);
       }
       setLoading(false);
     };
@@ -976,6 +1021,7 @@ export default function MemberConsolePage() {
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'sounds', label: 'Banco de Sonidos', icon: Volume2 },
+              { id: 'media', label: 'Imágenes y Videos', icon: Image },
               { id: 'tts', label: 'TTS Mensajes', icon: Send },
               { id: 'animations', label: 'Efectos Visuales', icon: Sparkles },
               { id: 'feed', label: 'Feed de Actividad', icon: List },
@@ -1497,6 +1543,40 @@ export default function MemberConsolePage() {
                         })
                       )}
                     </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* TAB: MEDIA — Imágenes y Videos */}
+              {activeTab === 'media' && (
+                <motion.div
+                  key="media-tab"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 flex flex-col overflow-hidden text-left"
+                >
+                  <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
+                    {/* Header */}
+                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Image className="w-5 h-5 text-gray-400" />
+                          <h2 className="font-display font-bold text-base md:text-lg text-white">Imágenes y Videos</h2>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-2 font-semibold">Subí imágenes con audio o videos cortos (máx 10s) para que se reproduzcan en el overlay.</p>
+                    </div>
+
+                    {/* Upload Form */}
+                    <MediaUploadForm session={session} onSuccess={() => { if (session) void loadMediaSubmissions(session); }} />
+
+                    {/* Media Grid — approved media */}
+                    <MediaGrid session={session} profile={profile} />
+
+                    {/* Media Submissions History */}
+                    <MediaSubmissionsHistory session={session} />
                   </div>
                 </motion.div>
               )}
@@ -2275,6 +2355,7 @@ export default function MemberConsolePage() {
         tabs={[
           { id: 'dashboard', name: 'Dash', icon: <LayoutDashboard className="w-4 h-4" />, onClick: () => setActiveTab('dashboard') },
           { id: 'sounds', name: 'Sonidos', icon: <Volume2 className="w-4 h-4" />, onClick: () => setActiveTab('sounds') },
+          { id: 'media', name: 'Media', icon: <Image className="w-4 h-4" />, onClick: () => setActiveTab('media') },
           { id: 'tts', name: 'TTS', icon: <Send className="w-4 h-4" />, onClick: () => setActiveTab('tts') },
           { id: 'animations', name: 'Efectos', icon: <Sparkles className="w-4 h-4" />, onClick: () => setActiveTab('animations') },
           { id: 'feed', name: 'Feed', icon: <List className="w-4 h-4" />, onClick: () => setActiveTab('feed') },
