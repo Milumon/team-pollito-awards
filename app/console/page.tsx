@@ -130,11 +130,20 @@ export default function MemberConsolePage() {
   const [soundDurations, setSoundDurations] = useState<Record<string, number>>({});
   const [editingSound, setEditingSound] = useState<{ id: string; name: string; url: string; is_public: boolean; cooldown_seconds: number } | null>(null);
   const [editSoundName, setEditSoundName] = useState('');
+  const [editSoundCooldown, setEditSoundCooldown] = useState('0');
   const [editSoundPublic, setEditSoundPublic] = useState(true);
   const [savingSoundEdit, setSavingSoundEdit] = useState(false);
   const [loadingSounds, setLoadingSounds] = useState(true);
   const [audioTrim, setAudioTrim] = useState<{ start: number; end: number } | null>(null);
   const [showUploadForm, setShowUploadForm] = useState(false);
+
+  // Sound edit — audio editing states
+  const [editingSoundAudioEnabled, setEditingSoundAudioEnabled] = useState(false);
+  const [editingSoundAudioFile, setEditingSoundAudioFile] = useState<File | null>(null);
+  const [editingSoundAudioTrim, setEditingSoundAudioTrim] = useState<{ start: number; end: number } | null>(null);
+  const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
+  const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
+  const [editingSource, setEditingSource] = useState<'soundboard' | 'submission'>('soundboard');
 
   // Stream Settings State
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
@@ -167,7 +176,8 @@ export default function MemberConsolePage() {
 
   // My Audios — submissions & private sounds
   type MySubmission = {
-    id: string; name: string; url: string; is_public: boolean;
+    id: string; name: string; url: string; file_path: string; is_public: boolean;
+    suggested_cooldown_seconds: number;
     status: 'pending' | 'approved' | 'rejected';
     rejection_reason: string | null; created_at: string;
   };
@@ -528,6 +538,80 @@ export default function MemberConsolePage() {
     }
   };
 
+  const handleSaveSound = async () => {
+    if (!editingSound || !editSoundName.trim()) return;
+    setSavingSoundEdit(true);
+    setError(null);
+    try {
+      let res: Response;
+
+      if (editingSoundAudioEnabled && editingSoundAudioFile && editingSoundAudioTrim) {
+        // Has audio edits — process trim and send as FormData
+        setAudioSubmitStatus('Procesando audio...');
+        const processedFile = await convertAudioToMp3(
+          editingSoundAudioFile,
+          editingSoundAudioTrim.start,
+          editingSoundAudioTrim.end
+        );
+
+        const formData = new FormData();
+        formData.append('file', processedFile, processedFile.name);
+        formData.append('name', editSoundName.trim());
+        formData.append('cooldownSeconds', editSoundCooldown);
+        formData.append('isPublic', String(editSoundPublic));
+
+        res = await fetch(`/api/console/sounds/${editingSound.id}/edit`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+          body: formData,
+        });
+      } else {
+        // Metadata only — send as JSON
+        res = await fetch(`/api/console/sounds/${editingSound.id}/edit`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            name: editSoundName.trim(),
+            cooldownSeconds: parseInt(editSoundCooldown) || 0,
+            isPublic: editSoundPublic,
+          }),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al guardar');
+
+      // Update local state
+      if (editingSource === 'soundboard') {
+        setSounds(prev => prev.map(s => s.id === editingSound.id
+          ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic, cooldown_seconds: parseInt(editSoundCooldown) || 0 }
+          : s
+        ));
+      } else {
+        setMySubmissions(prev => prev.map(sub => sub.id === editingSound.id
+          ? { ...sub, name: editSoundName.trim(), is_public: editSoundPublic, suggested_cooldown_seconds: parseInt(editSoundCooldown) || 0 }
+          : sub
+        ));
+      }
+
+      setEditingSound(null);
+      setEditingSoundAudioEnabled(false);
+      setEditingSoundAudioFile(null);
+      setEditingSoundAudioTrim(null);
+      setSuccess('Sonido actualizado ✓');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar');
+      setTimeout(() => setError(null), 6000);
+    } finally {
+      setSavingSoundEdit(false);
+      setAudioSubmitStatus(null);
+    }
+  };
+
   const fetchStats = useCallback(async () => {
     try {
       // Obtener conteo de miembros aprobados reales
@@ -591,6 +675,48 @@ export default function MemberConsolePage() {
 
     return () => subscription.unsubscribe();
   }, [fetchProfile, fetchRecentEvents, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
+
+  // Load current audio for editing when audio editor is enabled
+  useEffect(() => {
+    if (!editingSound || !editingSoundAudioEnabled) return;
+
+    let cancelled = false;
+
+    const loadEditingAudio = async () => {
+      setEditingSoundAudioLoading(true);
+      setEditingSoundAudioError('');
+
+      try {
+        const response = await fetch(editingSound.url);
+        if (!response.ok) {
+          throw new Error('No se pudo cargar el audio actual para recortarlo.');
+        }
+
+        const blob = await response.blob();
+        const inferredName = `${editingSound.id}.mp3`;
+        const file = new File([blob], inferredName, { type: blob.type || 'audio/mpeg' });
+
+        if (!cancelled) {
+          setEditingSoundAudioFile(file);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setEditingSoundAudioFile(null);
+          setEditingSoundAudioError(err instanceof Error ? err.message : 'No se pudo cargar el audio actual.');
+        }
+      } finally {
+        if (!cancelled) {
+          setEditingSoundAudioLoading(false);
+        }
+      }
+    };
+
+    void loadEditingAudio();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingSound, editingSoundAudioEnabled]);
 
   // Cooldown countdowns & simulation
   useEffect(() => {
@@ -1086,7 +1212,18 @@ export default function MemberConsolePage() {
                                     <div className="flex items-center gap-1.5">
                                       {isOwner && (
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); setEditingSound({ id: sound.id, name: sound.name, url: sound.url || '', is_public: sound.is_public ?? true, cooldown_seconds: sound.cooldown_seconds ?? 0 }); setEditSoundName(sound.name); setEditSoundPublic(sound.is_public ?? true); }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingSound({ id: sound.id, name: sound.name, url: sound.url || '', is_public: sound.is_public ?? true, cooldown_seconds: sound.cooldown_seconds ?? 0 });
+                                            setEditSoundName(sound.name);
+                                            setEditSoundCooldown(String(sound.cooldown_seconds ?? 0));
+                                            setEditSoundPublic(sound.is_public ?? true);
+                                            setEditingSource('soundboard');
+                                            setEditingSoundAudioEnabled(false);
+                                            setEditingSoundAudioFile(null);
+                                            setEditingSoundAudioTrim(null);
+                                            setEditingSoundAudioError('');
+                                          }}
                                           className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
                                         >✏️</button>
                                       )}
@@ -1246,6 +1383,63 @@ export default function MemberConsolePage() {
                       </div>
                     )}
                   </div>
+
+                  {/* SUBMISSIONS HISTORY — pendientes y rechazados */}
+                  {mySubmissions.filter(s => s.status === 'pending' || s.status === 'rejected').length > 0 && (
+                    <div className="mt-4 shrink-0">
+                      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-3">
+                        <div className="border-b border-neutral-700/60 pb-3">
+                          <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">En revisión / Rechazados</span>
+                          <h3 className="font-display font-semibold text-base text-white mt-0.5">Mis Envíos</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {mySubmissions
+                            .filter(s => s.status === 'pending' || s.status === 'rejected')
+                            .map((sub) => (
+                            <div key={sub.id} className="flex items-start gap-3 bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-display font-semibold text-white truncate">{sub.name}</p>
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                                    sub.status === 'rejected'
+                                      ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  }`}>
+                                    {sub.status === 'rejected' ? '✕ Rechazado' : '⏳ Pendiente'}
+                                  </span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-bold ${
+                                    sub.is_public
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                                  }`}>{sub.is_public ? '🌐' : '🔒'}</span>
+                                </div>
+                                {sub.rejection_reason && (
+                                  <p className="text-[10px] text-red-400 font-semibold mt-1 leading-relaxed">Motivo: {sub.rejection_reason}</p>
+                                )}
+                                <p className="text-[9px] text-gray-600 mt-0.5">{new Date(sub.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingSound({ id: sub.id, name: sub.name, url: sub.url || '', is_public: sub.is_public ?? true, cooldown_seconds: sub.suggested_cooldown_seconds ?? 0 });
+                                  setEditSoundName(sub.name);
+                                  setEditSoundCooldown(String(sub.suggested_cooldown_seconds ?? 0));
+                                  setEditSoundPublic(sub.is_public ?? true);
+                                  setEditingSource('submission');
+                                  setEditingSoundAudioEnabled(false);
+                                  setEditingSoundAudioFile(null);
+                                  setEditingSoundAudioTrim(null);
+                                  setEditingSoundAudioError('');
+                                }}
+                                className="text-[9px] font-bold px-2 py-1 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer shrink-0 mt-0.5"
+                              >
+                                ✏️ Editar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ACCESOS RÁPIDOS */}
                   <div className="mt-4 shrink-0">
@@ -2227,10 +2421,11 @@ export default function MemberConsolePage() {
 
       {/* EDIT SOUND MODAL */}
       {editingSound && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => setEditingSound(null)}>
-          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 w-full max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.5)]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}>
+          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 w-full max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display font-bold text-sm text-white mb-4">Editar Sonido</h3>
             <div className="space-y-4">
+              {/* Name */}
               <div>
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Nombre</label>
                 <input
@@ -2240,6 +2435,21 @@ export default function MemberConsolePage() {
                   className="w-full bg-[#35373d] border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FFC200]"
                 />
               </div>
+
+              {/* Cooldown */}
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Cooldown (segundos)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={300}
+                  value={editSoundCooldown}
+                  onChange={(e) => setEditSoundCooldown(e.target.value)}
+                  className="w-full bg-[#35373d] border border-neutral-700/60 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#FFC200]"
+                />
+              </div>
+
+              {/* Visibility */}
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Visibilidad</label>
                 <button
@@ -2253,36 +2463,70 @@ export default function MemberConsolePage() {
                   {editSoundPublic ? '🌍 Público' : '🔒 Privado'}
                 </button>
               </div>
+
+              {/* Audio Editor — collapsible */}
+              <div className="border border-neutral-700/40 rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setEditingSoundAudioEnabled(v => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-[#35373d] hover:bg-[#3a3c42] transition-colors cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Editar audio (recortar)</span>
+                  <span className="text-[9px] text-gray-500 font-bold">{editingSoundAudioEnabled ? '▲' : '▼'}</span>
+                </button>
+
+                {editingSoundAudioEnabled && (
+                  <div className="px-3 py-3 space-y-3 bg-[#2b2d31]">
+                    {editingSoundAudioLoading ? (
+                      <div className="py-6 text-center text-gray-500 text-xs animate-pulse">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#FFC200]" />
+                        Cargando audio actual...
+                      </div>
+                    ) : editingSoundAudioError ? (
+                      <div className="py-4 text-center">
+                        <p className="text-[10px] text-red-400 font-semibold">{editingSoundAudioError}</p>
+                      </div>
+                    ) : editingSoundAudioFile ? (
+                      <>
+                        <AudioPreview
+                          file={editingSoundAudioFile}
+                          onTrimChange={(start, end) => setEditingSoundAudioTrim({ start, end })}
+                          embedded
+                        />
+                        <p className="text-[9px] text-gray-500 text-center font-semibold">
+                          Recortá el audio y presioná "Guardar todo" para aplicar los cambios.
+                        </p>
+                      </>
+                    ) : (
+                      <div className="py-4 text-center text-gray-500 text-xs">
+                        No se pudo cargar el audio actual.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Status */}
+              {audioSubmitStatus && (
+                <p className={`text-xs font-semibold ${audioSubmitStatus.startsWith('✓') ? 'text-emerald-400' : 'text-[#FFC200]'}`}>
+                  {audioSubmitStatus}
+                </p>
+              )}
+
+              {/* Actions */}
               <div className="flex gap-2 pt-2">
-                <button onClick={() => setEditingSound(null)} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer">
+                <button
+                  onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}
+                  className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-xs rounded-xl transition-all cursor-pointer"
+                >
                   Cancelar
                 </button>
                 <button
-                  onClick={async () => {
-                    if (!editingSound || !editSoundName.trim()) return;
-                    setSavingSoundEdit(true);
-                    try {
-                      const res = await fetch('/api/console/sounds/update', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-                        body: JSON.stringify({ soundId: editingSound.id, name: editSoundName.trim(), isPublic: editSoundPublic }),
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error);
-                      setSounds(prev => prev.map(s => s.id === editingSound.id ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic } : s));
-                      setEditingSound(null);
-                      setSuccess('Sonido actualizado ✓');
-                      setTimeout(() => setSuccess(null), 3000);
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Error');
-                    } finally {
-                      setSavingSoundEdit(false);
-                    }
-                  }}
+                  onClick={handleSaveSound}
                   disabled={savingSoundEdit || !editSoundName.trim()}
-                  className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {savingSoundEdit ? 'Guardando...' : 'Guardar'}
+                  {savingSoundEdit ? <><Loader2 className="w-3 h-3 animate-spin" /> Guardando...</> : 'Guardar todo'}
                 </button>
               </div>
             </div>

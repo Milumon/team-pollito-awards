@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: submissions, error } = await supabaseAdmin
       .from('sound_submissions')
-      .select('*')
+      .select('id, submitted_by_user_id, name, file_path, url, suggested_cooldown_seconds, is_public, status, rejection_reason, reviewed_by, reviewed_at, created_at')
       .eq('submitted_by_user_id', user.id)
       .order('created_at', { ascending: false });
 
