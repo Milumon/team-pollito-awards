@@ -1194,7 +1194,8 @@ export default function MemberConsolePage() {
                             return (
                               <div
                                 key={sound.id}
-                                className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] ${
+                                onClick={handleSoundClick}
+                                className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
                                   !isLocalTestMode && (isCooldown || triggeringId !== null || isMuted) ? 'opacity-50' : ''
                                 }`}
                               >
