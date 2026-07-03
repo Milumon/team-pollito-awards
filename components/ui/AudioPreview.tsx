@@ -422,9 +422,9 @@ export default function AudioPreview({ file, onTrimChange, embedded = false }: A
         </p>
       )}
 
-      {/* Modal Actions */}
-      <div className="flex gap-3 pt-3 border-t border-neutral-700/60">
-        {!embedded && (
+      {/* Modal Actions — only show in non-embedded (portal modal) mode */}
+      {!embedded && (
+        <div className="flex gap-3 pt-3 border-t border-neutral-700/60">
           <button
             type="button"
             onClick={closeTrimmerModalCancel}
@@ -432,16 +432,16 @@ export default function AudioPreview({ file, onTrimChange, embedded = false }: A
           >
             Cancelar y Descartar
           </button>
-        )}
-        <button
-          type="button"
-          disabled={isOverLimit}
-          onClick={closeTrimmerModalSave}
-          className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-black uppercase text-xs rounded-xl transition-all cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(255,194,0,0.15)]"
-        >
-          Confirmar Recorte
-        </button>
-      </div>
+          <button
+            type="button"
+            disabled={isOverLimit}
+            onClick={closeTrimmerModalSave}
+            className="flex-1 py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-black uppercase text-xs rounded-xl transition-all cursor-pointer text-center disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_4px_12px_rgba(255,194,0,0.15)]"
+          >
+            Confirmar Recorte
+          </button>
+        </div>
+      )}
     </>
   );
 

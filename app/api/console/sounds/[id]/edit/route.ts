@@ -139,8 +139,9 @@ export async function PATCH(
         .from('soundboard-files')
         .getPublicUrl(record.file_path as string);
 
-      updates.url = publicUrl;
-      finalUrl = publicUrl;
+      // Append cache-busting query param so browsers fetch the updated file
+      updates.url = `${publicUrl}?v=${Date.now()}`;
+      finalUrl = updates.url as string;
     }
 
     if (Object.keys(updates).length === 0) {

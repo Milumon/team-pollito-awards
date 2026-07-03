@@ -588,12 +588,12 @@ export default function MemberConsolePage() {
       // Update local state
       if (editingSource === 'soundboard') {
         setSounds(prev => prev.map(s => s.id === editingSound.id
-          ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic, cooldown_seconds: parseInt(editSoundCooldown) || 0 }
+          ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic, cooldown_seconds: parseInt(editSoundCooldown) || 0, url: data.url || s.url }
           : s
         ));
       } else {
         setMySubmissions(prev => prev.map(sub => sub.id === editingSound.id
-          ? { ...sub, name: editSoundName.trim(), is_public: editSoundPublic, suggested_cooldown_seconds: parseInt(editSoundCooldown) || 0 }
+          ? { ...sub, name: editSoundName.trim(), is_public: editSoundPublic, suggested_cooldown_seconds: parseInt(editSoundCooldown) || 0, url: data.url || sub.url }
           : sub
         ));
       }
