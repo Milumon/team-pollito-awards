@@ -380,6 +380,7 @@ export default function AdminPage() {
   const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
   const [submittingSound, setSubmittingSound] = useState(false);
   const [soundboardSubTab, setSoundboardSubTab] = useState<'audios' | 'multimedia' | 'videos'>('audios');
+  const [isLocalTestMode, setIsLocalTestMode] = useState(false);
 
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -2584,9 +2585,22 @@ export default function AdminPage() {
               <Music className="w-5 h-5 text-gray-400" />
               <h2 className="font-display font-bold text-base md:text-lg text-white">Banco</h2>
             </div>
-            <span className="text-[10px] bg-neutral-800 rounded-lg px-2 py-0.5 font-mono text-gray-500">
-              {sounds.length} items
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsLocalTestMode(!isLocalTestMode)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                  isLocalTestMode
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'bg-neutral-800 text-gray-500 border-neutral-700/60 hover:text-white'
+                }`}
+              >
+                🎧 {isLocalTestMode ? 'PRUEBA: ON' : 'Escuchar local'}
+              </button>
+              <span className="text-[10px] bg-neutral-800 rounded-lg px-2 py-0.5 font-mono text-gray-500">
+                {sounds.length} items
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {([
@@ -2656,10 +2670,27 @@ export default function AdminPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                           {ownerSounds.map((sound) => {
                             const soundStyles = getSoundColor(sound.id);
+                            const handleCardClick = () => {
+                              if (isLocalTestMode) {
+                                const url = sound.audio_url || sound.url;
+                                if (url) {
+                                  try {
+                                    const audio = new Audio(url);
+                                    audio.volume = 0.5;
+                                    void audio.play();
+                                  } catch (e) {
+                                    console.warn('Local play failure', e);
+                                  }
+                                }
+                              } else {
+                                handlePlaySound(sound.id);
+                              }
+                            };
                             return (
                               <div
                                 key={sound.id}
-                                className="relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer group"
+                                onClick={handleCardClick}
+                                className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer group ${isLocalTestMode ? 'border-emerald-500/30' : ''}`}
                               >
                                 <div className="flex items-center justify-between w-full relative z-10">
                                   {sound.image_url ? (
