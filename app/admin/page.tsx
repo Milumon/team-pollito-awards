@@ -330,12 +330,12 @@ export default function AdminPage() {
       setTimeout(() => {
         setSimulatedAnimation(null);
         setSimulatedParticles([]);
-      }, 3500);
+      }, 6000);
     }
 
     setTimeout(() => {
       setSimulatedEvent(prev => prev && prev.type === type && prev.content === content ? { ...prev, visible: false } : prev);
-    }, 4000);
+    }, 8000);
   };
 
   const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
@@ -2297,7 +2297,7 @@ export default function AdminPage() {
 
             {/* ─── Controles ─────────────────────────────────────── */}
             <div className={`lg:w-[35%] lg:max-w-[380px] p-4 space-y-5 border-r border-neutral-700/60 flex-shrink-0 ${
-              designerMobileTab === 'preview' ? 'hidden lg:block' : ''
+              designerMobileTab === 'preview' ? 'max-lg:hidden' : ''
             }`}>
 
               {/* Posición */}
@@ -2485,7 +2485,7 @@ export default function AdminPage() {
             {/* ─── Canvas real 720×1280 (65% del ancho en desktop) ─────────── */}
             <div
               className={`flex-1 flex flex-col bg-neutral-950/60 ${
-                designerMobileTab === 'controls' ? 'hidden lg:flex' : 'flex'
+                designerMobileTab === 'controls' ? 'max-lg:hidden' : ''
               }`}
             >
               {/* Barra de zoom */}
