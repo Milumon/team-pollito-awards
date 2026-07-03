@@ -252,7 +252,7 @@ export function OverlayCanvas({
                 <img
                   src={event.image_url}
                   alt={event.content}
-                  className="w-full object-contain max-h-[50vh]"
+                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
                 />
               )}
               {event.type === 'video' && event.video_url && (
@@ -262,14 +262,14 @@ export function OverlayCanvas({
                   loop={false}
                   playsInline
                   muted={false}
-                  className="w-full object-contain max-h-[50vh]"
+                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
                 />
               )}
               {event.type === 'image' && event.image_url && (
                 <img
                   src={event.image_url}
                   alt={event.content}
-                  className="w-full object-contain max-h-[50vh]"
+                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
                 />
               )}
 
