@@ -131,9 +131,9 @@ export default function MemberConsolePage() {
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
 
   // Dynamic Sounds Board
-  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
+  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; trim_start?: number | null; trim_end?: number | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
   const [soundDurations, setSoundDurations] = useState<Record<string, number>>({});
-  const [editingSound, setEditingSound] = useState<{ id: string; name: string; url: string; is_public: boolean; cooldown_seconds: number } | null>(null);
+  const [editingSound, setEditingSound] = useState<{ id: string; name: string; url: string; is_public: boolean; cooldown_seconds: number; media_type?: string; image_url?: string; video_url?: string; audio_url?: string; trim_start?: number | null; trim_end?: number | null } | null>(null);
   const [editSoundName, setEditSoundName] = useState('');
   const [editSoundCooldown, setEditSoundCooldown] = useState('0');
   const [editSoundPublic, setEditSoundPublic] = useState(true);
@@ -149,6 +149,11 @@ export default function MemberConsolePage() {
   const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
   const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
   const [editingSource, setEditingSource] = useState<'soundboard' | 'submission'>('soundboard');
+
+  // Video trim state for edit modal
+  const [editVideoTrimStart, setEditVideoTrimStart] = useState(0);
+  const [editVideoTrimEnd, setEditVideoTrimEnd] = useState(0);
+  const [editVideoDuration, setEditVideoDuration] = useState(0);
 
   // Media state
   const [mediaApproved, setMediaApproved] = useState<{ id: string; name: string; media_type: string; image_url?: string; audio_url?: string; video_url?: string; is_public?: boolean; owner_user_id?: string | null; cooldown_seconds?: number; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
@@ -595,6 +600,10 @@ export default function MemberConsolePage() {
             name: editSoundName.trim(),
             cooldownSeconds: parseInt(editSoundCooldown) || 0,
             isPublic: editSoundPublic,
+            ...(editingSound.media_type === 'video' ? {
+              trimStart: editVideoTrimStart,
+              trimEnd: editVideoTrimEnd,
+            } : {}),
           }),
         });
       }
@@ -605,7 +614,7 @@ export default function MemberConsolePage() {
       // Update local state
       if (editingSource === 'soundboard') {
         setSounds(prev => prev.map(s => s.id === editingSound.id
-          ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic, cooldown_seconds: parseInt(editSoundCooldown) || 0, url: data.url || s.url }
+          ? { ...s, name: editSoundName.trim(), is_public: editSoundPublic, cooldown_seconds: parseInt(editSoundCooldown) || 0, url: data.url || s.url, trim_start: editingSound.media_type === 'video' ? editVideoTrimStart : s.trim_start, trim_end: editingSound.media_type === 'video' ? editVideoTrimEnd : s.trim_end }
           : s
         ));
       } else {
@@ -1324,7 +1333,7 @@ export default function MemberConsolePage() {
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  setEditingSound({ id: sound.id, name: sound.name, url: sound.url || '', is_public: sound.is_public ?? true, cooldown_seconds: sound.cooldown_seconds ?? 0 });
+                                                  setEditingSound({ id: sound.id, name: sound.name, url: sound.url || '', is_public: sound.is_public ?? true, cooldown_seconds: sound.cooldown_seconds ?? 0, media_type: sound.media_type, image_url: sound.image_url, video_url: sound.video_url, audio_url: sound.audio_url, trim_start: sound.trim_start, trim_end: sound.trim_end });
                                                   setEditSoundName(sound.name);
                                                   setEditSoundCooldown(String(sound.cooldown_seconds ?? 0));
                                                   setEditSoundPublic(sound.is_public ?? true);
@@ -1333,6 +1342,9 @@ export default function MemberConsolePage() {
                                                   setEditingSoundAudioFile(null);
                                                   setEditingSoundAudioTrim(null);
                                                   setEditingSoundAudioError('');
+                                                  setEditVideoTrimStart(sound.trim_start ?? 0);
+                                                  setEditVideoTrimEnd(sound.trim_end ?? 0);
+                                                  setEditVideoDuration(0);
                                                 }}
                                                 className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
                                               >✏️</button>
@@ -2443,12 +2455,12 @@ export default function MemberConsolePage() {
 
       {/* EDIT SOUND MODAL */}
       {editingSound && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 sm:p-6" onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); setEditVideoDuration(0); }}>          
           <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl w-full max-w-sm sm:max-w-lg lg:max-w-xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[90vh] sm:max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="px-6 py-4 border-b border-neutral-700/60 shrink-0">
-              <h3 className="font-display font-bold text-base text-white">Editar Sonido</h3>
-              <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">Modificá el nombre, cooldown, visibilidad o recortá el audio.</p>
+              <h3 className="font-display font-bold text-base text-white">Editar</h3>
+              <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">Modificá el nombre, cooldown, visibilidad o recortá la media.</p>
             </div>
 
             {/* Scrollable body */}
@@ -2491,6 +2503,79 @@ export default function MemberConsolePage() {
                   {editSoundPublic ? '🌍 Público' : '🔒 Privado'}
                 </button>
               </div>
+
+              {/* Video/Image Preview */}
+              {editingSound?.media_type === 'video' && editingSound?.video_url && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Vista previa del video</label>
+                  <video controls src={editingSound.video_url} className="w-full max-h-48 rounded-lg" onLoadedMetadata={(e) => {
+                    const dur = e.currentTarget.duration;
+                    setEditVideoDuration(dur);
+                    if (editVideoTrimEnd === 0 || editVideoTrimEnd > dur) {
+                      setEditVideoTrimEnd(dur);
+                    }
+                  }} />
+                  <p className="text-[9px] text-gray-500 mt-1 text-center font-semibold">El recorte se aplica en transmisión. Usá los campos debajo para ajustar.</p>
+                </div>
+              )}
+              {editingSound?.media_type === 'image' && editingSound?.image_url && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Vista previa de la imagen</label>
+                  <img src={editingSound.image_url} alt="Preview" className="w-full max-h-48 object-contain rounded-lg" />
+                </div>
+              )}
+              {editingSound?.media_type === 'image_audio' && editingSound?.image_url && (
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Vista previa</label>
+                  <div className="flex gap-2">
+                    <img src={editingSound.image_url} alt="Preview" className="w-1/2 max-h-40 object-contain rounded-lg" />
+                    {editingSound.audio_url && <audio controls src={editingSound.audio_url} className="w-1/2" />}
+                  </div>
+                </div>
+              )}
+
+              {/* Video Trim — for video media types */}
+              {editingSound?.media_type === 'video' && editVideoDuration > 0 && (
+                <div className="border border-neutral-700/40 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 bg-[#35373d] flex items-center gap-2">
+                    <Scissors className="w-3.5 h-3.5 text-[#FFC200]" />
+                    <span className="text-xs font-bold text-gray-300">Recortar video</span>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Inicio</label>
+                      <input
+                        type="range" min={0} max={editVideoDuration} step={0.1}
+                        value={editVideoTrimStart}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          setEditVideoTrimStart(v);
+                          if (v >= editVideoTrimEnd) setEditVideoTrimEnd(Math.min(v + 1, editVideoDuration));
+                        }}
+                        className="flex-1 accent-[#FFC200] h-1"
+                      />
+                      <span className="text-[9px] font-mono text-gray-400 w-10">{editVideoTrimStart.toFixed(1)}s</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Fin</label>
+                      <input
+                        type="range" min={0} max={editVideoDuration} step={0.1}
+                        value={editVideoTrimEnd}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          setEditVideoTrimEnd(v);
+                          if (v <= editVideoTrimStart) setEditVideoTrimStart(Math.max(v - 1, 0));
+                        }}
+                        className="flex-1 accent-[#FFC200] h-1"
+                      />
+                      <span className="text-[9px] font-mono text-gray-400 w-10">{editVideoTrimEnd.toFixed(1)}s</span>
+                    </div>
+                    <p className="text-[9px] text-gray-500 text-center">
+                      Duración recortada: <span className="font-mono text-[#FFC200]">{(editVideoTrimEnd - editVideoTrimStart).toFixed(1)}s</span>
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Audio Editor — collapsible */}
               <div className="border border-neutral-700/40 rounded-xl overflow-hidden">
@@ -2548,7 +2633,7 @@ export default function MemberConsolePage() {
             {/* Footer — fixed */}
             <div className="px-6 py-4 border-t border-neutral-700/60 shrink-0 flex gap-3">
               <button
-                onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); }}
+                onClick={() => { setEditingSound(null); setEditingSoundAudioEnabled(false); setEditVideoDuration(0); }}
                 className="flex-1 py-3 bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-display font-semibold text-sm rounded-xl transition-all cursor-pointer"
               >
                 Cancelar

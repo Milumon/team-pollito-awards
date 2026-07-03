@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
     const videoFile = formData.get('video') as File | null;
     const isPublicRaw = formData.get('isPublic');
     const suggestedCooldownRaw = formData.get('suggestedCooldown');
+    const trimStartRaw = formData.get('trimStart');
+    const trimEndRaw = formData.get('trimEnd');
 
     if (!mediaType || !name?.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (mediaType, name)' }, { status: 400 });
@@ -69,17 +71,20 @@ export async function POST(request: NextRequest) {
 
     const isPublic = isPublicRaw === 'false' ? false : true;
     const suggestedCooldown = Math.max(0, parseInt(String(suggestedCooldownRaw || '0')) || 0);
+    const trimStart = parseFloat(String(trimStartRaw || '0'));
+    const trimEndRawNum = trimEndRaw ? parseFloat(String(trimEndRaw)) : null;
 
-    // 3. Validate file sizes (10MB max for media)
-    const maxSize = 10 * 1024 * 1024;
-    if (imageFile && imageFile.size > maxSize) {
+    // 3. Validate file sizes
+    const maxSizeImage = 10 * 1024 * 1024;
+    const maxSizeVideo = 20 * 1024 * 1024;
+    if (imageFile && imageFile.size > maxSizeImage) {
       return NextResponse.json({ error: 'La imagen excede 10MB.' }, { status: 400 });
     }
-    if (audioFile && audioFile.size > maxSize) {
+    if (audioFile && audioFile.size > maxSizeImage) {
       return NextResponse.json({ error: 'El audio excede 10MB.' }, { status: 400 });
     }
-    if (videoFile && videoFile.size > maxSize) {
-      return NextResponse.json({ error: 'El video excede 10MB.' }, { status: 400 });
+    if (videoFile && videoFile.size > maxSizeVideo) {
+      return NextResponse.json({ error: 'El video excede 20MB.' }, { status: 400 });
     }
 
     // 4. Check pending submissions limit (max 5 per user, skip for admins)
@@ -99,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 5. Upload files to storage
-    const slug = name.trim()
+    const baseSlug = name.trim()
       .toLowerCase()
       .replace(/[^a-z0-9-_]/g, '-')
       .replace(/-+/g, '-')
@@ -132,24 +137,24 @@ export async function POST(request: NextRequest) {
     let filePathVideo: string | null = null;
 
     if (mediaType === 'audio' && audioFile) {
-      const audResult = await uploadFile(audioFile, `${slug}-aud`);
+      const audResult = await uploadFile(audioFile, `${baseSlug}-aud`);
       audioUrl = audResult.url;
       filePathAudio = audResult.path;
     } else if (mediaType === 'image_audio' && imageFile && audioFile) {
       const [imgResult, audResult] = await Promise.all([
-        uploadFile(imageFile, `${slug}-img`),
-        uploadFile(audioFile, `${slug}-aud`),
+        uploadFile(imageFile, `${baseSlug}-img`),
+        uploadFile(audioFile, `${baseSlug}-aud`),
       ]);
       imageUrl = imgResult.url;
       audioUrl = audResult.url;
       filePathImage = imgResult.path;
       filePathAudio = audResult.path;
     } else if (mediaType === 'video' && videoFile) {
-      const vidResult = await uploadFile(videoFile, `${slug}-vid`);
+      const vidResult = await uploadFile(videoFile, `${baseSlug}-vid`);
       videoUrl = vidResult.url;
       filePathVideo = vidResult.path;
     } else if (mediaType === 'image' && imageFile) {
-      const imgResult = await uploadFile(imageFile, `${slug}-img`);
+      const imgResult = await uploadFile(imageFile, `${baseSlug}-img`);
       imageUrl = imgResult.url;
       filePathImage = imgResult.path;
     }
@@ -158,9 +163,23 @@ export async function POST(request: NextRequest) {
     if (isAdmin) {
       // Auto-approve: insert directly into soundboard_sounds
       const soundUrl = audioUrl || videoUrl || '';
+      let slug = baseSlug;
+      let attempt = 0;
+      while (true) {
+        const { data: existing } = await supabaseAdmin
+          .from('soundboard_sounds')
+          .select('id')
+          .eq('id', slug)
+          .maybeSingle();
+        if (!existing) break;
+        attempt++;
+        slug = `${baseSlug}-${attempt}`;
+      }
+
       const { data: sound, error: dbError } = await supabaseAdmin
         .from('soundboard_sounds')
         .insert({
+          id: slug,
           owner_user_id: user.id,
           name: name.trim(),
           url: soundUrl,
@@ -171,6 +190,8 @@ export async function POST(request: NextRequest) {
           image_url: imageUrl,
           audio_url: audioUrl,
           video_url: videoUrl,
+          trim_start: trimStart,
+          trim_end: trimEndRawNum,
         })
         .select()
         .single();
@@ -202,6 +223,8 @@ export async function POST(request: NextRequest) {
         suggested_cooldown_seconds: suggestedCooldown,
         is_public: isPublic,
         status: 'pending',
+        trim_start: trimStart,
+        trim_end: trimEndRawNum,
       })
       .select()
       .single();
@@ -217,8 +240,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, submission });
   } catch (error) {
-    console.error('[Console Media Submit Error]:', error);
-    const msg = error instanceof Error ? error.message : 'Error desconocido';
+    console.error('[Console Media Submit Error]:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    const msg = error instanceof Error ? error.message : JSON.stringify(error);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

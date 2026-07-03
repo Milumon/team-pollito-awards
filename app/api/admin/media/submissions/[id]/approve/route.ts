@@ -97,6 +97,8 @@ export async function POST(
         image_url: submission.image_url,
         audio_url: submission.audio_url,
         video_url: submission.video_url,
+        trim_start: submission.trim_start ?? 0,
+        trim_end: submission.trim_end ?? null,
       });
 
     if (insertError) throw insertError;

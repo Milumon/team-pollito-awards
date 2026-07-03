@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Loader2, Image, Film, Upload, Mic, MicOff, Square, Volume2 } from 'lucide-react';
+import { Loader2, Image, Film, Upload, Mic, MicOff, Square, Volume2, Trash2 } from 'lucide-react';
 
 type MediaCategory = 'audio' | 'image_audio' | 'video' | 'image';
 type AudioSource = 'upload' | 'tts' | 'record';
@@ -15,10 +15,10 @@ interface Props {
   onSuccess: () => void;
 }
 
-const CATEGORIES: { id: MediaCategory; label: string; icon: React.ReactNode; desc: string }[] = [
+const CATEGORIES: { id: MediaCategory; label: string; icon: React.ReactNode; desc: string; disabled?: boolean }[] = [
   { id: 'audio', label: 'Audio', icon: <Volume2 className="w-4 h-4" />, desc: 'Subir un archivo de audio' },
   { id: 'image_audio', label: 'Imagen + Audio', icon: <Image className="w-4 h-4" />, desc: 'Imagen con audio (subido, TTS o grabado)' },
-  { id: 'video', label: 'Video', icon: <Film className="w-4 h-4" />, desc: 'Video corto (máx 10s)' },
+  { id: 'video', label: 'Video', icon: <Film className="w-4 h-4" />, desc: 'Video corto (máx 15s)', disabled: true },
   { id: 'image', label: 'Imagen', icon: <Image className="w-4 h-4" />, desc: 'Imagen o GIF sin audio' },
 ];
 
@@ -36,6 +36,11 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+
+  // Video trim state
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
 
   // TTS state
   const [ttsText, setTtsText] = useState('');
@@ -63,6 +68,9 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
     setAudioFile(null);
     setImageFile(null);
     setVideoFile(null);
+    setVideoDuration(0);
+    setTrimStart(0);
+    setTrimEnd(0);
     setTtsText('');
     setTtsAudioBlob(null);
     if (ttsPreviewUrl) URL.revokeObjectURL(ttsPreviewUrl);
@@ -175,8 +183,10 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
           const recFile = new File([recordedBlob], `record-${Date.now()}.webm`, { type: 'audio/webm' });
           formData.append('audio', recFile);
         }
-      } else if (mediaType === 'video' && videoFile) {
+      } else       if (mediaType === 'video' && videoFile) {
         formData.append('video', videoFile);
+        if (trimStart > 0) formData.append('trimStart', String(trimStart));
+        if (trimEnd > 0) formData.append('trimEnd', String(trimEnd));
       } else if (mediaType === 'image' && imageFile) {
         formData.append('image', imageFile);
       }
@@ -234,14 +244,18 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => { setMediaType(cat.id); reset(); }}
-                  className={`py-2.5 rounded-xl border text-xs font-display font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                    mediaType === cat.id
-                      ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/30'
-                      : 'bg-[#35373d] text-gray-400 border-neutral-700/60 hover:text-white'
+                  disabled={cat.disabled}
+                  onClick={() => { if (!cat.disabled) { setMediaType(cat.id); reset(); } }}
+                  className={`py-2.5 rounded-xl border text-xs font-display font-semibold transition-all flex items-center justify-center gap-2 ${
+                    cat.disabled
+                      ? 'bg-[#35373d] text-gray-600 border-neutral-700/60 opacity-60 cursor-not-allowed'
+                      : mediaType === cat.id
+                        ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/30 cursor-pointer'
+                        : 'bg-[#35373d] text-gray-400 border-neutral-700/60 hover:text-white cursor-pointer'
                   }`}
                 >
                   {cat.icon} {cat.label}
+                  {cat.disabled && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-neutral-600 text-gray-300 not-italic no-underline ml-1">Próximamente</span>}
                 </button>
               ))}
             </div>
@@ -406,15 +420,82 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
           {/* ─── VIDEO ──────────────────────────────────────────── */}
           {mediaType === 'video' && (
             <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Video (máx 10s)</label>
+              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Video (máx 15s, 20MB)</label>
               <button type="button" onClick={() => videoRef.current?.click()}
                 className="w-full border border-dashed border-[#FFC200]/45 rounded-xl p-4 bg-[#35373d] hover:bg-[#3a3c42] cursor-pointer transition-colors text-center">
                 <Film className="w-6 h-6 text-gray-500 mx-auto mb-1" />
                 <p className="text-[10px] text-gray-400 font-medium truncate">{videoFile ? videoFile.name : 'Elegir video (MP4, WebM)'}</p>
               </button>
-              <input ref={videoRef} type="file" accept="video/mp4,video/webm" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0] || null)} />
+              <input ref={videoRef} type="file" accept="video/mp4,video/webm" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setVideoFile(file);
+                setVideoDuration(0);
+                setTrimStart(0);
+                setTrimEnd(0);
+              }} />
+              {videoFile && videoFile.size > 20 * 1024 * 1024 && (
+                <p className="text-[10px] text-red-400 font-semibold mt-1">⚠ El video supera los 20MB. Subí un archivo más pequeño.</p>
+              )}
               {videoFile && (
-                <video controls src={URL.createObjectURL(videoFile)} className="mt-2 w-full max-h-40 rounded-lg" />
+                <div className="mt-2 space-y-2">
+                  <video
+                    key={videoFile.name + videoFile.size}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    src={URL.createObjectURL(videoFile)}
+                    className="w-full rounded-lg bg-black/50 max-h-[360px] object-contain"
+                    onLoadedMetadata={(e) => {
+                      const dur = e.currentTarget.duration;
+                      setVideoDuration(dur);
+                      if (dur > 0 && trimEnd === 0) setTrimEnd(dur);
+                    }}
+                  />
+                  {videoDuration > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Inicio</label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          value={trimStart}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setTrimStart(v);
+                            if (v >= trimEnd) setTrimEnd(Math.min(v + 1, videoDuration));
+                          }}
+                          className="flex-1 accent-[#FFC200] h-1"
+                        />
+                        <span className="text-[9px] font-mono text-gray-400 w-10">{trimStart.toFixed(1)}s</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Fin</label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={videoDuration}
+                          step={0.1}
+                          value={trimEnd}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            setTrimEnd(v);
+                            if (v <= trimStart) setTrimStart(Math.max(v - 1, 0));
+                          }}
+                          className="flex-1 accent-[#FFC200] h-1"
+                        />
+                        <span className="text-[9px] font-mono text-gray-400 w-10">{trimEnd.toFixed(1)}s</span>
+                      </div>
+                      <p className="text-[9px] text-gray-500 text-center">
+                        Duración recortada: <span className="font-mono text-[#FFC200]">{(trimEnd - trimStart).toFixed(1)}s</span>
+                        {videoFile.size > 20 * 1024 * 1024 && (
+                          <span className="text-red-400"> — Archivo demasiado grande</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

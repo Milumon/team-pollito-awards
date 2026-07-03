@@ -29,6 +29,8 @@ export async function PATCH(
     let name: unknown;
     let cooldownSeconds: unknown;
     let isPublic: unknown;
+    let trimStart: unknown;
+    let trimEnd: unknown;
     let imageFile: File | null = null;
     let audioFile: File | null = null;
     let videoFile: File | null = null;
@@ -38,6 +40,8 @@ export async function PATCH(
       name = formData.get('name');
       cooldownSeconds = formData.get('cooldownSeconds');
       isPublic = formData.get('isPublic');
+      trimStart = formData.get('trimStart');
+      trimEnd = formData.get('trimEnd');
       const img = formData.get('image');
       const aud = formData.get('audio');
       const vid = formData.get('video');
@@ -49,6 +53,8 @@ export async function PATCH(
       name = body.name;
       cooldownSeconds = body.cooldownSeconds;
       isPublic = body.isPublic;
+      trimStart = body.trimStart;
+      trimEnd = body.trimEnd;
     }
 
     // Find submission and verify ownership
@@ -78,6 +84,12 @@ export async function PATCH(
     }
     if (isPublic !== undefined && isPublic !== null) {
       updates.is_public = isPublic === true || isPublic === 'true';
+    }
+    if (trimStart !== undefined && trimStart !== null) {
+      updates.trim_start = parseFloat(String(trimStart));
+    }
+    if (trimEnd !== undefined && trimEnd !== null) {
+      updates.trim_end = parseFloat(String(trimEnd));
     }
 
     // Handle file replacements

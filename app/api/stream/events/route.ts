@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, content, tiktokUser, image_url, audio_url, video_url } = body;
+    const { type, content, tiktokUser, image_url, audio_url, video_url, trim_start, trim_end } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
@@ -248,6 +248,10 @@ export async function POST(request: NextRequest) {
     }
     if (type === 'image') {
       if (image_url) insertPayload.image_url = image_url;
+    }
+    if ((type === 'video' || type === 'audio' || type === 'image_audio') && trim_start != null) {
+      insertPayload.trim_start = trim_start;
+      if (trim_end != null) insertPayload.trim_end = trim_end;
     }
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')

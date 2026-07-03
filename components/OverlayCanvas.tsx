@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { NotificationPopup } from '@/components/overlay/NotificationPopup';
 
 // ─── Tipos públicos ─────────────────────────────────────────────────────────
@@ -25,6 +25,8 @@ export type OverlayEvent = {
   image_url?: string | null;
   audio_url?: string | null;
   video_url?: string | null;
+  trim_start?: number | null;
+  trim_end?: number | null;
 };
 
 export type OverlayParticle = {
@@ -264,6 +266,18 @@ export function OverlayCanvas({
                     playsInline
                     muted={false}
                     className="w-full object-contain max-h-[50vh] rounded-lg"
+                    onLoadedMetadata={(e) => {
+                      const vid = e.currentTarget;
+                      if (event.trim_start && event.trim_start > 0) {
+                        vid.currentTime = event.trim_start;
+                      }
+                    }}
+                    onTimeUpdate={(e) => {
+                      const vid = e.currentTarget;
+                      if (event.trim_end && event.trim_end > 0 && vid.currentTime >= event.trim_end) {
+                        vid.pause();
+                      }
+                    }}
                   />
                 )}
                 {event.type === 'image' && event.image_url && (

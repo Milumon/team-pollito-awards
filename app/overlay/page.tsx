@@ -15,6 +15,8 @@ type StreamEvent = {
   image_url?: string | null;
   audio_url?: string | null;
   video_url?: string | null;
+  trim_start?: number | null;
+  trim_end?: number | null;
   created_at: string;
   played: boolean;
 };
@@ -312,11 +314,13 @@ export default function ObsOverlayPage() {
     } else if (nextEvent.type === 'video') {
       // Video: just display via overlay, auto-advance after timeout
       remoteLog('INFO', `[VIDEO] url=${nextEvent.video_url}`);
-      // The video element in OverlayCanvas handles autoplay
+      const videoDuration = (nextEvent.trim_start != null && nextEvent.trim_end != null && nextEvent.trim_end > nextEvent.trim_start)
+        ? (nextEvent.trim_end - nextEvent.trim_start) * 1000
+        : 30000;
       setTimeout(async () => {
         await markEventAsPlayed(nextEvent.id);
         playNextRef.current();
-      }, 30000);
+      }, videoDuration);
     } else if (nextEvent.type === 'audio') {
       // Audio-only: content is the sound ID, resolve URL from soundsMap or fetch
       const cleanKey = nextEvent.content.replace('.mp3', '');

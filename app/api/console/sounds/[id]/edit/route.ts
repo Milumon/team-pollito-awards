@@ -31,6 +31,8 @@ export async function PATCH(
     let name: unknown;
     let cooldownSeconds: unknown;
     let isPublic: unknown;
+    let trimStart: unknown;
+    let trimEnd: unknown;
     let file: File | null = null;
 
     if (contentType.includes('multipart/form-data')) {
@@ -38,6 +40,8 @@ export async function PATCH(
       name = formData.get('name');
       cooldownSeconds = formData.get('cooldownSeconds');
       isPublic = formData.get('isPublic');
+      trimStart = formData.get('trimStart');
+      trimEnd = formData.get('trimEnd');
       const uploadedFile = formData.get('file');
       file = uploadedFile instanceof File ? uploadedFile : null;
     } else {
@@ -45,6 +49,8 @@ export async function PATCH(
       name = body.name;
       cooldownSeconds = body.cooldownSeconds;
       isPublic = body.isPublic;
+      trimStart = body.trimStart;
+      trimEnd = body.trimEnd;
     }
 
     // 3. Find the sound — try sound_submissions first, then soundboard_sounds
@@ -69,7 +75,7 @@ export async function PATCH(
       // Try soundboard (approved)
       const { data: sound } = await supabaseAdmin
         .from('soundboard_sounds')
-        .select('id, file_path, owner_user_id')
+        .select('id, file_path, owner_user_id, media_type')
         .eq('id', id)
         .maybeSingle();
 
@@ -118,6 +124,19 @@ export async function PATCH(
 
     if (isPublic !== undefined && isPublic !== null) {
       updates.is_public = isPublic === true || isPublic === 'true';
+    }
+
+    // Handle trim for video/media items (soundboard_sounds only)
+    if (source === 'soundboard') {
+      const isVideo = record.media_type === 'video' || record.media_type === 'image_audio';
+      if (isVideo) {
+        if (trimStart !== undefined && trimStart !== null && trimStart !== '') {
+          updates.trim_start = parseFloat(String(trimStart));
+        }
+        if (trimEnd !== undefined && trimEnd !== null && trimEnd !== '') {
+          updates.trim_end = parseFloat(String(trimEnd));
+        }
+      }
     }
 
     // 5. Handle file upload (trim/replacement)

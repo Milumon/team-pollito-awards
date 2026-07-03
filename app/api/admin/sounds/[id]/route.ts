@@ -139,6 +139,8 @@ export async function PATCH(
     let name: unknown;
     let cooldownSeconds: unknown;
     let isPublic: unknown;
+    let trimStart: unknown;
+    let trimEnd: unknown;
     let file: File | null = null;
 
     if (contentType.includes('multipart/form-data')) {
@@ -146,6 +148,8 @@ export async function PATCH(
       name = formData.get('name');
       cooldownSeconds = formData.get('cooldownSeconds');
       isPublic = formData.get('isPublic');
+      trimStart = formData.get('trimStart');
+      trimEnd = formData.get('trimEnd');
       const uploadedFile = formData.get('file');
       file = uploadedFile instanceof File ? uploadedFile : null;
     } else {
@@ -153,6 +157,8 @@ export async function PATCH(
       name = body.name;
       cooldownSeconds = body.cooldownSeconds;
       isPublic = body.isPublic;
+      trimStart = body.trimStart;
+      trimEnd = body.trimEnd;
     }
 
     const updates: Record<string, any> = {};
@@ -165,6 +171,12 @@ export async function PATCH(
     }
     if (isPublic !== undefined && isPublic !== null) {
       updates.is_public = isPublic === true || isPublic === 'true';
+    }
+    if (trimStart !== undefined && trimStart !== null) {
+      updates.trim_start = parseFloat(String(trimStart));
+    }
+    if (trimEnd !== undefined && trimEnd !== null) {
+      updates.trim_end = parseFloat(String(trimEnd));
     }
 
     if (file) {

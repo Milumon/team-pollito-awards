@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, content, senderRobloxUser, senderTiktokUser, image_url, audio_url, video_url } = body;
+    const { type, content, senderRobloxUser, senderTiktokUser, image_url, audio_url, video_url, trim_start, trim_end } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (type, content)' }, { status: 400 });
@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
     }
     if (type === 'image') {
       if (image_url) insertPayload.image_url = image_url;
+    }
+    if ((type === 'video' || type === 'audio' || type === 'image_audio') && trim_start != null) {
+      insertPayload.trim_start = trim_start;
+      if (trim_end != null) insertPayload.trim_end = trim_end;
     }
 
     const { data: newEvent, error } = await supabaseAdmin

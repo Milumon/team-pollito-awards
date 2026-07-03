@@ -139,6 +139,8 @@ type SoundItem = {
   image_url?: string | null;
   audio_url?: string | null;
   video_url?: string | null;
+  trim_start?: number | null;
+  trim_end?: number | null;
   profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null;
 };
 
@@ -378,6 +380,9 @@ export default function AdminPage() {
   const [editingSoundAudioTrim, setEditingSoundAudioTrim] = useState<{ start: number; end: number } | null>(null);
   const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
   const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
+  const [editVideoTrimStart, setEditVideoTrimStart] = useState(0);
+  const [editVideoTrimEnd, setEditVideoTrimEnd] = useState(0);
+  const [editVideoDuration, setEditVideoDuration] = useState(0);
   const [submittingSound, setSubmittingSound] = useState(false);
   const [soundboardSubTab, setSoundboardSubTab] = useState<'audios' | 'multimedia' | 'videos'>('audios');
   const [isLocalTestMode, setIsLocalTestMode] = useState(false);
@@ -996,6 +1001,19 @@ export default function AdminPage() {
     }
   };
 
+  const handlePlayMedia = async (type: 'image_audio' | 'video' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
+    try {
+      const response = await apiFetch('/api/stream/events', {
+        method: 'POST',
+        body: JSON.stringify({ type, content, ...extra }),
+      });
+      if (!response.ok) throw new Error('No se pudo enviar el media al stream');
+      await loadAuditLogs();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeleteSound = async (soundId: string) => {
     if (!window.confirm('¿Borrar este sonido de la botonera?')) return;
     setError(null);
@@ -1036,11 +1054,16 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: editingSoundName.trim(),
           cooldownSeconds: parseInt(editingSoundCooldown) || 0,
+          ...(editingSound.media_type === 'video' ? {
+            trimStart: editVideoTrimStart,
+            trimEnd: editVideoTrimEnd,
+          } : {}),
         }),
       });
       const data = await readApiPayload(response);
       if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el sonido');
       setEditingSound(null);
+      setEditVideoDuration(0);
       await loadSounds();
       await loadAuditLogs();
     } catch (err) {
@@ -2682,6 +2705,12 @@ export default function AdminPage() {
                                     console.warn('Local play failure', e);
                                   }
                                 }
+                              } else if (sound.media_type === 'image_audio') {
+                                handlePlayMedia('image_audio', sound.name, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
+                              } else if (sound.media_type === 'video') {
+                                handlePlayMedia('video', sound.name, { video_url: sound.video_url });
+                              } else if (sound.media_type === 'image') {
+                                handlePlayMedia('image', sound.name, { image_url: sound.image_url });
                               } else {
                                 handlePlaySound(sound.id);
                               }
@@ -2712,6 +2741,9 @@ export default function AdminPage() {
                                         setEditingSoundAudioTrim(null);
                                         setEditingSoundAudioLoading(false);
                                         setEditingSoundAudioError('');
+                                        setEditVideoTrimStart(sound.trim_start ?? 0);
+                                        setEditVideoTrimEnd(sound.trim_end ?? 0);
+                                        setEditVideoDuration(0);
                                       }}
                                       className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
                                     >✏️</button>
@@ -2782,10 +2814,10 @@ export default function AdminPage() {
               className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
             >
               <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
-                <h3 className="font-display font-bold text-white text-base">Editar Sonido</h3>
+                <h3 className="font-display font-bold text-white text-base">Editar</h3>
                 <button
                   type="button"
-                  onClick={() => setEditingSound(null)}
+                  onClick={() => { setEditingSound(null); setEditVideoDuration(0); }}
                   className="text-gray-400 hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -2815,6 +2847,69 @@ export default function AdminPage() {
                     />
                   </label>
                 </div>
+
+                {/* ── Video/Image Preview ── */}
+                {editingSound.media_type === 'video' && editingSound.video_url && (
+                  <div className="space-y-2">
+                    <label className="block space-y-1">
+                      <span className="text-xs text-gray-500">Vista previa del video</span>
+                      <video controls src={editingSound.video_url} className="w-full max-h-48 rounded-xl"
+                        onLoadedMetadata={(e) => {
+                          const dur = e.currentTarget.duration;
+                          setEditVideoDuration(dur);
+                          if (editVideoTrimEnd === 0 || editVideoTrimEnd > dur) {
+                            setEditVideoTrimEnd(dur);
+                          }
+                        }}
+                      />
+                    </label>
+                    {editVideoDuration > 0 && (
+                      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-xl p-4 space-y-2">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Recortar video</p>
+                        <div className="flex items-center gap-3">
+                          <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Inicio</label>
+                          <input type="range" min={0} max={editVideoDuration} step={0.1} value={editVideoTrimStart}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              setEditVideoTrimStart(v);
+                              if (v >= editVideoTrimEnd) setEditVideoTrimEnd(Math.min(v + 1, editVideoDuration));
+                            }}
+                            className="flex-1 accent-[#FFC200] h-1" />
+                          <span className="text-[9px] font-mono text-gray-400 w-10">{editVideoTrimStart.toFixed(1)}s</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="text-[9px] text-gray-500 font-bold w-12 text-right">Fin</label>
+                          <input type="range" min={0} max={editVideoDuration} step={0.1} value={editVideoTrimEnd}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              setEditVideoTrimEnd(v);
+                              if (v <= editVideoTrimStart) setEditVideoTrimStart(Math.max(v - 1, 0));
+                            }}
+                            className="flex-1 accent-[#FFC200] h-1" />
+                          <span className="text-[9px] font-mono text-gray-400 w-10">{editVideoTrimEnd.toFixed(1)}s</span>
+                        </div>
+                        <p className="text-[9px] text-gray-500 text-center">
+                          Duración recortada: <span className="font-mono text-[#FFC200]">{(editVideoTrimEnd - editVideoTrimStart).toFixed(1)}s</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {editingSound.media_type === 'image' && editingSound.image_url && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">Vista previa</span>
+                    <img src={editingSound.image_url} alt="" className="w-full max-h-48 object-contain rounded-xl" />
+                  </div>
+                )}
+                {editingSound.media_type === 'image_audio' && editingSound.image_url && (
+                  <div>
+                    <span className="text-xs text-gray-500 block mb-1">Vista previa</span>
+                    <div className="flex gap-2">
+                      <img src={editingSound.image_url} alt="" className="w-1/2 max-h-40 object-contain rounded-xl" />
+                      {editingSound.audio_url && <audio controls src={editingSound.audio_url} className="w-1/2" />}
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-2xl border border-neutral-700/60 bg-[#35373d] p-4 space-y-3">
                   <div className="flex items-center justify-between gap-3">
@@ -2899,7 +2994,7 @@ export default function AdminPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setEditingSound(null)}
+                  onClick={() => { setEditingSound(null); setEditVideoDuration(0); }}
                     className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
                   >
                     Cancelar
