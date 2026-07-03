@@ -237,63 +237,71 @@ export function OverlayCanvas({
               position: 'absolute',
             }}
           >
-            {event.type === 'image_audio' && event.image_url && (
-              <div className="relative bg-black/80 border border-[#f5b94a]/50 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+            <div className="relative bg-[#15100a]/92 border border-[#e8a33d]/70 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+              {/* corner brackets */}
+              <span className="absolute -top-px -left-px w-3 h-3 border-t-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
+              <span className="absolute -top-px -right-px w-3 h-3 border-t-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
+              <span className="absolute -bottom-px -left-px w-3 h-3 border-b-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
+              <span className="absolute -bottom-px -right-px w-3 h-3 border-b-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
+
+              {/* live indicator */}
+              <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[#f5b94a] animate-pulse pointer-events-none z-10" />
+
+              {/* Media content */}
+              {event.type === 'image_audio' && event.image_url && (
                 <img
                   src={event.image_url}
                   alt={event.content}
-                  className="w-full object-contain max-h-[60vh]"
+                  className="w-full object-contain max-h-[50vh]"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a]">
-                    &gt;&gt;&gt; imagen + audio
-                  </p>
-                  <p className="text-xs font-black text-[#f4ead9] truncate">{event.content}</p>
-                  <p className="text-[10px] font-bold text-[#c99a5b] truncate">
-                    Por: @{event.sender_roblox_user ?? 'VIP'}
-                  </p>
-                </div>
-              </div>
-            )}
-            {event.type === 'video' && event.video_url && (
-              <div className="relative bg-black/80 border border-[#f5b94a]/50 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+              )}
+              {event.type === 'video' && event.video_url && (
                 <video
                   src={event.video_url}
                   autoPlay
                   loop={false}
                   playsInline
                   muted={false}
-                  className="w-full object-contain max-h-[60vh]"
+                  className="w-full object-contain max-h-[50vh]"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a]">
-                    &gt;&gt;&gt; video
-                  </p>
-                  <p className="text-xs font-black text-[#f4ead9] truncate">{event.content}</p>
-                  <p className="text-[10px] font-bold text-[#c99a5b] truncate">
-                    Por: @{event.sender_roblox_user ?? 'VIP'}
-                  </p>
-                </div>
-              </div>
-            )}
-            {event.type === 'image' && event.image_url && (
-              <div className="relative bg-black/80 border border-[#f5b94a]/50 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+              )}
+              {event.type === 'image' && event.image_url && (
                 <img
                   src={event.image_url}
                   alt={event.content}
-                  className="w-full object-contain max-h-[60vh]"
+                  className="w-full object-contain max-h-[50vh]"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a]">
-                    &gt;&gt;&gt; imagen
+              )}
+
+              {/* Sender info — same style as NotificationPopup */}
+              <div className="flex items-center gap-2 p-2.5 border-t border-[#e8a33d]/30">
+                {event.sender_avatar_url ? (
+                  <div className="w-7 h-7 border border-[#e8a33d]/70 overflow-hidden shrink-0">
+                    <img
+                      src={event.sender_avatar_url}
+                      alt={event.sender_roblox_user ?? 'VIP'}
+                      className="w-full h-full object-cover"
+                      style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 bg-[#241a10] border border-[#e8a33d]/70 flex items-center justify-center text-sm shrink-0">
+                    🐣
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a] leading-none">
+                    &gt;&gt;&gt; {event.type === 'video' ? 'video' : event.type === 'image_audio' ? 'imagen + audio' : 'imagen'}
                   </p>
-                  <p className="text-xs font-black text-[#f4ead9] truncate">{event.content}</p>
-                  <p className="text-[10px] font-bold text-[#c99a5b] truncate">
+                  <p className="text-[10px] font-bold text-[#c99a5b] truncate mt-0.5">
                     Por: @{event.sender_roblox_user ?? 'VIP'}
                   </p>
                 </div>
               </div>
-            )}
+
+              {/* bottom filete */}
+              <span className="absolute left-2 right-2 -bottom-[3px] h-[2px] bg-gradient-to-r from-[#f5b94a] to-transparent pointer-events-none" />
+            </div>
           </div>
         )}
 
