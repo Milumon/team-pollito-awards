@@ -295,12 +295,13 @@ export default function ObsOverlayPage() {
         try {
           await Promise.race([playPromise, timeoutPromise]);
           remoteLog('INFO', '[IMAGE_AUDIO] play() OK');
+          const audioDuration = (audioPlayerRef.current?.duration || 5) * 1000;
           setTimeout(async () => {
             if (currentEventRef.current?.id === nextEvent.id) {
               await markEventAsPlayed(nextEvent.id);
               playNextRef.current();
             }
-          }, 30000);
+          }, audioDuration);
         } catch (err) {
           const error = err as Error;
           remoteLog('ERROR', `[IMAGE_AUDIO] play() falló: ${error.message}`);
@@ -370,12 +371,12 @@ export default function ObsOverlayPage() {
         setTimeout(() => { playNextRef.current(); }, 500);
       }
     } else if (nextEvent.type === 'image') {
-      // Image-only: display image, auto-advance after 15s
+      // Image-only: display image, auto-advance after 3s
       remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}`);
       setTimeout(async () => {
         await markEventAsPlayed(nextEvent.id);
         playNextRef.current();
-      }, 15000);
+      }, 3000);
     } else if (nextEvent.type === 'animation') {
       // Setup particles
       const animType = nextEvent.content as 'eggs' | 'sparkles' | 'confetti';
