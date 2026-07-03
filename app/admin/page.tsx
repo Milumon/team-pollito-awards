@@ -280,7 +280,7 @@ export default function AdminPage() {
 
   // Simulated Event Previews for Overlay Simulator
   const [simulatedEvent, setSimulatedEvent] = useState<{
-    type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video';
+    type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image';
     content: string;
     senderRobloxUser: string;
     visible: boolean;
@@ -312,7 +312,7 @@ export default function AdminPage() {
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
-  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
+  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     setSimulatedEvent({
       type,
       content,
@@ -352,7 +352,7 @@ export default function AdminPage() {
     }, 4000);
   };
 
-  const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
+  const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     setSendingTestEvent(true);
     try {
       const response = await apiFetch('/api/admin/stream/test-event', {

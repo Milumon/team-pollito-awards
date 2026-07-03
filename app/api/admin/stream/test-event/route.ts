@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (type, content)' }, { status: 400 });
     }
 
-    if (!['sound', 'tts', 'animation', 'image_audio', 'video'].includes(type)) {
+    if (!['sound', 'tts', 'animation', 'image_audio', 'video', 'audio', 'image'].includes(type)) {
       return NextResponse.json({ error: 'Tipo de evento de prueba inválido' }, { status: 400 });
     }
 
@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
     }
     if (type === 'video') {
       if (video_url) insertPayload.video_url = video_url;
+    }
+    if (type === 'image') {
+      if (image_url) insertPayload.image_url = image_url;
     }
 
     const { data: newEvent, error } = await supabaseAdmin

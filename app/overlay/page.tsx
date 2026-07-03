@@ -7,7 +7,7 @@ import { OverlayCanvas, type OverlayParticle, type OverlayAnimationType } from '
 
 type StreamEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation' | 'voice' | 'image_audio' | 'video';
+  type: 'sound' | 'tts' | 'animation' | 'voice' | 'image_audio' | 'video' | 'audio' | 'image';
   content: string;
   sender_roblox_user: string | null;
   sender_tiktok_user: string | null;
@@ -317,6 +317,61 @@ export default function ObsOverlayPage() {
         await markEventAsPlayed(nextEvent.id);
         playNextRef.current();
       }, 30000);
+    } else if (nextEvent.type === 'audio') {
+      // Audio-only: content is the sound ID, resolve URL from soundsMap or fetch
+      const cleanKey = nextEvent.content.replace('.mp3', '');
+      let soundData = soundsMap[cleanKey];
+      let audioUrl = soundData ? soundData.url : nextEvent.audio_url || `/sounds/${nextEvent.content}`;
+
+      if (!soundData && token) {
+        try {
+          const res = await fetch(`/api/admin/sounds/${encodeURIComponent(cleanKey)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.sound?.url) {
+              audioUrl = data.sound.url;
+              setSoundsMap(prev => ({ ...prev, [cleanKey]: { url: data.sound.url, name: data.sound.name } }));
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      remoteLog('INFO', `[AUDIO] url=${audioUrl}`);
+      if (audioPlayerRef.current && audioUrl) {
+        audioPlayerRef.current.src = audioUrl;
+        audioPlayerRef.current.volume = soundVolume;
+        const playPromise = audioPlayerRef.current.play();
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('play() timeout 5s')), 5000)
+        );
+        try {
+          await Promise.race([playPromise, timeoutPromise]);
+          remoteLog('INFO', '[AUDIO] play() OK');
+          setTimeout(async () => {
+            if (currentEventRef.current?.id === nextEvent.id) {
+              await markEventAsPlayed(nextEvent.id);
+              playNextRef.current();
+            }
+          }, 30000);
+        } catch (err) {
+          const error = err as Error;
+          remoteLog('ERROR', `[AUDIO] play() falló: ${error.message}`);
+          await markEventAsPlayed(nextEvent.id);
+          setTimeout(() => { playNextRef.current(); }, 500);
+        }
+      } else {
+        await markEventAsPlayed(nextEvent.id);
+        setTimeout(() => { playNextRef.current(); }, 500);
+      }
+    } else if (nextEvent.type === 'image') {
+      // Image-only: display image, auto-advance after 15s
+      remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}`);
+      setTimeout(async () => {
+        await markEventAsPlayed(nextEvent.id);
+        playNextRef.current();
+      }, 15000);
     } else if (nextEvent.type === 'animation') {
       // Setup particles
       const animType = nextEvent.content as 'eggs' | 'sparkles' | 'confetti';

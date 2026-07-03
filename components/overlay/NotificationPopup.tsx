@@ -33,10 +33,12 @@ export function NotificationPopup({
       ? `Imagen: ${event.content}`
       : event.type === 'video'
       ? `Video: ${event.content}`
+      : event.type === 'audio'
+      ? `Audio: ${event.content}`
       : `Animación: ${event.content ?? ''}`;
 
   const typeLabel =
-    event.type === 'tts' ? 'mensaje' : event.type === 'sound' ? 'sonido' : event.type === 'voice' ? 'audio' : event.type === 'image_audio' ? 'imagen' : event.type === 'video' ? 'video' : 'evento';
+    event.type === 'tts' ? 'mensaje' : event.type === 'sound' ? 'sonido' : event.type === 'voice' ? 'audio' : event.type === 'image_audio' ? 'imagen' : event.type === 'video' ? 'video' : event.type === 'audio' ? 'audio' : 'evento';
 
   return (
     <div
