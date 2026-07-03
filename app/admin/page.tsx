@@ -2706,11 +2706,11 @@ export default function AdminPage() {
                                   }
                                 }
                               } else if (sound.media_type === 'image_audio') {
-                                handlePlayMedia('image_audio', sound.name, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
+                                handlePlayMedia('image_audio', sound.name, { image_url: sound.image_url || undefined, audio_url: sound.audio_url || sound.url });
                               } else if (sound.media_type === 'video') {
-                                handlePlayMedia('video', sound.name, { video_url: sound.video_url });
+                                handlePlayMedia('video', sound.name, { video_url: sound.video_url || undefined });
                               } else if (sound.media_type === 'image') {
-                                handlePlayMedia('image', sound.name, { image_url: sound.image_url });
+                                handlePlayMedia('image', sound.name, { image_url: sound.image_url || undefined });
                               } else {
                                 handlePlaySound(sound.id);
                               }
