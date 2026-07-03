@@ -768,11 +768,11 @@ export default function ComunidadPage() {
                   Noche de juegos con Milumon 🎮
                 </h4>
                 <p className="font-sans text-sm text-gray-500 leading-relaxed max-w-xl">
-                  ¡Únete para jugar BedWars en directo! Habrá sorteos de Robux gratis, lluvia de efectos interactivos en pantalla y VIP a los mejores pollitos del servidor.
+                  ¡Únete para jugar Roblox en directo! Escape de ladrillos, escape de teclado, 99 noches en el bosque y más. Habrá sorteos de Robux, efectos interactivos en pantalla y VIP a los mejores pollitos.
                 </p>
                 <div className="flex flex-wrap gap-4 text-sm font-sans text-gray-500 justify-center md:justify-start">
                   <span className="flex items-center gap-1.5">🕒 Sábado 8:00 PM</span>
-                  <span className="flex items-center gap-1.5 text-purple-600">📺 Directo en TikTok & Twitch</span>
+                  <span className="flex items-center gap-1.5 text-purple-600">📺 Directo en TikTok</span>
                 </div>
               </div>
               <div className="bg-white border border-[#FFC200]/20 p-5 rounded-2xl text-center shadow-[0_4px_12px_rgba(0,0,0,.06)] shrink-0 z-10 w-full md:w-auto min-w-[160px]">
