@@ -45,8 +45,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (mediaType, name)' }, { status: 400 });
     }
 
-    if (mediaType !== 'image_audio' && mediaType !== 'video') {
-      return NextResponse.json({ error: 'mediaType debe ser image_audio o video' }, { status: 400 });
+    if (mediaType !== 'image_audio' && mediaType !== 'video' && mediaType !== 'audio' && mediaType !== 'image') {
+      return NextResponse.json({ error: 'mediaType debe ser audio, image_audio, video o image' }, { status: 400 });
+    }
+
+    if (mediaType === 'audio' && !audioFile) {
+      return NextResponse.json({ error: 'audio requiere un archivo de audio' }, { status: 400 });
     }
 
     if (mediaType === 'image_audio' && (!imageFile || !audioFile)) {
@@ -55,6 +59,10 @@ export async function POST(request: NextRequest) {
 
     if (mediaType === 'video' && !videoFile) {
       return NextResponse.json({ error: 'video requiere un archivo de video' }, { status: 400 });
+    }
+
+    if (mediaType === 'image' && !imageFile) {
+      return NextResponse.json({ error: 'image requiere un archivo de imagen' }, { status: 400 });
     }
 
     const isPublic = isPublicRaw === 'false' ? false : true;
@@ -119,7 +127,11 @@ export async function POST(request: NextRequest) {
     let filePathAudio: string | null = null;
     let filePathVideo: string | null = null;
 
-    if (mediaType === 'image_audio' && imageFile && audioFile) {
+    if (mediaType === 'audio' && audioFile) {
+      const audResult = await uploadFile(audioFile, `${slug}-aud`);
+      audioUrl = audResult.url;
+      filePathAudio = audResult.path;
+    } else if (mediaType === 'image_audio' && imageFile && audioFile) {
       const [imgResult, audResult] = await Promise.all([
         uploadFile(imageFile, `${slug}-img`),
         uploadFile(audioFile, `${slug}-aud`),
@@ -132,6 +144,10 @@ export async function POST(request: NextRequest) {
       const vidResult = await uploadFile(videoFile, `${slug}-vid`);
       videoUrl = vidResult.url;
       filePathVideo = vidResult.path;
+    } else if (mediaType === 'image' && imageFile) {
+      const imgResult = await uploadFile(imageFile, `${slug}-img`);
+      imageUrl = imgResult.url;
+      filePathImage = imgResult.path;
     }
 
     // 6. Insert into media_submissions
