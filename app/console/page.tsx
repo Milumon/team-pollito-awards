@@ -73,9 +73,10 @@ type StreamSettings = {
 };
 
 interface PendingTrigger {
-  type: 'sound' | 'tts' | 'animation';
+  type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video';
   content: string;
   message: string;
+  mediaUrls?: { image_url?: string; audio_url?: string; video_url?: string };
 }
 
 
@@ -131,7 +132,7 @@ export default function MemberConsolePage() {
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
 
   // Dynamic Sounds Board
-  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
+  const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
   const [soundDurations, setSoundDurations] = useState<Record<string, number>>({});
   const [editingSound, setEditingSound] = useState<{ id: string; name: string; url: string; is_public: boolean; cooldown_seconds: number } | null>(null);
   const [editSoundName, setEditSoundName] = useState('');
@@ -342,7 +343,7 @@ export default function MemberConsolePage() {
   }, []);
 
   // 3. Trigger Event Helper
-  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation', content: string, bypassConfirm = false) => {
+  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video', content: string, bypassConfirm = false, mediaUrls?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     if (!session) return;
     setError(null);
     setSuccess(null);
@@ -360,11 +361,16 @@ export default function MemberConsolePage() {
           ? '¿Quieres reproducir este sonido en el stream?'
           : type === 'animation'
           ? '¿Quieres mostrar esta animación en pantalla?'
+          : type === 'image_audio'
+          ? '¿Quieres enviar esta imagen + audio al stream?'
+          : type === 'video'
+          ? '¿Quieres enviar este video al stream?'
           : '¿Quieres enviar este mensaje de voz (TTS) al stream?';
       setPendingTrigger({
         type,
         content,
-        message: confirmMsg
+        message: confirmMsg,
+        mediaUrls
       });
       return;
     }
@@ -394,7 +400,7 @@ export default function MemberConsolePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, content }),
+        body: JSON.stringify({ type, content, ...mediaUrls }),
       });
 
       const data = await response.json();
@@ -432,9 +438,9 @@ export default function MemberConsolePage() {
 
   const handleConfirmTrigger = useCallback(async () => {
     if (!pendingTrigger) return;
-    const { type, content } = pendingTrigger;
+    const { type, content, mediaUrls } = pendingTrigger;
     setPendingTrigger(null);
-    await triggerEvent(type, content, true);
+    await triggerEvent(type, content, true, mediaUrls);
   }, [pendingTrigger, triggerEvent]);
 
   const fetchSounds = useCallback(async () => {
@@ -1229,6 +1235,10 @@ export default function MemberConsolePage() {
                                 }
                                 setSuccess(`Escuchando localmente: ${sound.name} 🎧`);
                                 setTimeout(() => setSuccess(null), 3000);
+                              } else if (sound.media_type === 'image_audio') {
+                                void triggerEvent('image_audio', sound.name, false, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
+                              } else if (sound.media_type === 'video') {
+                                void triggerEvent('video', sound.name, false, { video_url: sound.video_url });
                               } else {
                                 void triggerEvent('sound', sound.id);
                               }
@@ -1256,7 +1266,11 @@ export default function MemberConsolePage() {
                                   )}
 
                                   <div className="flex items-center justify-between w-full relative z-10">
-                                    <span className="text-lg">🔊</span>
+                                    {sound.image_url ? (
+                                      <img src={sound.image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-neutral-700/60" />
+                                    ) : (
+                                      <span className="text-lg">🔊</span>
+                                    )}
                                     <div className="flex items-center gap-1.5">
                                       {isOwner && (
                                         <button
@@ -1300,7 +1314,11 @@ export default function MemberConsolePage() {
                                       </span>
                                     ) : (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isMuted) void triggerEvent('sound', sound.id); }}
+                                        onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isMuted) {
+                                          if (sound.media_type === 'image_audio') void triggerEvent('image_audio', sound.name, false, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
+                                          else if (sound.media_type === 'video') void triggerEvent('video', sound.name, false, { video_url: sound.video_url });
+                                          else void triggerEvent('sound', sound.id);
+                                        } }}
                                         disabled={isCooldown || triggeringId !== null || isMuted}
                                         className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:text-gray-500 disabled:border-gray-600 disabled:bg-neutral-800"
                                       >

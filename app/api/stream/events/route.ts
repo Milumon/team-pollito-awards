@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, content, tiktokUser } = body;
+    const { type, content, tiktokUser, image_url, audio_url, video_url } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
@@ -230,17 +230,25 @@ export async function POST(request: NextRequest) {
       sender_roblox_user: profile.roblox_user,
       sender_avatar_url: profile.roblox_avatar_url,
     });
+    const insertPayload: Record<string, unknown> = {
+      user_id: finalUserId,
+      type,
+      content: content.trim(),
+      sender_roblox_user: profile.roblox_user,
+      sender_tiktok_user: profile.tiktok_user,
+      sender_avatar_url: profile.roblox_avatar_url,
+      played: false,
+    };
+    if (type === 'image_audio') {
+      if (image_url) insertPayload.image_url = image_url;
+      if (audio_url) insertPayload.audio_url = audio_url;
+    }
+    if (type === 'video') {
+      if (video_url) insertPayload.video_url = video_url;
+    }
     const { data: event, error: insertError } = await supabaseAdmin
       .from('stream_events')
-      .insert({
-        user_id: finalUserId,
-        type,
-        content: content.trim(),
-        sender_roblox_user: profile.roblox_user,
-        sender_tiktok_user: profile.tiktok_user,
-        sender_avatar_url: profile.roblox_avatar_url,
-        played: false,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
