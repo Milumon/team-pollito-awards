@@ -248,30 +248,32 @@ export function OverlayCanvas({
               <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[#f5b94a] animate-pulse pointer-events-none z-10" />
 
               {/* Media content */}
-              {event.type === 'image_audio' && event.image_url && (
-                <img
-                  src={event.image_url}
-                  alt={event.content}
-                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
-                />
-              )}
-              {event.type === 'video' && event.video_url && (
-                <video
-                  src={event.video_url}
-                  autoPlay
-                  loop={false}
-                  playsInline
-                  muted={false}
-                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
-                />
-              )}
-              {event.type === 'image' && event.image_url && (
-                <img
-                  src={event.image_url}
-                  alt={event.content}
-                  className="w-full object-contain max-h-[50vh] rounded-lg m-2"
-                />
-              )}
+              <div className="p-2">
+                {event.type === 'image_audio' && event.image_url && (
+                  <img
+                    src={event.image_url}
+                    alt={event.content}
+                    className="w-full object-contain max-h-[50vh] rounded-lg"
+                  />
+                )}
+                {event.type === 'video' && event.video_url && (
+                  <video
+                    src={event.video_url}
+                    autoPlay
+                    loop={false}
+                    playsInline
+                    muted={false}
+                    className="w-full object-contain max-h-[50vh] rounded-lg"
+                  />
+                )}
+                {event.type === 'image' && event.image_url && (
+                  <img
+                    src={event.image_url}
+                    alt={event.content}
+                    className="w-full object-contain max-h-[50vh] rounded-lg"
+                  />
+                )}
+              </div>
 
               {/* Sender info — same style as NotificationPopup */}
               <div className="flex items-center gap-2 p-2.5 border-t border-[#e8a33d]/30">
