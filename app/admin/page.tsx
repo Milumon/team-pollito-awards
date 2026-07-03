@@ -14,6 +14,7 @@ const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr
 import { Header } from '@/components/ui/Header';
 import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 import MediaSubmissionsPanel from '@/components/admin/MediaSubmissionsPanel';
+import MediaUploadForm from '@/components/console/MediaUploadForm';
 
 function maskEmail(email: string): string {
   if (!email) return '';
@@ -134,28 +135,13 @@ type SoundItem = {
   cooldown_seconds?: number | null;
   is_public?: boolean;
   owner_user_id?: string | null;
+  media_type?: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  video_url?: string | null;
   profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null;
 };
 
-type SoundSubmission = {
-  id: string;
-  submitted_by_user_id: string;
-  name: string;
-  file_path: string;
-  url: string;
-  suggested_cooldown_seconds: number;
-  is_public: boolean;
-  status: 'pending' | 'approved' | 'rejected';
-  rejection_reason: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  created_at: string;
-  profiles?: {
-    roblox_user: string | null;
-    roblox_display_name: string | null;
-    roblox_avatar_url: string | null;
-  } | null;
-};
 
 const getSoundColor = (soundId: string) => {
   switch (soundId) {
@@ -379,7 +365,6 @@ export default function AdminPage() {
   // Soundboard states
   const [sounds, setSounds] = useState<SoundItem[]>([]);
   const [loadingSounds, setLoadingSounds] = useState(false);
-  const [soundboardView, setSoundboardView] = useState<'library' | 'submissions'>('library');
   const [isAddSoundModalOpen, setIsAddSoundModalOpen] = useState(false);
   const [soundName, setSoundName] = useState('');
   const [soundFile, setSoundFile] = useState<File | null>(null);
@@ -394,21 +379,7 @@ export default function AdminPage() {
   const [editingSoundAudioLoading, setEditingSoundAudioLoading] = useState(false);
   const [editingSoundAudioError, setEditingSoundAudioError] = useState('');
   const [submittingSound, setSubmittingSound] = useState(false);
-
-  // Sound Submissions (user-submitted audio pending review)
-  const [soundSubmissions, setSoundSubmissions] = useState<SoundSubmission[]>([]);
-  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
-  const [approvingSubmissionId, setApprovingSubmissionId] = useState<string | null>(null);
-  const [rejectingSubmissionId, setRejectingSubmissionId] = useState<string | null>(null);
-  const [rejectReasonInput, setRejectReasonInput] = useState('');
-  const [submissionEdits, setSubmissionEdits] = useState<Record<string, { name: string; cooldown: string }>>({});
-  const [submissionAudioDrafts, setSubmissionAudioDrafts] = useState<Record<string, File>>({});
-  const [editingSubmissionAudioId, setEditingSubmissionAudioId] = useState<string | null>(null);
-  const [editingSubmissionAudioFile, setEditingSubmissionAudioFile] = useState<File | null>(null);
-  const [editingSubmissionAudioTrim, setEditingSubmissionAudioTrim] = useState<{ start: number; end: number } | null>(null);
-  const [editingSubmissionAudioLoading, setEditingSubmissionAudioLoading] = useState(false);
-  const [editingSubmissionAudioSaving, setEditingSubmissionAudioSaving] = useState(false);
-  const [editingSubmissionAudioError, setEditingSubmissionAudioError] = useState('');
+  const [soundboardSubTab, setSoundboardSubTab] = useState<'audios' | 'multimedia' | 'videos'>('audios');
 
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -622,149 +593,6 @@ export default function AdminPage() {
     }
   }, [isAdmin, apiFetch]);
 
-  const loadSoundSubmissions = useCallback(async () => {
-    if (!isAdmin) return;
-    setLoadingSubmissions(true);
-    try {
-      const response = await apiFetch('/api/admin/sounds/submissions');
-      const data = await readApiPayload(response);
-      if (response.ok) {
-        const subs: SoundSubmission[] = Array.isArray(data.submissions) ? data.submissions : [];
-        setSoundSubmissions(subs);
-        // Inicializar edits con los valores propuestos por el usuario
-        const initialEdits: Record<string, { name: string; cooldown: string }> = {};
-        subs.forEach((s) => {
-          initialEdits[s.id] = { name: s.name, cooldown: String(s.suggested_cooldown_seconds) };
-        });
-        setSubmissionEdits(initialEdits);
-      }
-    } catch (err) {
-      console.error('Error al cargar submissions de audio:', err);
-    } finally {
-      setLoadingSubmissions(false);
-    }
-  }, [isAdmin, apiFetch]);
-
-  const handleApproveSubmission = async (submissionId: string) => {
-    setApprovingSubmissionId(submissionId);
-    setError(null);
-    try {
-      const edits = submissionEdits[submissionId];
-      const draftAudio = submissionAudioDrafts[submissionId];
-
-      const requestInit: RequestInit = {
-        method: 'POST',
-      };
-
-      if (draftAudio) {
-        const formData = new FormData();
-        formData.append('name', edits?.name?.trim() || '');
-        formData.append('cooldownSeconds', edits ? String(parseInt(edits.cooldown) || 0) : '');
-        formData.append('file', draftAudio, draftAudio.name);
-        requestInit.body = formData;
-      } else {
-        requestInit.body = JSON.stringify({
-          name: edits?.name?.trim() || undefined,
-          cooldownSeconds: edits ? parseInt(edits.cooldown) || 0 : undefined,
-        });
-      }
-
-      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/approve`, requestInit);
-      const data = await readApiPayload(response);
-      if (!response.ok) throw new Error(data.error || 'Error al aprobar el envío');
-      setStatus('Envío aprobado y agregado a la botonera.');
-      setTimeout(() => setStatus(null), 3000);
-      setSubmissionAudioDrafts((current) => {
-        const next = { ...current };
-        delete next[submissionId];
-        return next;
-      });
-      await loadSoundSubmissions();
-      await loadSounds();
-      await loadAuditLogs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al aprobar');
-    } finally {
-      setApprovingSubmissionId(null);
-    }
-  };
-
-  const handleOpenSubmissionAudioEditor = async (submission: SoundSubmission) => {
-    setEditingSubmissionAudioId(submission.id);
-    setEditingSubmissionAudioLoading(true);
-    setEditingSubmissionAudioError('');
-    setEditingSubmissionAudioFile(null);
-    setEditingSubmissionAudioTrim(null);
-
-    try {
-      const response = await fetch(submission.url);
-      if (!response.ok) throw new Error('No se pudo cargar el audio del envío.');
-      const blob = await response.blob();
-      const inferredName = submission.file_path?.split('/').pop() || `${submission.id}.mp3`;
-      const file = new File([blob], inferredName, { type: blob.type || 'audio/mpeg' });
-      setEditingSubmissionAudioFile(file);
-    } catch (err) {
-      setEditingSubmissionAudioError(err instanceof Error ? err.message : 'No se pudo cargar el audio.');
-    } finally {
-      setEditingSubmissionAudioLoading(false);
-    }
-  };
-
-  const handleSaveSubmissionAudioTrim = async () => {
-    if (!editingSubmissionAudioId || !editingSubmissionAudioFile || !editingSubmissionAudioTrim) {
-      setEditingSubmissionAudioError('Primero cargá un audio y definí un recorte válido.');
-      return;
-    }
-
-    setEditingSubmissionAudioSaving(true);
-    setEditingSubmissionAudioError('');
-
-    try {
-      const processedFile = await convertAudioToMp3(
-        editingSubmissionAudioFile,
-        editingSubmissionAudioTrim.start,
-        editingSubmissionAudioTrim.end
-      );
-
-      setSubmissionAudioDrafts((current) => ({
-        ...current,
-        [editingSubmissionAudioId]: processedFile,
-      }));
-
-      setStatus('Recorte guardado para la aprobación.');
-      setTimeout(() => setStatus(null), 3000);
-      setEditingSubmissionAudioId(null);
-      setEditingSubmissionAudioFile(null);
-      setEditingSubmissionAudioTrim(null);
-    } catch (err) {
-      setEditingSubmissionAudioError(err instanceof Error ? err.message : 'No se pudo guardar el recorte.');
-    } finally {
-      setEditingSubmissionAudioSaving(false);
-    }
-  };
-
-  const handleRejectSubmission = async (submissionId: string) => {
-    setRejectingSubmissionId(submissionId);
-    setError(null);
-    try {
-      const response = await apiFetch(`/api/admin/sounds/submissions/${submissionId}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: rejectReasonInput.trim() || null }),
-      });
-      const data = await readApiPayload(response);
-      if (!response.ok) throw new Error(data.error || 'Error al rechazar el envío');
-      setStatus('Envío rechazado.');
-      setRejectReasonInput('');
-      setTimeout(() => setStatus(null), 3000);
-      await loadSoundSubmissions();
-      await loadAuditLogs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al rechazar');
-    } finally {
-      setRejectingSubmissionId(null);
-    }
-  };
-
   const loadAuditLogs = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingAuditLogs(true);
@@ -842,7 +670,6 @@ export default function AdminPage() {
         loadInterviewSlots(),
         loadStreamSettings(),
         loadSounds(),
-        loadSoundSubmissions(),
         loadAuditLogs(),
         pingAlexaVM(),
       ]);
@@ -868,7 +695,7 @@ export default function AdminPage() {
       void channel.unsubscribe();
       clearInterval(interval);
     };
-  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions, loadAuditLogs, pingAlexaVM]);
+  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
 
   // Load admin's own Roblox profile for preview avatar
   useEffect(() => {
@@ -903,10 +730,10 @@ export default function AdminPage() {
       })();
     } else if (activeTab === 'soundboard') {
       void (async () => {
-        await Promise.all([loadSounds(), loadSoundSubmissions()]);
+        await loadSounds();
       })();
     }
-  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds, loadSoundSubmissions]);
+  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
     setError(null);
@@ -2741,434 +2568,172 @@ export default function AdminPage() {
   );
 
   const renderSoundboardTab = () => {
-    const pending = soundSubmissions.filter((submission) => submission.status === 'pending');
+    const filteredSounds = sounds.filter(s => {
+      if (soundboardSubTab === 'audios') return !s.media_type || s.media_type === 'audio';
+      if (soundboardSubTab === 'multimedia') return s.media_type === 'image_audio' || s.media_type === 'image';
+      if (soundboardSubTab === 'videos') return s.media_type === 'video';
+      return true;
+    });
 
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr] items-start">
-          <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
-            <div>
-              <span className="text-[10px] text-gray-500 tracking-wide">Botonera VIP</span>
-              <h2 className="font-display font-bold text-lg text-white mt-1 leading-none">Gestión de sonidos</h2>
-              <p className="text-xs text-gray-400 mt-2 leading-relaxed font-semibold">
-                Mantené la botonera limpia. El alta de sonidos se hace en un modal y los envíos de usuarios se revisan aparte.
-              </p>
+      <div className="space-y-4 animate-fade-in">
+        {/* Header + Sub-tabs */}
+        <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Music className="w-5 h-5 text-gray-400" />
+              <h2 className="font-display font-bold text-base md:text-lg text-white">Banco</h2>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
-                <p className="text-[10px] font-medium text-gray-500">Sonidos</p>
-                <p className="text-base font-mono font-black text-white mt-1">{sounds.length}</p>
-              </div>
-              <div className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
-                <p className="text-[10px] font-medium text-gray-500">Pendientes</p>
-                <p className="text-base font-mono font-black text-white mt-1">{pending.length}</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsAddSoundModalOpen(true)}
-              className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-2"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Agregar Sonido
-            </button>
-
-            <div className="flex gap-2">
+            <span className="text-[10px] bg-neutral-800 rounded-lg px-2 py-0.5 font-mono text-gray-500">
+              {sounds.length} items
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {([
+              { id: 'audios' as const, label: '🔊 Audios' },
+              { id: 'multimedia' as const, label: '🖼️ Imágenes' },
+              { id: 'videos' as const, label: '🎬 Videos' },
+            ]).map((tab) => (
               <button
-                type="button"
-                onClick={() => setSoundboardView('library')}
-                className={`flex-1 py-2 rounded-xl text-xs font-display font-semibold border transition-all cursor-pointer ${
-                  soundboardView === 'library'
-                    ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/20'
-                    : 'bg-[#2b2d31] text-gray-400 border-neutral-700/60 hover:text-white'
+                key={tab.id}
+                onClick={() => setSoundboardSubTab(tab.id)}
+                className={`px-3 py-1.5 rounded-full text-[11px] font-display font-semibold border transition-all cursor-pointer ${
+                  soundboardSubTab === tab.id
+                    ? 'bg-[#FFC200] text-black border-[#FFC200] shadow-[2px_2px_0_0_#000]'
+                    : 'bg-[#35373d] text-gray-400 border-neutral-700/60 hover:text-white'
                 }`}
               >
-                Botonera
+                {tab.label}
               </button>
-              <button
-                type="button"
-                onClick={() => setSoundboardView('submissions')}
-                className={`flex-1 py-2 rounded-xl text-xs font-display font-semibold border transition-all cursor-pointer ${
-                  soundboardView === 'submissions'
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    : 'bg-[#2b2d31] text-gray-400 border-neutral-700/60 hover:text-white'
-                }`}
-              >
-                Envíos
-              </button>
-            </div>
-
-            <p className="text-[11px] text-gray-500 leading-relaxed">
-              La botonera y la revisión no compiten por espacio. Alterná entre ambas vistas según la tarea.
-            </p>
-          </aside>
-
-          <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
-            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">
-                  {soundboardView === 'library' ? 'Botonera VIP' : 'Moderación'}
-                </span>
-                <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">
-                  {soundboardView === 'library' ? 'Sonidos Disponibles' : 'Envíos de Usuarios'}
-                </h2>
-              </div>
-              <span className={`text-[10px] font-bold border rounded-2xl px-3 py-1 ${
-                soundboardView === 'library'
-                  ? 'bg-[#FFC200]/10 text-[#FFC200] border-neutral-700/60'
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-              }`}>
-                {soundboardView === 'library' ? `${sounds.length} Sonidos` : `${pending.length} Pendiente${pending.length !== 1 ? 's' : ''}`}
-              </span>
-            </div>
-
-            {soundboardView === 'library' ? (
-              loadingSounds ? (
-                <div className="py-16 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando botonera...</div>
-              ) : sounds.length === 0 ? (
-                <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-[#FFC200]/45 rounded-2xl">
-                  <p className="font-bold text-white text-sm">Consola de sonidos vacía</p>
-                  <p className="text-xs text-gray-400 mt-1 font-medium">Usá el botón “Agregar Sonido” para crear el primer botón.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(
-                    sounds.reduce((acc, sound) => {
-                      const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || 'Comunidad';
-                      if (!acc[ownerName]) acc[ownerName] = { avatar: sound.profiles?.roblox_avatar_url ?? null, sounds: [] };
-                      acc[ownerName].sounds.push(sound);
-                      return acc;
-                    }, {} as Record<string, { avatar: string | null; sounds: typeof sounds }>)
-                  ).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
-                    <div key={ownerName}>
-                      <div className="flex items-center gap-2.5 mb-2 px-1">
-                        {avatar ? (
-                          <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-600 shrink-0">
-                            <img src={avatar} alt={ownerName} className="w-full h-full object-cover" style={{ transform: 'scale(1.4)', transformOrigin: 'center 30%', objectPosition: 'center top' }} />
-                          </div>
-                        ) : (
-                          <span className="text-sm">🐣</span>
-                        )}
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
-                        <span className="text-[9px] text-gray-600 font-mono">({ownerSounds.length})</span>
-                      </div>
-                      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-                      {ownerSounds.map((sound) => {
-                        const soundStyles = getSoundColor(sound.id);
-                        return (
-                          <article key={sound.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col justify-between gap-3 group transition-all hover:translate-y-[-1px] hover:shadow-[0_4px_14px_rgba(0,0,0,.4)] relative">
-                            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleSoundPublic(sound.id, !(sound.is_public ?? true))}
-                                className={`p-1 rounded-lg border transition-all cursor-pointer active:scale-[0.97] ${
-                                  sound.is_public
-                                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                                    : 'bg-neutral-700/50 hover:bg-neutral-700 text-gray-400 border-neutral-600'
-                                }`}
-                                title={sound.is_public ? 'Público — click para hacer privado' : 'Privado — click para hacer público'}
-                              >
-                                {sound.is_public ? '🌍' : '🔒'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingSound(sound);
-                                  setEditingSoundName(sound.name);
-                                  setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
-                                  setEditingSoundAudioEnabled(false);
-                                  setEditingSoundAudioFile(null);
-                                  setEditingSoundAudioTrim(null);
-                                  setEditingSoundAudioLoading(false);
-                                  setEditingSoundAudioError('');
-                                }}
-                                className="p-1 bg-neutral-700/50 hover:bg-neutral-750 text-gray-300 rounded-lg border border-neutral-600 transition-all cursor-pointer active:scale-[0.97]"
-                                title="Editar sonido"
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSound(sound.id)}
-                                className="p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-all cursor-pointer active:scale-[0.97]"
-                                title="Borrar de la botonera"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="text-center pt-2">
-                              <span className="text-2xl block mb-1">📢</span>
-                              <h3 className={`font-display font-semibold text-xs truncate px-2 ${soundStyles.text}`} title={sound.name}>
-                                {sound.name}
-                              </h3>
-                              <div className="flex items-center justify-center gap-2 mt-1">
-                                {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? (
-                                  <span className="text-[9px] text-gray-500 font-mono font-semibold">
-                                    ⏱ {sound.cooldown_seconds}s
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] text-gray-500 font-mono opacity-40">
-                                    Sin CD
-                                  </span>
-                                )}
-                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${
-                                  sound.is_public
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                    : 'bg-neutral-700 text-gray-400 border-neutral-600'
-                                }`}>
-                                  {sound.is_public ? 'PÚBLICO' : 'PRIVADO'}
-                                </span>
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => handlePlaySound(sound.id)}
-                              className="w-full py-1.5 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-medium rounded-xl flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-[0.97]"
-                            >
-                              <Play className="w-3 h-3 fill-current" />
-                              Testear OBS
-                            </button>
-                          </article>
-                        );
-                      })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            ) : loadingSubmissions ? (
-              <div className="py-5 text-center text-gray-500 text-xs font-bold uppercase tracking-wider animate-pulse">Cargando envíos...</div>
-            ) : pending.length === 0 ? (
-              <div className="py-16 text-center bg-[#2b2d31] border border-dashed border-amber-500/30 rounded-2xl">
-                <p className="font-bold text-white text-sm">Sin envíos pendientes</p>
-                <p className="text-xs text-gray-400 mt-1 font-medium">Cuando lleguen solicitudes nuevas aparecerán acá como cards de revisión.</p>
-              </div>
-            ) : (
-              <div className="grid gap-3 lg:grid-cols-2">
-                {pending.map((sub) => {
-                  const edits = submissionEdits[sub.id] ?? { name: sub.name, cooldown: String(sub.suggested_cooldown_seconds) };
-                  const isApproving = approvingSubmissionId === sub.id;
-                  const isRejecting = rejectingSubmissionId === sub.id;
-                  const submitter = sub.profiles;
-                  const hasDraftAudio = !!submissionAudioDrafts[sub.id];
-
-                  return (
-                    <article key={sub.id} className="bg-[#35373d] border border-amber-500/20 rounded-xl p-4 space-y-3">
-                      <div className="flex items-center gap-3">
-                        {submitter?.roblox_avatar_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={submitter.roblox_avatar_url} alt="" className="w-8 h-8 rounded-full border border-neutral-600" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center text-xs text-gray-400">?</div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-white truncate">{submitter?.roblox_display_name || submitter?.roblox_user || 'Usuario desconocido'}</p>
-                          <p className="text-[10px] text-gray-500 truncate">@{submitter?.roblox_user || sub.submitted_by_user_id.slice(0, 8)}</p>
-                        </div>
-                        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
-                          {hasDraftAudio && (
-                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                              Recorte listo
-                            </span>
-                          )}
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            sub.is_public
-                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                              : 'bg-purple-500/10 text-purple-400 border-purple-500/20'
-                          }`}>
-                            {sub.is_public ? '🌐 Público' : '🔒 Privado'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="block space-y-1">
-                          <span className="text-[10px] text-gray-500">Nombre del botón</span>
-                          <input
-                            type="text"
-                            value={edits.name}
-                            onChange={(e) => setSubmissionEdits(prev => ({ ...prev, [sub.id]: { ...edits, name: e.target.value } }))}
-                            className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-lg px-2 py-1.5 text-xs focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                          />
-                        </label>
-                        <label className="block space-y-1">
-                          <span className="text-[10px] text-gray-500">Cooldown (seg)</span>
-                          <input
-                            type="number"
-                            min={0}
-                            value={edits.cooldown}
-                            onChange={(e) => setSubmissionEdits(prev => ({ ...prev, [sub.id]: { ...edits, cooldown: e.target.value } }))}
-                            className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-lg px-2 py-1.5 text-xs focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="flex gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => void handleOpenSubmissionAudioEditor(sub)}
-                          className="flex-1 min-w-[140px] py-2 bg-[#2b2d31] hover:bg-[#1d2029] border border-neutral-700/60 text-white text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-1"
-                        >
-                          <Scissors className="w-3 h-3 text-[#FFC200]" />
-                          Previsualizar / Recortar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isApproving || isRejecting !== false}
-                          onClick={() => void handleApproveSubmission(sub.id)}
-                          className="flex-1 min-w-[140px] py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1"
-                        >
-                          {isApproving ? <Loader className="w-3 h-3 animate-spin" /> : null}
-                          {isApproving ? 'Aprobando...' : '✓ Aprobar'}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isApproving}
-                          onClick={() => setRejectingSubmissionId(prev => prev === sub.id ? null : sub.id)}
-                          className="flex-1 min-w-[140px] py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50"
-                        >
-                          ✕ Rechazar
-                        </button>
-                      </div>
-
-                      <AnimatePresence>
-                        {rejectingSubmissionId === sub.id && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="space-y-2 overflow-hidden"
-                          >
-                            <textarea
-                              value={rejectReasonInput}
-                              onChange={(e) => setRejectReasonInput(e.target.value)}
-                              placeholder="Motivo del rechazo (opcional)..."
-                              rows={2}
-                              className="w-full bg-[#2b2d31] border border-red-500/20 rounded-lg px-2 py-1.5 text-xs outline-none text-white resize-none focus:border-red-400 transition-colors"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void handleRejectSubmission(sub.id)}
-                              className="w-full py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-display font-semibold rounded-xl transition-all cursor-pointer active:scale-[0.97]"
-                            >
-                              Confirmar rechazo
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </main>
+            ))}
+          </div>
         </div>
 
-        <AnimatePresence>
-          {isAddSoundModalOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.95, y: 15 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95, y: 15 }}
-                className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
-              >
-                <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
-                  <h3 className="font-display font-bold text-white text-base">Agregar Sonido</h3>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddSoundModalOpen(false)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
+        {/* Upload Form */}
+        <MediaUploadForm
+          session={session}
+          onSuccess={() => { void loadSounds(); }}
+        />
 
-                <form onSubmit={handleUploadSound} className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block space-y-1">
-                      <span className="text-xs text-gray-500">Nombre del sonido</span>
-                      <input
-                        type="text"
-                        value={soundName}
-                        onChange={(e) => setSoundName(e.target.value)}
-                        placeholder="Ej: Risitas, Fail, Woohoo"
-                        className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                      />
-                    </label>
+        {/* Sound Grid */}
+        <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
+            {loadingSounds ? (
+              <div className="flex flex-col items-center justify-center h-48 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">
+                <Loader className="w-7 h-7 animate-spin mb-2 text-[#FFC200]" />
+                Cargando contenido...
+              </div>
+            ) : filteredSounds.length === 0 ? (
+              <div className="py-12 text-center text-xs font-bold text-gray-500 border border-dashed border-[#FFC200]/45 rounded-2xl bg-black/20">
+                {soundboardSubTab === 'audios' && 'No hay audios disponibles en este momento.'}
+                {soundboardSubTab === 'multimedia' && 'No hay imágenes disponibles en este momento.'}
+                {soundboardSubTab === 'videos' && 'No hay videos disponibles en este momento.'}
+              </div>
+            ) : (
+              (() => {
+                const grouped = filteredSounds.reduce((acc, sound) => {
+                  const ownerName = sound.profiles?.roblox_display_name || sound.profiles?.roblox_user || 'Comunidad';
+                  if (!acc[ownerName]) acc[ownerName] = { avatar: sound.profiles?.roblox_avatar_url ?? null, sounds: [] };
+                  acc[ownerName].sounds.push(sound);
+                  return acc;
+                }, {} as Record<string, { avatar: string | null; sounds: typeof filteredSounds }>);
 
-                    <label className="block space-y-1">
-                      <span className="text-xs text-gray-500">Cooldown personalizado (segundos)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={soundCooldown}
-                        onChange={(e) => setSoundCooldown(e.target.value)}
-                        placeholder="0 (sin cooldown)"
-                        className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl px-3 py-2 text-sm focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 outline-none text-white transition-colors"
-                      />
-                    </label>
+                return (
+                  <div className="space-y-4 p-1">
+                    {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
+                      <div key={ownerName}>
+                        <div className="flex items-center gap-2.5 mb-2 px-1">
+                          {avatar ? (
+                            <div className="w-6 h-6 rounded-full overflow-hidden border border-neutral-600 shrink-0">
+                              <img src={avatar} alt={ownerName} className="w-full h-full object-cover" style={{ transform: 'scale(1.4)', transformOrigin: 'center 30%', objectPosition: 'center top' }} />
+                            </div>
+                          ) : (
+                            <span className="text-sm">🐣</span>
+                          )}
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
+                          <span className="text-[9px] text-gray-600 font-mono">({ownerSounds.length})</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                          {ownerSounds.map((sound) => {
+                            const soundStyles = getSoundColor(sound.id);
+                            return (
+                              <div
+                                key={sound.id}
+                                className="relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer group"
+                              >
+                                <div className="flex items-center justify-between w-full relative z-10">
+                                  {sound.image_url ? (
+                                    <img src={sound.image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-neutral-700/60" />
+                                  ) : (
+                                    <span className="text-lg">
+                                      {sound.media_type === 'video' ? '🎬' : sound.media_type === 'image' ? '🖼️' : '🔊'}
+                                    </span>
+                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingSound(sound);
+                                        setEditingSoundName(sound.name);
+                                        setEditingSoundCooldown(String(sound.cooldown_seconds ?? 0));
+                                        setEditingSoundAudioEnabled(false);
+                                        setEditingSoundAudioFile(null);
+                                        setEditingSoundAudioTrim(null);
+                                        setEditingSoundAudioLoading(false);
+                                        setEditingSoundAudioError('');
+                                      }}
+                                      className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
+                                    >✏️</button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleSoundPublic(sound.id, !(sound.is_public ?? true));
+                                      }}
+                                      className={`text-[8px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${
+                                        sound.is_public
+                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                                          : 'bg-neutral-700 text-gray-400 border-neutral-600 hover:bg-neutral-700'
+                                      }`}
+                                      title={sound.is_public ? 'Público — click para hacer privado' : 'Privado — click para hacer público'}
+                                    >
+                                      {sound.is_public ? '🌍' : '🔒'}
+                                    </button>
+                                    <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border ${soundStyles.badge}`}>
+                                      {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? `CD: ${sound.cooldown_seconds}s` : 'LISTO'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${soundStyles.text}`} title={sound.name}>
+                                  {sound.name}
+                                </span>
+
+                                <div className="flex items-center justify-between w-full relative z-10">
+                                  <span className="text-[9px] text-gray-500 font-bold">
+                                    {sound.cooldown_seconds ? `CD: ${sound.cooldown_seconds}s` : 'Sin CD'}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteSound(sound.id);
+                                    }}
+                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <label className="block space-y-1">
-                    <span className="text-xs text-gray-500">Archivo de Audio o Video</span>
-                    <div className="relative border border-dashed border-[#FFC200]/45 rounded-2xl p-4 bg-[#2b2d31] hover:bg-[#20242D] cursor-pointer transition-colors text-center">
-                      <input
-                        type="file"
-                        accept="audio/*,video/*"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          setSoundFile(f);
-                          setSoundTrim(null);
-                        }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <Music className="w-6 h-6 text-gray-500 mx-auto mb-2" />
-                      <p className="text-[10px] text-gray-400 font-medium truncate">
-                        {soundFile ? soundFile.name : 'Elegir archivo de audio o video'}
-                      </p>
-                    </div>
-                  </label>
-
-                  {soundFile && (
-                    <AudioPreview
-                      file={soundFile}
-                      embedded
-                      onTrimChange={(start, end) => setSoundTrim({ start, end })}
-                    />
-                  )}
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddSoundModalOpen(false)}
-                      className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submittingSound || !soundFile || !soundName.trim()}
-                      className="flex-1 py-2 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {submittingSound ? 'Subiendo...' : 'Agregar Sonido'}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                );
+              })()
+            )}
+          </div>
+        </div>
 
       {/* Modal para Editar Sonido */}
       <AnimatePresence>
@@ -3316,83 +2881,6 @@ export default function AdminPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {editingSubmissionAudioId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-[#2b2d31] border border-neutral-700/60 w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-neutral-700/60 pb-3">
-                <h3 className="font-display font-bold text-white text-base">Recortar audio del envío</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingSubmissionAudioId(null);
-                    setEditingSubmissionAudioFile(null);
-                    setEditingSubmissionAudioTrim(null);
-                    setEditingSubmissionAudioError('');
-                  }}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {editingSubmissionAudioLoading ? (
-                <div className="py-10 text-center text-xs text-gray-400 uppercase tracking-wider font-bold animate-pulse">
-                  Cargando audio del envío...
-                </div>
-              ) : editingSubmissionAudioError ? (
-                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400 font-semibold">
-                  {editingSubmissionAudioError}
-                </div>
-              ) : (
-                <>
-                  {editingSubmissionAudioFile && (
-                    <AudioPreview
-                      file={editingSubmissionAudioFile}
-                      embedded
-                      onTrimChange={(start, end) => setEditingSubmissionAudioTrim({ start, end })}
-                    />
-                  )}
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingSubmissionAudioId(null);
-                        setEditingSubmissionAudioFile(null);
-                        setEditingSubmissionAudioTrim(null);
-                        setEditingSubmissionAudioError('');
-                      }}
-                      className="flex-1 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold text-sm rounded-xl transition-all cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleSaveSubmissionAudioTrim()}
-                      disabled={editingSubmissionAudioSaving || !editingSubmissionAudioFile || !editingSubmissionAudioTrim}
-                      className="flex-1 py-2 bg-[#FFC200] hover:brightness-105 text-black font-semibold text-sm rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {editingSubmissionAudioSaving ? 'Guardando...' : 'Guardar recorte'}
-                    </button>
-                  </div>
-                </>
-              )}
             </motion.div>
           </motion.div>
         )}

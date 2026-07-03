@@ -17,19 +17,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  // 2. Verify approved member
+  // 2. Verify approved member (or admin)
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('link_status')
+    .select('link_status, is_admin')
     .eq('id', user.id)
     .maybeSingle();
 
-  if (profileError || !profile || profile.link_status !== 'approved') {
+  if (profileError || !profile || (profile.link_status !== 'approved' && !profile.is_admin)) {
     return NextResponse.json(
       { error: 'Solo los Miembros Oficiales aprobados pueden enviar media.' },
       { status: 403 }
     );
   }
+
+  const isAdmin = profile.is_admin === true;
 
   try {
     const formData = await request.formData();
@@ -80,18 +82,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El video excede 10MB.' }, { status: 400 });
     }
 
-    // 4. Check pending submissions limit (max 5 per user)
-    const { count } = await supabaseAdmin
-      .from('media_submissions')
-      .select('id', { count: 'exact', head: true })
-      .eq('submitted_by_user_id', user.id)
-      .eq('status', 'pending');
+    // 4. Check pending submissions limit (max 5 per user, skip for admins)
+    if (!isAdmin) {
+      const { count } = await supabaseAdmin
+        .from('media_submissions')
+        .select('id', { count: 'exact', head: true })
+        .eq('submitted_by_user_id', user.id)
+        .eq('status', 'pending');
 
-    if ((count ?? 0) >= 5) {
-      return NextResponse.json(
-        { error: 'Tenés hasta 5 envíos pendientes simultáneos.' },
-        { status: 429 }
-      );
+      if ((count ?? 0) >= 5) {
+        return NextResponse.json(
+          { error: 'Tenés hasta 5 envíos pendientes simultáneos.' },
+          { status: 429 }
+        );
+      }
     }
 
     // 5. Upload files to storage
@@ -150,7 +154,39 @@ export async function POST(request: NextRequest) {
       filePathImage = imgResult.path;
     }
 
-    // 6. Insert into media_submissions
+    // 6. Insert — admin auto-approves into soundboard_sounds, users go to media_submissions
+    if (isAdmin) {
+      // Auto-approve: insert directly into soundboard_sounds
+      const soundUrl = audioUrl || videoUrl || '';
+      const { data: sound, error: dbError } = await supabaseAdmin
+        .from('soundboard_sounds')
+        .insert({
+          owner_user_id: user.id,
+          name: name.trim(),
+          url: soundUrl,
+          file_path: filePathAudio || filePathVideo || filePathImage,
+          cooldown_seconds: suggestedCooldown,
+          is_public: isPublic,
+          media_type: mediaType,
+          image_url: imageUrl,
+          audio_url: audioUrl,
+          video_url: videoUrl,
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        const pathsToDelete = [filePathImage, filePathAudio, filePathVideo].filter(Boolean) as string[];
+        if (pathsToDelete.length > 0) {
+          await supabaseAdmin.storage.from('soundboard-files').remove(pathsToDelete);
+        }
+        throw dbError;
+      }
+
+      return NextResponse.json({ success: true, autoApproved: true, sound });
+    }
+
+    // Regular user: insert into media_submissions for admin review
     const { data: submission, error: dbError } = await supabaseAdmin
       .from('media_submissions')
       .insert({

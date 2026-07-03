@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Image, Film, Check, X } from 'lucide-react';
+import { Loader2, Image, Film, Volume2, Check, X } from 'lucide-react';
 
 interface MediaSubmission {
   id: string;
@@ -24,17 +24,32 @@ interface Props {
   token: string;
 }
 
+const TYPE_LABELS: Record<string, string> = {
+  audio: '🔊 Audio',
+  image_audio: '🖼️+🔊 IMG+Audio',
+  video: '🎬 Video',
+  image: '🖼️ Imagen',
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  audio: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  image_audio: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  video: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  image: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+};
+
 export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
   const [submissions, setSubmissions] = useState<MediaSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [processing, setProcessing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(`/api/admin/media/submissions?status=${filter}`);
+      const res = await apiFetch(`/api/admin/media/submissions?status=${statusFilter}`);
       const data = await res.json();
       if (data.submissions) setSubmissions(data.submissions);
     } catch (err) {
@@ -42,7 +57,7 @@ export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [filter, apiFetch]);
+  }, [statusFilter, apiFetch]);
 
   useEffect(() => {
     void load();
@@ -82,17 +97,19 @@ export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
     }
   };
 
+  const filtered = typeFilter === 'all' ? submissions : submissions.filter(s => s.media_type === typeFilter);
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="font-display font-bold text-lg text-white">Media de Usuarios</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {(['pending', 'approved', 'rejected'] as const).map((status) => (
             <button
               key={status}
-              onClick={() => setFilter(status)}
+              onClick={() => setStatusFilter(status)}
               className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
-                filter === status
+                statusFilter === status
                   ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/30'
                   : 'bg-neutral-800 text-gray-400 border-neutral-700/60 hover:text-white'
               }`}
@@ -103,26 +120,53 @@ export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
         </div>
       </div>
 
+      {/* Type filter */}
+      <div className="flex gap-1.5 flex-wrap">
+        {[
+          ['all', '📋 Todos'],
+          ['audio', '🔊 Audio'],
+          ['image_audio', '🖼️+🔊 IMG+Audio'],
+          ['video', '🎬 Video'],
+          ['image', '🖼️ Imagen'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTypeFilter(key)}
+            className={`px-2.5 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer ${
+              typeFilter === key
+                ? 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/30'
+                : 'bg-neutral-800 text-gray-500 border-neutral-700/60 hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="py-12 text-center text-gray-500 text-xs animate-pulse">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#FFC200]" />
           Cargando...
         </div>
-      ) : submissions.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="py-12 text-center text-xs font-bold text-gray-500 border border-dashed border-neutral-700/60 rounded-2xl bg-black/20">
-          No hay envíos {filter === 'pending' ? 'pendientes' : filter === 'approved' ? 'aprobados' : 'rechazados'}.
+          No hay envíos {statusFilter === 'pending' ? 'pendientes' : statusFilter === 'approved' ? 'aprobados' : 'rechazados'}{typeFilter !== 'all' ? ` de tipo ${TYPE_LABELS[typeFilter] || typeFilter}` : ''}.
         </div>
       ) : (
         <div className="space-y-3">
-          {submissions.map((sub) => (
+          {filtered.map((sub) => (
             <div key={sub.id} className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
               <div className="flex items-start gap-4">
                 {/* Preview */}
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-neutral-800 shrink-0 flex items-center justify-center">
-                  {sub.media_type === 'image_audio' && sub.image_url ? (
+                  {sub.media_type === 'image' && sub.image_url ? (
                     <img src={sub.image_url} alt="" className="w-full h-full object-cover" />
-                  ) : sub.video_url ? (
+                  ) : sub.media_type === 'image_audio' && sub.image_url ? (
+                    <img src={sub.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : sub.media_type === 'video' && sub.video_url ? (
                     <video src={sub.video_url} className="w-full h-full object-cover" muted />
+                  ) : sub.media_type === 'audio' ? (
+                    <Volume2 className="w-6 h-6 text-gray-600" />
                   ) : sub.media_type === 'image_audio' ? (
                     <Image className="w-6 h-6 text-gray-600" />
                   ) : (
@@ -133,8 +177,8 @@ export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-display font-semibold text-white">{sub.name}</p>
-                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-300">
-                      {sub.media_type === 'image_audio' ? 'IMG+AUD' : 'VIDEO'}
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${TYPE_COLORS[sub.media_type] || 'bg-neutral-700 text-gray-300'}`}>
+                      {TYPE_LABELS[sub.media_type] || sub.media_type}
                     </span>
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
                       sub.is_public
@@ -148,12 +192,12 @@ export default function MediaSubmissionsPanel({ apiFetch, token }: Props) {
                     por {sub.profiles?.roblox_display_name || sub.profiles?.roblox_user || 'Desconocido'} · {new Date(sub.created_at).toLocaleDateString('es-AR')}
                   </p>
 
-                  {/* Audio preview for image_audio */}
-                  {sub.media_type === 'image_audio' && sub.audio_url && (
+                  {/* Audio preview */}
+                  {(sub.media_type === 'image_audio' || sub.media_type === 'audio') && sub.audio_url && (
                     <audio controls src={sub.audio_url} className="mt-2 h-8 w-full max-w-xs" />
                   )}
                   {/* Video preview */}
-                  {sub.video_url && (
+                  {sub.media_type === 'video' && sub.video_url && (
                     <video controls src={sub.video_url} className="mt-2 rounded-lg max-w-xs max-h-32" />
                   )}
 
