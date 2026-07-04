@@ -52,6 +52,16 @@ type StoredRobloxProfile = {
   rejection_reason?: string | null;
   last_nickname_updated_at?: string | null;
   soundboard_disabled?: boolean;
+  perm_upload_images?: boolean;
+  perm_upload_videos?: boolean;
+  perm_upload_audio?: boolean;
+  perm_tts_text?: boolean;
+  perm_tts_record?: boolean;
+  perm_edit_nickname?: boolean;
+  perm_trigger_sounds?: boolean;
+  perm_trigger_media?: boolean;
+  perm_trigger_animations?: boolean;
+  perm_edit_sounds?: boolean;
 };
 
 type StreamEvent = {
@@ -172,6 +182,19 @@ export default function MemberConsolePage() {
   // Local test mode (Probar sonido)
   const [isLocalTestMode, setIsLocalTestMode] = useState(false);
 
+  // Local test overlay
+  const [localTestOverlay, setLocalTestOverlay] = useState<{
+    type: 'image' | 'image_audio' | 'video' | 'audio';
+    name: string;
+    image_url?: string;
+    audio_url?: string;
+    video_url?: string;
+    trim_start?: number | null;
+    trim_end?: number | null;
+  } | null>(null);
+  const localTestAudioRef = useRef<HTMLAudioElement | null>(null);
+  const localTestVideoRef = useRef<HTMLVideoElement | null>(null);
+
   // Stream stats
   const [totalMembers, setTotalMembers] = useState(54);
   const [soundsToday, setSoundsToday] = useState(312);
@@ -286,6 +309,10 @@ export default function MemberConsolePage() {
   const handleNicknameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) return;
+    if (profile && (profile as Record<string, unknown>).perm_edit_nickname === false) {
+      setNicknameError('No tenés permiso para cambiar tu apodo.');
+      return;
+    }
     setNicknameError(null);
     setSubmittingNickname(true);
 
@@ -356,6 +383,27 @@ export default function MemberConsolePage() {
     if (profile && (profile as Record<string, unknown>).soundboard_disabled) {
       setError('Tu acceso a la botonera fue deshabilitado por un administrador.');
       return;
+    }
+
+    // Check granular permissions
+    if (profile) {
+      const p = profile as Record<string, unknown>;
+      if ((type === 'sound' || type === 'audio') && p.perm_trigger_sounds === false) {
+        setError('No tenés permiso para activar sonidos.');
+        return;
+      }
+      if ((type === 'image_audio' || type === 'video' || type === 'image') && p.perm_trigger_media === false) {
+        setError('No tenés permiso para activar media.');
+        return;
+      }
+      if (type === 'animation' && p.perm_trigger_animations === false) {
+        setError('No tenés permiso para activar animaciones.');
+        return;
+      }
+      if (type === 'tts' && p.perm_tts_text === false) {
+        setError('No tenés permiso para usar TTS por texto.');
+        return;
+      }
     }
 
     // Anti-spam popup check
@@ -440,7 +488,7 @@ export default function MemberConsolePage() {
       setTriggeringId(null);
       setSendingTts(false);
     }
-  }, [session, soundCooldown, ttsCooldown, animationCooldown, fetchRecentEvents, streamSettings, confirmSpamGuard, isLocalTestMode]);
+  }, [session, profile, soundCooldown, ttsCooldown, animationCooldown, fetchRecentEvents, streamSettings, confirmSpamGuard, isLocalTestMode]);
 
   const handleConfirmTrigger = useCallback(async () => {
     if (!pendingTrigger) return;
@@ -515,6 +563,10 @@ export default function MemberConsolePage() {
   const handleSubmitAudio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session || !audioFile || !audioName.trim()) return;
+    if (profile && (profile as Record<string, unknown>).perm_upload_audio === false) {
+      setError('No tenés permiso para subir audio.');
+      return;
+    }
     setSubmittingAudio(true);
     setAudioSubmitStatus(null);
     setError(null);
@@ -563,6 +615,10 @@ export default function MemberConsolePage() {
 
   const handleSaveSound = async () => {
     if (!editingSound || !editSoundName.trim()) return;
+    if (profile && (profile as Record<string, unknown>).perm_edit_sounds === false) {
+      setError('No tenés permiso para editar sonidos.');
+      return;
+    }
     setSavingSoundEdit(true);
     setError(null);
     try {
@@ -900,6 +956,10 @@ export default function MemberConsolePage() {
 
   const handleSendVoice = async () => {
     if (!recordedFile || sendingVoice) return;
+    if (profile && (profile as Record<string, unknown>).perm_tts_record === false) {
+      setError('No tenés permiso para usar TTS por grabación.');
+      return;
+    }
     setSendingVoice(true);
     setError(null);
     try {
@@ -1221,6 +1281,13 @@ export default function MemberConsolePage() {
                     <MediaUploadForm
                       session={session}
                       onSuccess={() => { void fetchSounds(); if (session) { void fetchMedia(); void loadMediaSubmissions(session); } }}
+                      permissions={profile ? {
+                        perm_upload_images: (profile as Record<string, unknown>).perm_upload_images as boolean,
+                        perm_upload_videos: (profile as Record<string, unknown>).perm_upload_videos as boolean,
+                        perm_upload_audio: (profile as Record<string, unknown>).perm_upload_audio as boolean,
+                        perm_tts_text: (profile as Record<string, unknown>).perm_tts_text as boolean,
+                        perm_tts_record: (profile as Record<string, unknown>).perm_tts_record as boolean,
+                      } : undefined}
                     />
 
                     {/* SOUND GRID — filtered by sub-tab */}
@@ -1276,8 +1343,30 @@ export default function MemberConsolePage() {
                                   const isCooldown = soundCooldown > 0;
                                   const handleSoundClick = () => {
                                     if (isLocalTestMode) {
-                                      soundManager.playHatch();
-                                      if (sound.url) {
+                                      // Close any existing overlay first
+                                      if (localTestAudioRef.current) { localTestAudioRef.current.pause(); localTestAudioRef.current = null; }
+                                      if (localTestVideoRef.current) { localTestVideoRef.current.pause(); localTestVideoRef.current = null; }
+
+                                      if (sound.media_type === 'image' && sound.image_url) {
+                                        setLocalTestOverlay({ type: 'image', name: sound.name, image_url: sound.image_url });
+                                        setTimeout(() => setLocalTestOverlay(null), 3000);
+                                      } else if (sound.media_type === 'image_audio' && sound.image_url) {
+                                        const audioUrl = sound.audio_url || sound.url;
+                                        setLocalTestOverlay({ type: 'image_audio', name: sound.name, image_url: sound.image_url, audio_url: audioUrl });
+                                        if (audioUrl) {
+                                          const audio = new Audio(audioUrl);
+                                          localTestAudioRef.current = audio;
+                                          audio.volume = 0.5;
+                                          audio.onended = () => { setLocalTestOverlay(null); localTestAudioRef.current = null; };
+                                          void audio.play();
+                                        } else {
+                                          setTimeout(() => setLocalTestOverlay(null), 3000);
+                                        }
+                                      } else if (sound.media_type === 'video' && sound.video_url) {
+                                        setLocalTestOverlay({ type: 'video', name: sound.name, video_url: sound.video_url, trim_start: sound.trim_start, trim_end: sound.trim_end });
+                                      } else if (sound.url) {
+                                        // Audio-only: just play
+                                        soundManager.playHatch();
                                         try {
                                           const audio = new Audio(sound.url);
                                           audio.volume = 0.5;
@@ -1285,9 +1374,9 @@ export default function MemberConsolePage() {
                                         } catch (e) {
                                           console.warn('Fallback audio play failure', e);
                                         }
+                                        setSuccess(`Escuchando localmente: ${sound.name} 🎧`);
+                                        setTimeout(() => setSuccess(null), 3000);
                                       }
-                                      setSuccess(`Escuchando localmente: ${sound.name} 🎧`);
-                                      setTimeout(() => setSuccess(null), 3000);
                                     } else if (sound.media_type === 'image_audio') {
                                       void triggerEvent('image_audio', sound.name, false, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
                                     } else if (sound.media_type === 'video') {
@@ -1302,31 +1391,44 @@ export default function MemberConsolePage() {
                                   const soundStyles = getSoundColor(sound.id);
                                   const duration = soundDurations[sound.id];
                                   const isOwner = session?.user?.id === sound.owner_user_id;
-                                  return (
+                                   return (
                                     <div
                                       key={sound.id}
                                       onClick={handleSoundClick}
-                                      className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
+                                      className={`relative h-[135px] md:h-[140px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
+                                        sound.image_url
+                                          ? 'bg-cover bg-center'
+                                          : 'bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60'
+                                      } ${
                                         !isLocalTestMode && (isCooldown || triggeringId !== null || isMuted) ? 'opacity-50' : ''
                                       }`}
+                                      style={sound.image_url ? { backgroundImage: `url(${sound.image_url})` } : undefined}
                                     >
+                                        {/* Image background with gradient overlay */}
+                                        {sound.image_url && (
+                                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10 pointer-events-none" />
+                                        )}
+
                                         {/* Background cooldown loading bar */}
                                         {isCooldown && !isLocalTestMode && (
                                           <motion.div
                                             initial={{ width: '100%' }}
                                             animate={{ width: `${soundCooldownPercent}%` }}
                                             transition={{ duration: 1, ease: 'linear' }}
-                                            className="absolute inset-x-0 bottom-0 h-1.5 bg-red-500 pointer-events-none"
+                                            className="absolute inset-x-0 bottom-0 h-1.5 bg-red-500 pointer-events-none z-20"
                                           />
                                         )}
 
-                                        <div className="flex items-center justify-between w-full relative z-10">
-                                          {sound.image_url ? (
-                                            <img src={sound.image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-neutral-700/60" />
-                                          ) : (
+                                        {/* Top row */}
+                                        <div className="flex items-center justify-between w-full relative z-10 pt-1">
+                                          {/* Media type badge or image-based indicator */}
+                                          {!sound.image_url && (
                                             <span className="text-lg">
                                               {sound.media_type === 'video' ? '🎬' : sound.media_type === 'image' ? '🖼️' : '🔊'}
                                             </span>
+                                          )}
+                                          {sound.image_url && (
+                                            <span /> /* spacer when image is background */
                                           )}
                                           <div className="flex items-center gap-1.5">
                                             {isOwner && (
@@ -1346,25 +1448,36 @@ export default function MemberConsolePage() {
                                                   setEditVideoTrimEnd(sound.trim_end ?? 0);
                                                   setEditVideoDuration(0);
                                                 }}
-                                                className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer"
+                                                className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-neutral-700/80 text-gray-400 hover:text-white border border-neutral-600 cursor-pointer backdrop-blur-sm"
                                               >✏️</button>
                                             )}
-                                            <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border ${
-                                              isCooldown && !isLocalTestMode 
-                                                ? 'bg-red-500/10 text-red-400 border-red-500/20' 
-                                                : soundStyles.badge
+                                            {sound.image_url && sound.media_type === 'image_audio' && (
+                                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-black/60 text-white border border-white/20 backdrop-blur-sm">
+                                                🔊
+                                              </span>
+                                            )}
+                                            <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border backdrop-blur-sm ${
+                                              isCooldown && !isLocalTestMode
+                                                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                : sound.image_url ? 'bg-black/50 text-white border-white/20' : soundStyles.badge
                                             }`}>
                                               {isCooldown && !isLocalTestMode ? `${soundCooldown}s` : 'LISTO'}
                                             </span>
                                           </div>
                                         </div>
 
-                                        <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${soundStyles.text}`} title={sound.name}>
+                                        {/* Name */}
+                                        <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${
+                                          sound.image_url ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]' : soundStyles.text
+                                        }`} title={sound.name}>
                                           {sound.name}
                                         </span>
 
-                                        <div className="flex items-center justify-between w-full relative z-10">
-                                          <span className="text-[9px] text-gray-500 font-bold">
+                                        {/* Bottom row */}
+                                        <div className="flex items-center justify-between w-full relative z-10 pb-0.5">
+                                          <span className={`text-[9px] font-bold ${
+                                            sound.image_url ? 'text-white/70' : 'text-gray-500'
+                                          }`}>
                                             {duration ? `${Math.ceil(duration)}s` : '...'}
                                             {sound.cooldown_seconds ? ` · CD: ${sound.cooldown_seconds}s` : ''}
                                           </span>
@@ -1381,7 +1494,11 @@ export default function MemberConsolePage() {
                                                 else void triggerEvent('audio', sound.id, false, { audio_url: sound.url });
                                               } }}
                                               disabled={isCooldown || triggeringId !== null || isMuted}
-                                              className="text-[9px] font-bold px-2 py-0.5 rounded bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:text-gray-500 disabled:border-gray-600 disabled:bg-neutral-800"
+                                              className={`text-[9px] font-bold px-2 py-0.5 rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                                                sound.image_url
+                                                  ? 'bg-white/20 text-white border border-white/20 hover:bg-white/30 disabled:text-gray-400 disabled:border-gray-500 disabled:bg-neutral-800/50'
+                                                  : 'bg-[#FFC200]/10 text-[#FFC200] border border-[#FFC200]/20 disabled:text-gray-500 disabled:border-gray-600 disabled:bg-neutral-800'
+                                              }`}
                                             >
                                               ▶ ENVIAR
                                             </button>
@@ -2646,6 +2763,70 @@ export default function MemberConsolePage() {
                 {savingSoundEdit ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : 'Guardar todo'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOCAL TEST OVERLAY — fullscreen within console */}
+      {localTestOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => {
+          if (localTestAudioRef.current) { localTestAudioRef.current.pause(); localTestAudioRef.current = null; }
+          if (localTestVideoRef.current) { localTestVideoRef.current.pause(); localTestVideoRef.current = null; }
+          setLocalTestOverlay(null);
+        }}>
+          <div className="relative max-w-[90vw] max-h-[80vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white text-xs font-bold bg-black/60 px-3 py-1 rounded-full backdrop-blur-sm">{localTestOverlay.name}</p>
+
+            {localTestOverlay.type === 'image' && localTestOverlay.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={localTestOverlay.image_url} alt="" className="max-w-[80vw] max-h-[70vh] object-contain rounded-xl shadow-2xl" />
+            )}
+
+            {localTestOverlay.type === 'image_audio' && localTestOverlay.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={localTestOverlay.image_url} alt="" className="max-w-[80vw] max-h-[70vh] object-contain rounded-xl shadow-2xl" />
+            )}
+
+            {localTestOverlay.type === 'video' && localTestOverlay.video_url && (
+              <video
+                ref={localTestVideoRef}
+                src={localTestOverlay.video_url}
+                autoPlay
+                muted
+                className="max-w-[80vw] max-h-[70vh] object-contain rounded-xl shadow-2xl"
+                onEnded={() => setLocalTestOverlay(null)}
+                onLoadedMetadata={() => {
+                  const video = localTestVideoRef.current;
+                  if (video) {
+                    const start = localTestOverlay.trim_start ?? 0;
+                    const end = localTestOverlay.trim_end;
+                    video.currentTime = start;
+                    if (end && end > start) {
+                      const checkTime = () => {
+                        if (video.currentTime >= end) {
+                          video.pause();
+                          setLocalTestOverlay(null);
+                          localTestVideoRef.current = null;
+                          video.removeEventListener('timeupdate', checkTime);
+                        }
+                      };
+                      video.addEventListener('timeupdate', checkTime);
+                    }
+                  }
+                }}
+              />
+            )}
+
+            <button
+              onClick={() => {
+                if (localTestAudioRef.current) { localTestAudioRef.current.pause(); localTestAudioRef.current = null; }
+                if (localTestVideoRef.current) { localTestVideoRef.current.pause(); localTestVideoRef.current = null; }
+                setLocalTestOverlay(null);
+              }}
+              className="text-white text-[10px] font-bold px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 cursor-pointer backdrop-blur-sm"
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}

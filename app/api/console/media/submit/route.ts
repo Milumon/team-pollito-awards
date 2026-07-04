@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   // 2. Verify approved member (or admin)
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('link_status, is_admin')
+    .select('link_status, is_admin, perm_upload_audio, perm_upload_images, perm_upload_videos, perm_tts_text, perm_tts_record')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -47,6 +47,29 @@ export async function POST(request: NextRequest) {
 
     if (!mediaType || !name?.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios (mediaType, name)' }, { status: 400 });
+    }
+
+    // Check granular permissions (admins bypass)
+    if (!isAdmin) {
+      if ((mediaType === 'audio' || mediaType === 'image_audio') && profile.perm_upload_audio === false) {
+        return NextResponse.json({ error: 'No tenés permiso para subir audio.' }, { status: 403 });
+      }
+      if (mediaType === 'image' && profile.perm_upload_images === false) {
+        return NextResponse.json({ error: 'No tenés permiso para subir imágenes.' }, { status: 403 });
+      }
+      if (mediaType === 'video' && profile.perm_upload_videos === false) {
+        return NextResponse.json({ error: 'No tenés permiso para subir videos.' }, { status: 403 });
+      }
+      // TTS source checks for image_audio
+      if (mediaType === 'image_audio') {
+        const audioSource = formData.get('audioSource') as string;
+        if (audioSource === 'tts' && profile.perm_tts_text === false) {
+          return NextResponse.json({ error: 'No tenés permiso para usar TTS por texto.' }, { status: 403 });
+        }
+        if (audioSource === 'record' && profile.perm_tts_record === false) {
+          return NextResponse.json({ error: 'No tenés permiso para usar TTS por grabación.' }, { status: 403 });
+        }
+      }
     }
 
     if (mediaType !== 'image_audio' && mediaType !== 'video' && mediaType !== 'audio' && mediaType !== 'image') {

@@ -13,6 +13,7 @@ interface Session {
 interface Props {
   session: Session | null;
   onSuccess: () => void;
+  permissions?: Record<string, boolean>;
 }
 
 const CATEGORIES: { id: MediaCategory; label: string; icon: React.ReactNode; desc: string; disabled?: boolean }[] = [
@@ -22,7 +23,7 @@ const CATEGORIES: { id: MediaCategory; label: string; icon: React.ReactNode; des
   { id: 'image', label: 'Imagen', icon: <Image className="w-4 h-4" />, desc: 'Imagen o GIF sin audio' },
 ];
 
-export default function MediaUploadForm({ session, onSuccess }: Props) {
+export default function MediaUploadForm({ session, onSuccess, permissions }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [mediaType, setMediaType] = useState<MediaCategory>('audio');
   const [audioSource, setAudioSource] = useState<AudioSource>('upload');
@@ -149,6 +150,30 @@ export default function MediaUploadForm({ session, onSuccess }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session || !name.trim()) return;
+
+    // Check permissions
+    if (permissions) {
+      if ((mediaType === 'audio' || mediaType === 'image_audio') && permissions.perm_upload_audio === false) {
+        setStatus('✕ No tenés permiso para subir audio.');
+        return;
+      }
+      if (mediaType === 'image' && permissions.perm_upload_images === false) {
+        setStatus('✕ No tenés permiso para subir imágenes.');
+        return;
+      }
+      if (mediaType === 'video' && permissions.perm_upload_videos === false) {
+        setStatus('✕ No tenés permiso para subir videos.');
+        return;
+      }
+      if (mediaType === 'image_audio' && audioSource === 'tts' && permissions.perm_tts_text === false) {
+        setStatus('✕ No tenés permiso para usar TTS por texto.');
+        return;
+      }
+      if (mediaType === 'image_audio' && audioSource === 'record' && permissions.perm_tts_record === false) {
+        setStatus('✕ No tenés permiso para usar TTS por grabación.');
+        return;
+      }
+    }
 
     // Validation
     if (mediaType === 'audio' && !audioFile) return;

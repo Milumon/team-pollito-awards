@@ -103,12 +103,26 @@ export async function POST(request: NextRequest) {
       // 2. Fetch user's profile and check approved status
       const { data, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url')
+        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url, perm_trigger_sounds, perm_trigger_media, perm_trigger_animations, perm_tts_text')
         .eq('id', user.id)
         .maybeSingle();
 
       if (profileError || !data || data.link_status !== 'approved') {
         return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
+      }
+
+      // 3. Check granular permissions
+      if ((type === 'sound' || type === 'audio') && data.perm_trigger_sounds === false) {
+        return NextResponse.json({ error: 'No tenés permiso para activar sonidos.' }, { status: 403 });
+      }
+      if ((type === 'image_audio' || type === 'video' || type === 'image') && data.perm_trigger_media === false) {
+        return NextResponse.json({ error: 'No tenés permiso para activar media.' }, { status: 403 });
+      }
+      if (type === 'animation' && data.perm_trigger_animations === false) {
+        return NextResponse.json({ error: 'No tenés permiso para activar animaciones.' }, { status: 403 });
+      }
+      if (type === 'tts' && data.perm_tts_text === false) {
+        return NextResponse.json({ error: 'No tenés permiso para usar TTS por texto.' }, { status: 403 });
       }
 
       profile = data;

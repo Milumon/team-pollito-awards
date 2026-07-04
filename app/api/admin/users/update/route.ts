@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userId, robloxUsername, tiktokUsername, linkStatus, rejectionReason, forceClaim } = body;
+    const { userId, robloxUsername, tiktokUsername, linkStatus, rejectionReason, forceClaim, permissions } = body;
 
     if (!userId) {
       return NextResponse.json({ error: 'El parámetro "userId" es requerido.' }, { status: 400 });
@@ -203,6 +203,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 6. Actualizar permisos granulares si se proporcionaron
+    const permFields = [
+      'perm_upload_images', 'perm_upload_videos', 'perm_upload_audio',
+      'perm_tts_text', 'perm_tts_record', 'perm_edit_nickname',
+      'perm_trigger_sounds', 'perm_trigger_media', 'perm_trigger_animations',
+      'perm_edit_sounds',
+    ];
+    if (permissions && typeof permissions === 'object') {
+      for (const field of permFields) {
+        if (field in permissions) {
+          updateData[field] = !!permissions[field];
+        }
+      }
+      // Sync soundboard_disabled with overall permission state
+      const allFalse = permFields.every(f => updateData[f] === false);
+      const allTrue = permFields.every(f => updateData[f] === true);
+      if (allFalse) updateData.soundboard_disabled = true;
+      else if (allTrue) updateData.soundboard_disabled = false;
+    }
+
     // 6. Ejecutar la actualización en Supabase
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
@@ -245,13 +265,15 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Registrar log de auditoría
+    const auditChanges: Record<string, unknown> = {};
+    if (updateData.roblox_user !== undefined) auditChanges.roblox_user = updateData.roblox_user;
+    if (updateData.tiktok_user !== undefined) auditChanges.tiktok_user = updateData.tiktok_user;
+    if (updateData.link_status !== undefined) auditChanges.link_status = updateData.link_status;
+    if (permissions && typeof permissions === 'object') auditChanges.permissions = permissions;
+
     await logAdminAction(adminEmail, 'Actualizó perfil de usuario', {
       target_user_id: userId,
-      changes: {
-        roblox_user: updateData.roblox_user !== undefined ? updateData.roblox_user : null,
-        tiktok_user: updateData.tiktok_user !== undefined ? updateData.tiktok_user : null,
-        link_status: updateData.link_status !== undefined ? updateData.link_status : null,
-      }
+      changes: auditChanges,
     });
 
     return NextResponse.json({

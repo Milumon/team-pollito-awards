@@ -20,6 +20,16 @@ export async function PATCH(
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
+  // Check perm_edit_sounds
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('perm_edit_sounds')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (profile?.perm_edit_sounds === false) {
+    return NextResponse.json({ error: 'No tenés permiso para editar sonidos.' }, { status: 403 });
+  }
+
   try {
     const { id } = await params;
     if (!id) {

@@ -23,9 +23,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan parámetros (userId, disabled)' }, { status: 400 });
     }
 
+    const permValue = !disabled; // disabled=true means perms=false
     const { error } = await supabaseAdmin
       .from('profiles')
-      .update({ soundboard_disabled: disabled })
+      .update({
+        soundboard_disabled: disabled,
+        perm_upload_images: permValue,
+        perm_upload_videos: permValue,
+        perm_upload_audio: permValue,
+        perm_tts_text: permValue,
+        perm_tts_record: permValue,
+        perm_edit_nickname: permValue,
+        perm_trigger_sounds: permValue,
+        perm_trigger_media: permValue,
+        perm_trigger_animations: permValue,
+        perm_edit_sounds: permValue,
+      })
       .eq('id', userId);
 
     if (error) throw error;

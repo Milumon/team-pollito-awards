@@ -20,13 +20,20 @@ export async function POST(request: NextRequest) {
   // 2. Verificar que es Miembro Oficial aprobado
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('link_status')
+    .select('link_status, perm_upload_audio')
     .eq('id', user.id)
     .maybeSingle();
 
   if (profileError || !profile || profile.link_status !== 'approved') {
     return NextResponse.json(
       { error: 'Solo los Miembros Oficiales aprobados pueden enviar audios.' },
+      { status: 403 }
+    );
+  }
+
+  if (profile.perm_upload_audio === false) {
+    return NextResponse.json(
+      { error: 'No tenés permiso para subir audio.' },
       { status: 403 }
     );
   }

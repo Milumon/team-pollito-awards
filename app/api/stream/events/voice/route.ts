@@ -15,12 +15,16 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url')
+      .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url, perm_tts_record')
       .eq('id', user.id)
       .maybeSingle();
 
     if (!profile || profile.link_status !== 'approved') {
       return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
+    }
+
+    if (profile.perm_tts_record === false) {
+      return NextResponse.json({ error: 'No tenés permiso para usar TTS por grabación.' }, { status: 403 });
     }
 
     const formData = await request.formData();

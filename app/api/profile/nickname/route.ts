@@ -129,6 +129,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Debés ser miembro oficial aprobado para cambiar tu nickname.' }, { status: 403 });
     }
 
+    if (profile.perm_edit_nickname === false) {
+      return NextResponse.json({ error: 'No tenés permiso para cambiar tu apodo.' }, { status: 403 });
+    }
+
     if (!profile.roblox_user_id) {
       return NextResponse.json({ error: 'Tu perfil no está vinculado a una cuenta de Roblox válida.' }, { status: 400 });
     }

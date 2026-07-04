@@ -289,19 +289,29 @@ export async function GET(request: NextRequest) {
     // Get user's profile — try with soundboard_disabled first, fall back without it
     let { data, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, soundboard_disabled')
+      .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, soundboard_disabled, perm_upload_images, perm_upload_videos, perm_upload_audio, perm_tts_text, perm_tts_record, perm_edit_nickname, perm_trigger_sounds, perm_trigger_media, perm_trigger_animations, perm_edit_sounds')
       .eq('id', user.id)
       .maybeSingle();
 
     if (error) {
-      // Retry without soundboard_disabled if column doesn't exist yet
-      const retry = await supabaseAdmin
-        .from('profiles')
-        .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason')
-        .eq('id', user.id)
-        .maybeSingle();
-      data = retry.data as typeof data;
-      error = retry.error;
+      // Retry without permission columns if they don't exist yet
+      try {
+        const retry = await supabaseAdmin
+          .from('profiles')
+          .select('id, roblox_user_id, roblox_user, roblox_display_name, roblox_avatar_url, roblox_verified_at, tiktok_user, link_status, rejection_reason, soundboard_disabled')
+          .eq('id', user.id)
+          .maybeSingle();
+        data = retry.data as typeof data;
+        error = retry.error;
+        // Add default permissions if they're missing
+        if (data) {
+          for (const col of ['perm_upload_images','perm_upload_videos','perm_upload_audio','perm_tts_text','perm_tts_record','perm_edit_nickname','perm_trigger_sounds','perm_trigger_media','perm_trigger_animations','perm_edit_sounds']) {
+            if (!(col in data)) (data as Record<string, unknown>)[col] = true;
+          }
+        }
+      } catch {
+        error = null;
+      }
     }
 
     if (error) {

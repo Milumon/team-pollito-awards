@@ -73,6 +73,16 @@ type AdminUser = {
   votedPercentage: number;
   isAdmin: boolean;
   soundboardDisabled: boolean;
+  permUploadImages: boolean;
+  permUploadVideos: boolean;
+  permUploadAudio: boolean;
+  permTtsText: boolean;
+  permTtsRecord: boolean;
+  permEditNickname: boolean;
+  permTriggerSounds: boolean;
+  permTriggerMedia: boolean;
+  permTriggerAnimations: boolean;
+  permEditSounds: boolean;
   testimonial: string | null;
   testimonialApproved: boolean;
   votes: { categoryId: number; nomineeName: string }[];
@@ -216,7 +226,7 @@ export default function AdminPage() {
 
   // User CRUD / Edit States
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
-  const [editingUserTab, setEditingUserTab] = useState<'profile' | 'votes'>('profile');
+  const [editingUserTab, setEditingUserTab] = useState<'profile' | 'votes' | 'permissions'>('profile');
   const [updatingUser, setUpdatingUser] = useState(false);
   const [editForm, setEditForm] = useState({
     robloxUsername: '',
@@ -3739,6 +3749,17 @@ export default function AdminPage() {
                 >
                   Premios y Votos
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingUserTab('permissions')}
+                  className={`flex-1 pb-2 text-[10px] font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${
+                    editingUserTab === 'permissions'
+                      ? 'border-[#FFC200] text-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Permisos
+                </button>
               </div>
 
               {editingUserTab === 'profile' ? (
@@ -3865,7 +3886,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </form>
-              ) : (
+              ) : editingUserTab === 'votes' ? (
                 <div className="flex flex-col flex-grow overflow-hidden">
                   <div className="flex justify-between items-center bg-[#171A20] border border-neutral-700/60 p-3 rounded-xl mb-4 font-display font-medium text-xs text-gray-400 shrink-0 ">
                     <span className="text-gray-300 font-semibold">Progreso General</span>
@@ -3909,6 +3930,108 @@ export default function AdminPage() {
                   >
                     Cerrar Planilla
                   </button>
+                </div>
+              ) : (
+                <div className="flex flex-col flex-grow overflow-hidden">
+                  <div className="flex justify-between items-center bg-[#171A20] border border-neutral-700/60 p-3 rounded-xl mb-4 font-display font-medium text-xs text-gray-400 shrink-0">
+                    <span className="text-gray-300 font-semibold">Permisos Granulares</span>
+                  </div>
+
+                  <div className="flex-grow overflow-y-auto pr-1 scrollbar-thin space-y-3 mb-4 max-h-[300px]">
+                    {[
+                      { key: 'permUploadImages', label: 'Subir Imágenes', desc: 'Subir archivos de imagen a la botonera' },
+                      { key: 'permUploadVideos', label: 'Subir Videos', desc: 'Subir videos a la botonera' },
+                      { key: 'permUploadAudio', label: 'Subir Audio', desc: 'Subir archivos de audio a la botonera' },
+                      { key: 'permTtsText', label: 'TTS por Texto', desc: 'Usar generación de voz por texto' },
+                      { key: 'permTtsRecord', label: 'TTS por Grabación', desc: 'Usar generación de voz por grabación' },
+                      { key: 'permEditNickname', label: 'Cambiar Apodo', desc: 'Editar su propio apodo en la plataforma' },
+                      { key: 'permTriggerSounds', label: 'Activar Sonidos', desc: 'Reproducir sonidos desde la botonera' },
+                      { key: 'permTriggerMedia', label: 'Activar Media', desc: 'Reproducir media (imagen/audio/video) desde la botonera' },
+                      { key: 'permTriggerAnimations', label: 'Activar Animaciones', desc: 'Ejecutar animaciones desde la botonera' },
+                      { key: 'permEditSounds', label: 'Editar Sonidos', desc: 'Editar o eliminar sonidos propios en la botonera' },
+                    ].map((perm) => (
+                      <label
+                        key={perm.key}
+                        className="flex items-center justify-between bg-[#171A20] border border-neutral-700/60 rounded-xl p-3 cursor-pointer hover:bg-neutral-800/60 transition-colors"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-semibold text-white text-xs">{perm.label}</span>
+                          <span className="text-[10px] text-gray-500">{perm.desc}</span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="checkbox"
+                            checked={(editingUser as Record<string, unknown>)[perm.key] as boolean}
+                            onChange={(e) => {
+                              setEditingUser({ ...editingUser, [perm.key]: e.target.checked });
+                            }}
+                            className="sr-only"
+                          />
+                          <div className={`w-10 h-5 rounded-full transition-colors ${
+                            (editingUser as Record<string, unknown>)[perm.key] ? 'bg-[#FFC200]' : 'bg-neutral-700'
+                          }`}>
+                            <div className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${
+                              (editingUser as Record<string, unknown>)[perm.key] ? 'translate-x-5' : 'translate-x-0.5'
+                            }`} />
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {editFormError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs font-semibold mb-3 shrink-0">
+                      {editFormError}
+                    </div>
+                  )}
+
+                  {editFormSuccess && (
+                    <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-xs font-semibold font-sans mb-3 shrink-0">
+                      {editFormSuccess}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEditingUser(null)}
+                      className="flex-1 py-3 bg-[#171A20] hover:bg-neutral-800 border border-neutral-700/60 text-white font-display font-semibold text-xs rounded-xl transition-colors cursor-pointer active:scale-[0.97]"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={updatingUser}
+                      onClick={async () => {
+                        setUpdatingUser(true);
+                        setEditFormError('');
+                        setEditFormSuccess('');
+                        try {
+                          const permissions: Record<string, boolean> = {};
+                          for (const key of ['permUploadImages','permUploadVideos','permUploadAudio','permTtsText','permTtsRecord','permEditNickname','permTriggerSounds','permTriggerMedia','permTriggerAnimations','permEditSounds']) {
+                            permissions[key] = !!(editingUser as Record<string, unknown>)[key];
+                          }
+                          const response = await apiFetch(`/api/admin/users/update`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: editingUser.id, permissions }),
+                          });
+                          const data = await readApiPayload(response);
+                          if (!response.ok) throw new Error(data.error || 'Error al guardar permisos');
+                          setEditFormSuccess('Permisos guardados correctamente');
+                          loadStats();
+                        } catch (err) {
+                          setEditFormError(err instanceof Error ? err.message : 'Error desconocido');
+                        } finally {
+                          setUpdatingUser(false);
+                        }
+                      }}
+                      className="flex-1 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updatingUser && <Loader className="w-3.5 h-3.5 animate-spin" />}
+                      Guardar
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>

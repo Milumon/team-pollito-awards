@@ -64,6 +64,25 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
 
+    // Fetch granular permissions
+    if (!profError) {
+      try {
+        const permCols = 'id, perm_upload_images, perm_upload_videos, perm_upload_audio, perm_tts_text, perm_tts_record, perm_edit_nickname, perm_trigger_sounds, perm_trigger_media, perm_trigger_animations, perm_edit_sounds';
+        const result3 = await supabaseAdmin.from('profiles').select(permCols);
+        if (!result3.error && result3.data) {
+          const permMap = new Map(result3.data.map((r: Record<string, unknown>) => [r.id, r]));
+          (profData as Record<string, unknown>[]).forEach((p: Record<string, unknown>) => {
+            const perms = permMap.get(p.id as string) as Record<string, unknown> | undefined;
+            if (perms) {
+              for (const col of ['perm_upload_images','perm_upload_videos','perm_upload_audio','perm_tts_text','perm_tts_record','perm_edit_nickname','perm_trigger_sounds','perm_trigger_media','perm_trigger_animations','perm_edit_sounds']) {
+                p[col] = perms[col] ?? true;
+              }
+            }
+          });
+        }
+      } catch {}
+    }
+
     const hasProfilesTable = !profError;
     
     interface DbCategory {
@@ -99,6 +118,16 @@ export async function GET(request: NextRequest) {
       rejection_reason: string | null;
       is_admin: boolean;
       soundboard_disabled: boolean;
+      perm_upload_images: boolean;
+      perm_upload_videos: boolean;
+      perm_upload_audio: boolean;
+      perm_tts_text: boolean;
+      perm_tts_record: boolean;
+      perm_edit_nickname: boolean;
+      perm_trigger_sounds: boolean;
+      perm_trigger_media: boolean;
+      perm_trigger_animations: boolean;
+      perm_edit_sounds: boolean;
       testimonial: string | null;
       testimonial_approved: boolean;
     }
@@ -181,6 +210,16 @@ export async function GET(request: NextRequest) {
           rejection_reason: null,
           is_admin: false,
           soundboard_disabled: false,
+          perm_upload_images: true,
+          perm_upload_videos: true,
+          perm_upload_audio: true,
+          perm_tts_text: true,
+          perm_tts_record: true,
+          perm_edit_nickname: true,
+          perm_trigger_sounds: true,
+          perm_trigger_media: true,
+          perm_trigger_animations: true,
+          perm_edit_sounds: true,
           testimonial: null,
           testimonial_approved: false,
         };
@@ -218,6 +257,16 @@ export async function GET(request: NextRequest) {
         rejectionReason: robloxProfile?.rejection_reason || null,
         isAdmin: robloxProfile?.is_admin || false,
         soundboardDisabled: robloxProfile?.soundboard_disabled || false,
+        permUploadImages: robloxProfile?.perm_upload_images ?? true,
+        permUploadVideos: robloxProfile?.perm_upload_videos ?? true,
+        permUploadAudio: robloxProfile?.perm_upload_audio ?? true,
+        permTtsText: robloxProfile?.perm_tts_text ?? true,
+        permTtsRecord: robloxProfile?.perm_tts_record ?? true,
+        permEditNickname: robloxProfile?.perm_edit_nickname ?? true,
+        permTriggerSounds: robloxProfile?.perm_trigger_sounds ?? true,
+        permTriggerMedia: robloxProfile?.perm_trigger_media ?? true,
+        permTriggerAnimations: robloxProfile?.perm_trigger_animations ?? true,
+        permEditSounds: robloxProfile?.perm_edit_sounds ?? true,
         testimonial: robloxProfile?.testimonial || null,
         testimonialApproved: robloxProfile?.testimonial_approved || false,
         alreadyInterviewed: !!historyItem?.already_interviewed,
