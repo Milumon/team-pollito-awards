@@ -236,7 +236,7 @@ export default function ComunidadPage() {
     setTestimonialSuccess(false);
 
     if (!userTestimonial.trim()) {
-      setTestimonialError('El testimonio no puede estar vacío.');
+      setTestimonialError('La opinión no puede estar vacía.');
       return;
     }
 
@@ -254,7 +254,7 @@ export default function ComunidadPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setTestimonialError(data.error || 'Error al enviar el testimonio.');
+        setTestimonialError(data.error || 'Error al enviar la opinión.');
         return;
       }
 
@@ -273,7 +273,7 @@ export default function ComunidadPage() {
         setTestimonialSuccess(false);
       }, 2000);
     } catch {
-      setTestimonialError('Error de red al enviar el testimonio.');
+      setTestimonialError('Error de red al enviar la opinión.');
     } finally {
       setTestimonialSubmitting(false);
     }
@@ -611,11 +611,11 @@ export default function ComunidadPage() {
                   <div className="flex flex-wrap gap-4">
                     <Link href="/console" className="decoration-transparent">
                       <Button variant="primary" size="lg">
-                        ✓ Ir a la Consola VIP
+                        ✓ Ir a la Consola
                       </Button>
                     </Link>
                     <Button variant="secondary" size="lg" onClick={() => scrollToSection('testimonios')}>
-                      Dejar testimonio
+                      Dejar opinión
                     </Button>
                   </div>
                 </>
@@ -862,7 +862,7 @@ export default function ComunidadPage() {
               </button>
             </div>
 
-            {/* Testimonios Dinámicos (7 cols) */}
+            {/* Opiniones Dinámicas (7 cols) */}
             <div id="testimonios" className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <span className="text-lg">⭐</span>
@@ -878,7 +878,7 @@ export default function ComunidadPage() {
               ) : testimonials.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl">
                   <p className="font-sans text-sm text-gray-400">
-                    No hay testimonios aprobados aún.
+                    No hay opiniones aprobadas aún.
                   </p>
                 </div>
               ) : (
@@ -909,7 +909,7 @@ export default function ComunidadPage() {
                 </div>
               )}
 
-              {/* Dejar / editar testimonio (Botón para abrir Modal) */}
+              {/* Dejar / editar opinión (Botón para abrir Modal) */}
               {session && statusInfo.status === 'approved' && (
                 <div className="border-t border-gray-100 pt-4 flex justify-end">
                   <button
@@ -1367,7 +1367,7 @@ export default function ComunidadPage() {
                                       </div>
                                     )}
                                     <div>
-                                      <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
+                                      <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Opinión (opcional)</label>
                                       <textarea
                                         value={userTestimonial}
                                         onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
@@ -1546,7 +1546,7 @@ export default function ComunidadPage() {
                               </div>
                             )}
                             <div>
-                              <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Testimonio (opcional)</label>
+                              <label className="block text-xs font-sans font-medium text-gray-500 mb-0.5">Opinión (opcional)</label>
                               <textarea
                                 value={userTestimonial}
                                 onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
@@ -1751,7 +1751,7 @@ export default function ComunidadPage() {
                   <textarea
                     value={userTestimonial}
                     onChange={(e) => setUserTestimonial(e.target.value.substring(0, 150))}
-                    placeholder="Escribe tu testimonio aquí..."
+                    placeholder="Escribe tu opinión aquí..."
                     rows={3}
                     maxLength={150}
                     className="w-full px-3 py-2 bg-white border border-gray-200 text-[#2D3139] rounded-xl font-sans text-sm focus:outline-none focus:ring-2 focus:ring-[#FFC200]/30 resize-none"

@@ -99,7 +99,7 @@ export const NavBar: React.FC<NavBarProps> = ({
       {!scrollToSection && (
         <>
           <Link href="/" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Ir a Inicio</Link>
-          <Link href="/console" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Consola VIP</Link>
+          <Link href="/console" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Consola</Link>
           <Link href="/admin" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel Admin</Link>
         </>
       )}

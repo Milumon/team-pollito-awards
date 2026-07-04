@@ -1898,11 +1898,11 @@ export default function AdminPage() {
         await loadStats(statsPhase);
       } else {
         const err = await response.json();
-        setError(err.error || 'No se pudo procesar el testimonio');
+          setError(err.error || 'No se pudo procesar la opinión');
       }
     } catch (err) {
       console.error(err);
-      setError('Error de red al moderar testimonio.');
+      setError('Error de red al moderar opinión.');
     } finally {
       setModeratingTestimonial(null);
     }
@@ -1915,13 +1915,13 @@ export default function AdminPage() {
       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in text-white">
         <div>
           <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Moderación</span>
-          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Testimonios de la Comunidad</h2>
-          <p className="text-xs text-gray-400 mt-1 font-semibold">Aprueba o elimina los mensajes de agradecimiento y testimonios dejados por los usuarios.</p>
+          <h2 className="font-display font-semibold text-lg text-white mt-0.5 leading-none">Opiniones de la Comunidad</h2>
+          <p className="text-xs text-gray-400 mt-1 font-semibold">Aprueba o elimina las opiniones dejadas por los usuarios.</p>
         </div>
 
         {usersWithTestimonials.length === 0 ? (
           <div className="py-16 text-center border border-dashed border-[#FFC200]/45 rounded-2xl">
-            <p className="font-bold text-white text-sm">No hay testimonios registrados</p>
+            <p className="font-bold text-white text-sm">No hay opiniones registradas</p>
             <p className="text-xs text-gray-400 mt-1 font-medium">Los usuarios aún no han escrito opiniones.</p>
           </div>
         ) : (
@@ -3245,7 +3245,7 @@ export default function AdminPage() {
               <span>📝</span> Postulaciones
             </button>
             <button type="button" onClick={() => { setActiveTab('testimonials'); setMobileMenuOpen(false); }} className={navBtnClass('testimonials')}>
-              <span>💬</span> Testimonios
+              <span>💬</span> Opiniones
             </button>
           </div>
 

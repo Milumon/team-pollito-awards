@@ -1080,7 +1080,7 @@ export default function MemberConsolePage() {
         session={session}
         isAdmin={isAdmin}
         onLogout={handleBackToLanding}
-        panelName="Consola VIP"
+        panelName="Consola"
         panelHref="/console"
         showMobileToggle={false}
         theme="dark"
@@ -1186,7 +1186,7 @@ export default function MemberConsolePage() {
                 >
                   <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-4">
                     <h2 className="font-display font-bold text-2xl text-white leading-none">
-                      🐣 Bienvenido a la Consola VIP
+                      🐣 Bienvenido a la Consola
                     </h2>
                     <p className="text-xs text-gray-400 font-semibold leading-relaxed max-w-2xl">
                       Hola, <strong className="text-white">@{profile.roblox_user}</strong>. Tienes acceso completo al panel de interacción en tiempo real de la transmisión de Milumon. Todo lo que dispares aquí se emitirá de forma instantánea en la transmisión en vivo.

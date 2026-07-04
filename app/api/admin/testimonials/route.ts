@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      await logAdminAction(adminEmail, 'Aprobó testimonio', { target_user_id: userId });
+      await logAdminAction(adminEmail, 'Aprobó opinión', { target_user_id: userId });
       return NextResponse.json({ success: true });
     }
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      await logAdminAction(adminEmail, 'Rechazó/Eliminó testimonio', { target_user_id: userId });
+      await logAdminAction(adminEmail, 'Rechazó/Eliminó opinión', { target_user_id: userId });
       return NextResponse.json({ success: true });
     }
 

@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/testimonials - Obtener testimonios aprobados
+// GET /api/testimonials - Obtener opiniones aprobadas
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
@@ -29,7 +29,7 @@ export async function GET() {
   }
 }
 
-// POST /api/testimonials - Registrar o actualizar testimonio propio
+// POST /api/testimonials - Registrar o actualizar opinión propia
 export async function POST(request: NextRequest) {
   try {
     // Get auth header from request
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     if (testimonial === undefined) {
       return NextResponse.json(
-        { error: 'El testimonio es obligatorio' },
+        { error: 'La opinión es obligatoria' },
         { status: 400 }
       );
     }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: 'Testimonio registrado con éxito, pendiente de moderación.' });
+    return NextResponse.json({ success: true, message: 'Opinión registrada con éxito, pendiente de moderación.' });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
