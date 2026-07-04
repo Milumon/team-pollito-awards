@@ -1395,7 +1395,7 @@ export default function MemberConsolePage() {
                                     <div
                                       key={sound.id}
                                       onClick={handleSoundClick}
-                                      className={`relative h-[135px] md:h-[140px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
+                                      className={`relative h-[170px] md:h-[180px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
                                         sound.image_url
                                           ? 'bg-cover bg-center'
                                           : 'bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60'
