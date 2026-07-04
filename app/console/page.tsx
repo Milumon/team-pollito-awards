@@ -1291,7 +1291,7 @@ export default function MemberConsolePage() {
                     />
 
                     {/* SOUND GRID — filtered by sub-tab */}
-                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden min-h-[400px]">
+                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3 sm:p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden min-h-[400px]">
                       <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
                         {loadingSounds ? (
                           <div className="flex flex-col items-center justify-center h-48 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">
@@ -1338,7 +1338,7 @@ export default function MemberConsolePage() {
                                       )}
                                       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
                                     </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    <div className="grid grid-cols-3 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                                     {ownerSounds.map((sound) => {
                                   const isCooldown = soundCooldown > 0;
                                   const handleSoundClick = () => {
@@ -1395,7 +1395,7 @@ export default function MemberConsolePage() {
                                     <div
                                       key={sound.id}
                                       onClick={handleSoundClick}
-                                      className={`relative h-[135px] md:h-[140px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
+                                      className={`relative h-[110px] sm:h-[135px] md:h-[140px] w-full rounded-xl sm:rounded-2xl flex flex-col justify-between items-center text-center px-2.5 py-2 sm:px-3 sm:py-2.5 transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
                                         sound.image_url
                                           ? 'bg-cover bg-center'
                                           : 'bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60'
@@ -1467,7 +1467,7 @@ export default function MemberConsolePage() {
                                         </div>
 
                                         {/* Name */}
-                                        <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${
+                                        <span className={`block truncate font-display font-semibold text-[10px] sm:text-xs md:text-sm relative z-10 leading-none w-full ${
                                           sound.image_url ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]' : soundStyles.text
                                         }`} title={sound.name}>
                                           {sound.name}
