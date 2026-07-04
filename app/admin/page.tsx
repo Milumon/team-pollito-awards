@@ -120,11 +120,13 @@ type StreamSettings = {
   personal_cooldown_seconds: number;
   overlay_active_at: string | null;
   overlay_notification_top: number;
+  overlay_notification_left: number;
   overlay_notification_width: number;
   overlay_notification_badge_size: number;
   overlay_notification_content_size: number;
   overlay_notification_sender_size: number;
   overlay_media_top: number;
+  overlay_media_left: number;
   overlay_media_width: number;
 };
 
@@ -648,11 +650,13 @@ export default function AdminPage() {
     globalCooldown?: number;
     personalCooldown?: number;
     overlayNotificationTop?: number;
+    overlayNotificationLeft?: number;
     overlayNotificationWidth?: number;
     overlayNotificationBadgeSize?: number;
     overlayNotificationContentSize?: number;
     overlayNotificationSenderSize?: number;
     overlayMediaTop?: number;
+    overlayMediaLeft?: number;
     overlayMediaWidth?: number;
   }) => {
     if (!isAdmin) return;
@@ -2352,6 +2356,20 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Posición Horizontal (X)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_left ?? 50}%</span>
+                  </label>
+                  <input
+                    type="range" min="0" max="100" step="1"
+                    value={streamSettings.overlay_notification_left ?? 50}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_left: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0% (Izquierda)</span><span>100% (Derecha)</span></div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
                     <span>Ancho del Pop-up</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_width ?? 288}px</span>
                   </label>
@@ -2434,6 +2452,20 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Posición Horizontal (X)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_left ?? 50}%</span>
+                  </label>
+                  <input
+                    type="range" min="0" max="100" step="1"
+                    value={streamSettings.overlay_media_left ?? 50}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_left: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0% (Izquierda)</span><span>100% (Derecha)</span></div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
                     <span>Ancho del Media</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_width ?? 400}px</span>
                   </label>
@@ -2455,11 +2487,13 @@ export default function AdminPage() {
                   disabled={updatingStreamSettings}
                   onClick={() => handleUpdateStreamSettings({
                     overlayNotificationTop: streamSettings.overlay_notification_top,
+                    overlayNotificationLeft: streamSettings.overlay_notification_left,
                     overlayNotificationWidth: streamSettings.overlay_notification_width,
                     overlayNotificationBadgeSize: streamSettings.overlay_notification_badge_size,
                     overlayNotificationContentSize: streamSettings.overlay_notification_content_size,
                     overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size,
                     overlayMediaTop: streamSettings.overlay_media_top,
+                    overlayMediaLeft: streamSettings.overlay_media_left,
                     overlayMediaWidth: streamSettings.overlay_media_width
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"

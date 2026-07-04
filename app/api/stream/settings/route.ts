@@ -54,11 +54,13 @@ export async function POST(request: NextRequest) {
       personalCooldown, 
       heartbeat,
       overlayNotificationTop,
+      overlayNotificationLeft,
       overlayNotificationWidth,
       overlayNotificationBadgeSize,
       overlayNotificationContentSize,
       overlayNotificationSenderSize,
       overlayMediaTop,
+      overlayMediaLeft,
       overlayMediaWidth
     } = body;
 
@@ -79,11 +81,13 @@ export async function POST(request: NextRequest) {
     if (typeof globalCooldown === 'number') updates.global_cooldown_seconds = globalCooldown;
     if (typeof personalCooldown === 'number') updates.personal_cooldown_seconds = personalCooldown;
     if (typeof overlayNotificationTop === 'number') updates.overlay_notification_top = overlayNotificationTop;
+    if (typeof overlayNotificationLeft === 'number') updates.overlay_notification_left = overlayNotificationLeft;
     if (typeof overlayNotificationWidth === 'number') updates.overlay_notification_width = overlayNotificationWidth;
     if (typeof overlayNotificationBadgeSize === 'number') updates.overlay_notification_badge_size = overlayNotificationBadgeSize;
     if (typeof overlayNotificationContentSize === 'number') updates.overlay_notification_content_size = overlayNotificationContentSize;
     if (typeof overlayNotificationSenderSize === 'number') updates.overlay_notification_sender_size = overlayNotificationSenderSize;
     if (typeof overlayMediaTop === 'number') updates.overlay_media_top = overlayMediaTop;
+    if (typeof overlayMediaLeft === 'number') updates.overlay_media_left = overlayMediaLeft;
     if (typeof overlayMediaWidth === 'number') updates.overlay_media_width = overlayMediaWidth;
     
     updates.updated_at = new Date().toISOString();

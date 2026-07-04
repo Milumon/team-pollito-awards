@@ -7,11 +7,13 @@ import { NotificationPopup } from '@/components/overlay/NotificationPopup';
 
 export type OverlaySettings = {
   overlay_notification_top?: number;
+  overlay_notification_left?: number;
   overlay_notification_width?: number;
   overlay_notification_badge_size?: number;
   overlay_notification_content_size?: number;
   overlay_notification_sender_size?: number;
   overlay_media_top?: number;
+  overlay_media_left?: number;
   overlay_media_width?: number;
 };
 
@@ -127,11 +129,13 @@ export function OverlayCanvas({
   showBackgroundGuide = false,
 }: OverlayCanvasProps) {
   const top = settings.overlay_notification_top ?? 48;
+  const left = settings.overlay_notification_left ?? 50;
   const width = settings.overlay_notification_width ?? 288;
   const avatarSize = settings.overlay_notification_badge_size ?? 32;
   const contentSize = settings.overlay_notification_content_size ?? 14;
   const senderSize = settings.overlay_notification_sender_size ?? 11;
   const mediaTop = settings.overlay_media_top ?? 48;
+  const mediaLeft = settings.overlay_media_left ?? 50;
   const mediaWidth = settings.overlay_media_width ?? 400;
 
   const isObs = mode === 'obs';
@@ -211,7 +215,7 @@ export function OverlayCanvas({
               top: `${top}px`,
               width: `${width}px`,
               maxWidth: '90%',
-              left: '50%',
+              left: `${left}%`,
               transform: 'translateX(-50%)',
               position: 'absolute',
             }}
@@ -234,7 +238,7 @@ export function OverlayCanvas({
               top: `${mediaTop}px`,
               width: `${mediaWidth}px`,
               maxWidth: '90%',
-              left: '50%',
+              left: `${mediaLeft}%`,
               transform: 'translateX(-50%)',
               position: 'absolute',
             }}

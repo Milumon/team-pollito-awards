@@ -27,11 +27,13 @@ type StreamSettings = {
   global_cooldown_seconds: number;
   personal_cooldown_seconds: number;
   overlay_notification_top?: number;
+  overlay_notification_left?: number;
   overlay_notification_width?: number;
   overlay_notification_badge_size?: number;
   overlay_notification_content_size?: number;
   overlay_notification_sender_size?: number;
   overlay_media_top?: number;
+  overlay_media_left?: number;
   overlay_media_width?: number;
 };
 
