@@ -1291,7 +1291,7 @@ export default function MemberConsolePage() {
                     />
 
                     {/* SOUND GRID — filtered by sub-tab */}
-                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
+                    <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden min-h-[400px]">
                       <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
                         {loadingSounds ? (
                           <div className="flex flex-col items-center justify-center h-48 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">
@@ -1395,7 +1395,7 @@ export default function MemberConsolePage() {
                                     <div
                                       key={sound.id}
                                       onClick={handleSoundClick}
-                                      className={`relative h-[170px] md:h-[180px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
+                                      className={`relative h-[135px] md:h-[140px] w-full rounded-2xl flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer ${
                                         sound.image_url
                                           ? 'bg-cover bg-center'
                                           : 'bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60'
