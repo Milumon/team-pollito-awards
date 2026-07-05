@@ -39,6 +39,8 @@ type StreamSettings = {
   overlay_media_width?: number;
   overlay_media_message_size?: number;
   overlay_media_repeat_count?: number;
+  overlay_image_duration_seconds?: number;
+  overlay_image_reposition_interval_seconds?: number;
   overlay_random_position?: boolean;
 };
 
@@ -104,6 +106,11 @@ export default function ObsOverlayPage() {
   const [activeAnimation, setActiveAnimation] = useState<OverlayAnimationType>(null);
   const [particles, setParticles] = useState<Particle[]>([]);
 
+  // Image repositioning state
+  const [imagePositionIndex, setImagePositionIndex] = useState(0);
+  const imagePositionsRef = useRef<Array<{ x: number; y: number }>>([]);
+  const imageRepositionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const queueRef = useRef<StreamEvent[]>([]);
   const isPlayingRef = useRef(false);
   const settingsRef = useRef<StreamSettings | null>(null);
@@ -112,6 +119,20 @@ export default function ObsOverlayPage() {
   const warnedRealtimeRef = useRef(false);
   const playNextRef = useRef<() => void>(() => {});
   const soundsLoadedRef = useRef(false);
+
+  // Helper: generate random position within valid media area
+  const generateRandomPosition = useCallback((mediaWidth: number) => {
+    const CANVAS_W = 720;
+    const CANVAS_H = 1280;
+    const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
+    const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
+    const maxY = CANVAS_H - 720;
+    const minY = 420;
+    return {
+      x: Math.random() * maxXPercent,
+      y: minY + Math.random() * (maxY - minY),
+    };
+  }, []);
 
   // 1. Mark event as played in DB
   const markEventAsPlayed = useCallback(async (eventId: string) => {
@@ -395,12 +416,44 @@ export default function ObsOverlayPage() {
         setTimeout(() => { playNextRef.current(); }, 500);
       }
     } else if (nextEvent.type === 'image') {
-      // Image-only: display image, auto-advance after 3s
-      remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}`);
+      // Image-only: display image with repositioning, auto-advance after configured duration
+      const imageDuration = (settingsRef.current?.overlay_image_duration_seconds ?? 3) * 1000;
+      const repositionInterval = (settingsRef.current?.overlay_image_reposition_interval_seconds ?? 1) * 1000;
+      const mediaWidth = settingsRef.current?.overlay_media_width ?? 400;
+
+      // Compute position sequence
+      const positionCount = Math.max(1, Math.floor(imageDuration / repositionInterval));
+      const positions: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i < positionCount; i++) {
+        positions.push(generateRandomPosition(mediaWidth));
+      }
+      imagePositionsRef.current = positions;
+      setImagePositionIndex(0);
+
+      remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}, duration=${imageDuration}ms, positions=${positionCount}, interval=${repositionInterval}ms`);
+
+      // Set up repositioning timer
+      let currentIndex = 0;
+      const advancePosition = () => {
+        currentIndex++;
+        if (currentIndex < positions.length) {
+          setImagePositionIndex(currentIndex);
+          imageRepositionTimerRef.current = setTimeout(advancePosition, repositionInterval);
+        }
+      };
+      if (positions.length > 1) {
+        imageRepositionTimerRef.current = setTimeout(advancePosition, repositionInterval);
+      }
+
+      // Auto-advance to next event after duration
       setTimeout(async () => {
+        if (imageRepositionTimerRef.current) {
+          clearTimeout(imageRepositionTimerRef.current);
+          imageRepositionTimerRef.current = null;
+        }
         await markEventAsPlayed(nextEvent.id);
         playNextRef.current();
-      }, 3000);
+      }, imageDuration);
     } else if (nextEvent.type === 'animation') {
       // Setup particles
       const animType = nextEvent.content as 'eggs' | 'sparkles' | 'confetti';
@@ -787,6 +840,7 @@ export default function ObsOverlayPage() {
               }
               setTimeout(() => { playNextRef.current(); }, 100);
             }}
+            mediaPosition={currentEvent?.type === 'image' && imagePositionsRef.current.length > 0 ? imagePositionsRef.current[imagePositionIndex] : undefined}
           />
         </div>
       </div>

@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
       overlayMediaWidth,
       overlayMediaMessageSize,
       overlayMediaRepeatCount,
+      overlayImageDurationSeconds,
+      overlayImageRepositionInterval,
       overlayRandomPosition
     } = body;
 
@@ -94,6 +96,8 @@ export async function POST(request: NextRequest) {
     if (typeof overlayMediaWidth === 'number') updates.overlay_media_width = overlayMediaWidth;
     if (typeof overlayMediaMessageSize === 'number') updates.overlay_media_message_size = overlayMediaMessageSize;
     if (typeof overlayMediaRepeatCount === 'number') updates.overlay_media_repeat_count = overlayMediaRepeatCount;
+    if (typeof overlayImageDurationSeconds === 'number') updates.overlay_image_duration_seconds = overlayImageDurationSeconds;
+    if (typeof overlayImageRepositionInterval === 'number') updates.overlay_image_reposition_interval_seconds = overlayImageRepositionInterval;
     if (typeof overlayRandomPosition === 'boolean') updates.overlay_random_position = overlayRandomPosition;
     
     updates.updated_at = new Date().toISOString();

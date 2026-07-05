@@ -107,6 +107,9 @@ interface OverlayCanvasProps {
 
   /** Mostrar imagen de guía de diseño de fondo (en modo preview) */
   showBackgroundGuide?: boolean;
+
+  /** Posición forzada del media (override). Usado por el overlay para reposicionamiento dinámico. */
+  mediaPosition?: { x: number; y: number };
 }
 
 // ─── Componente ─────────────────────────────────────────────────────────────
@@ -132,6 +135,7 @@ export function OverlayCanvas({
   staticPreview = false,
   senderLabel,
   showBackgroundGuide = false,
+  mediaPosition,
 }: OverlayCanvasProps) {
   const top = settings.overlay_notification_top ?? 48;
   const left = settings.overlay_notification_left ?? 50;
@@ -148,11 +152,8 @@ export function OverlayCanvas({
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
 
-  const randomPosRef = React.useRef<{ x: number; y: number }>({ x: mediaLeft, y: mediaTop });
-  const repeatPositionsRef = React.useRef<Array<{ x: number; y: number }>>([]);
-
-  React.useEffect(() => {
-    if (!event) return;
+  const { randomPos, repeatPositions } = React.useMemo(() => {
+    if (!event) return { randomPos: { x: mediaLeft, y: mediaTop }, repeatPositions: [] };
 
     const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
     const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
@@ -161,16 +162,11 @@ export function OverlayCanvas({
     const maxY = CANVAS_H - estimatedMaxHeight;
     const minY = 420;
 
-    // Single random position (for overlay_random_position OR as repeat center)
-    if (settings.overlay_random_position || (event.repeat_enabled && repeatCount > 1)) {
-      const randomX = Math.random() * maxXPercent;
-      const randomY = minY + Math.random() * (maxY - minY);
-      randomPosRef.current = { x: randomX, y: randomY };
-    } else {
-      randomPosRef.current = { x: mediaLeft, y: mediaTop };
-    }
+    const shouldRandomize = settings.overlay_random_position || (event.repeat_enabled && repeatCount > 1);
+    const basePos = shouldRandomize
+      ? { x: Math.random() * maxXPercent, y: minY + Math.random() * (maxY - minY) }
+      : { x: mediaLeft, y: mediaTop };
 
-    // Generate repeat positions using grid-with-jitter (no collisions)
     if (event.repeat_enabled && repeatCount > 1) {
       const cols = Math.ceil(Math.sqrt(repeatCount));
       const rows = Math.ceil(repeatCount / cols);
@@ -193,15 +189,16 @@ export function OverlayCanvas({
           y: Math.max(minY, Math.min(maxY, cy + (Math.random() * 2 - 1) * jitterY)),
         });
       }
-      repeatPositionsRef.current = positions;
-    } else {
-      repeatPositionsRef.current = [];
+      return { randomPos: basePos, repeatPositions: positions };
     }
-  }, [event?.id, settings.overlay_random_position, mediaWidth, event?.repeat_enabled, repeatCount, mediaLeft, mediaTop]);
 
-  const useRepeat = event?.repeat_enabled && repeatCount > 1 && repeatPositionsRef.current.length > 0;
-  const effectiveMediaTop = (useRepeat || settings.overlay_random_position) && event ? randomPosRef.current.y : mediaTop;
-  const effectiveMediaLeft = (useRepeat || settings.overlay_random_position) && event ? randomPosRef.current.x : mediaLeft;
+    return { randomPos: basePos, repeatPositions: [] };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id, event?.repeat_enabled, settings.overlay_random_position, mediaWidth, repeatCount, mediaLeft, mediaTop]);
+
+  const useRepeat = event?.repeat_enabled && repeatCount > 1 && repeatPositions.length > 0;
+  const effectiveMediaTop = mediaPosition ? mediaPosition.y : ((useRepeat || settings.overlay_random_position) && event ? randomPos.y : mediaTop);
+  const effectiveMediaLeft = mediaPosition ? mediaPosition.x : ((useRepeat || settings.overlay_random_position) && event ? randomPos.x : mediaLeft);
 
   return (
     /**
@@ -297,7 +294,7 @@ export function OverlayCanvas({
         {event && (event.type === 'image_audio' || event.type === 'video' || event.type === 'image') && (isObs ? !isMuted : true) && (
           <>
             {/* Repeat mode: render N copies at random positions */}
-            {useRepeat && repeatPositionsRef.current.map((pos, idx) => (
+            {useRepeat && repeatPositions.map((pos, idx) => (
               <div
                 key={`repeat-${event.id}-${idx}`}
                 style={{

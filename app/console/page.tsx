@@ -512,9 +512,6 @@ export default function MemberConsolePage() {
       const trimmed = customImageMessage.trim();
       if (trimmed) extraFields.message = trimmed;
     }
-    if ((type === 'image' || type === 'image_audio') && sendRepeatEnabled) {
-      extraFields.repeat_enabled = 'true';
-    }
     setPendingTrigger(null);
     setCustomImageMessage('');
     await triggerEvent(type, content, true, mediaUrls, extraFields);

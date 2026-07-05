@@ -130,6 +130,8 @@ type StreamSettings = {
   overlay_media_width: number;
   overlay_media_message_size: number;
   overlay_media_repeat_count: number;
+  overlay_image_duration_seconds: number;
+  overlay_image_reposition_interval_seconds: number;
   overlay_random_position: boolean;
 };
 
@@ -301,6 +303,11 @@ export default function AdminPage() {
   const [testMessageEnabled, setTestMessageEnabled] = useState(false);
   const [testRepeatEnabled, setTestRepeatEnabled] = useState(false);
 
+  // Image repositioning simulation state
+  const [simImagePositionIndex, setSimImagePositionIndex] = useState(0);
+  const simImagePositionsRef = useRef<Array<{ x: number; y: number }>>([]);
+  const simImageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Canvas viewer state
   const [canvasContainerEl, setCanvasContainerEl] = useState<HTMLDivElement | null>(null);
   const canvasContainerRefCallback = useCallback((el: HTMLDivElement | null) => setCanvasContainerEl(el), []);
@@ -321,6 +328,12 @@ export default function AdminPage() {
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
   const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string; message?: string; repeat_enabled?: boolean }) => {
+    // Clear any existing repositioning timer
+    if (simImageTimerRef.current) {
+      clearTimeout(simImageTimerRef.current);
+      simImageTimerRef.current = null;
+    }
+
     setSimulatedEvent({
       type,
       content,
@@ -357,8 +370,51 @@ export default function AdminPage() {
       }, 6000);
     }
 
+    // Image repositioning simulation
+    if (type === 'image') {
+      const imageDuration = (streamSettings?.overlay_image_duration_seconds ?? 3) * 1000;
+      const repositionInterval = (streamSettings?.overlay_image_reposition_interval_seconds ?? 1) * 1000;
+      const mediaWidth = streamSettings?.overlay_media_width ?? 400;
+      const CANVAS_W = 720;
+      const CANVAS_H = 1280;
+      const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
+      const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
+      const maxY = CANVAS_H - 720;
+      const minY = 420;
+
+      const positionCount = Math.max(1, Math.floor(imageDuration / repositionInterval));
+      const positions: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i < positionCount; i++) {
+        positions.push({
+          x: Math.random() * maxXPercent,
+          y: minY + Math.random() * (maxY - minY),
+        });
+      }
+      simImagePositionsRef.current = positions;
+      setSimImagePositionIndex(0);
+
+      let currentIndex = 0;
+      const advancePosition = () => {
+        currentIndex++;
+        if (currentIndex < positions.length) {
+          setSimImagePositionIndex(currentIndex);
+          simImageTimerRef.current = setTimeout(advancePosition, repositionInterval);
+        }
+      };
+      if (positions.length > 1) {
+        simImageTimerRef.current = setTimeout(advancePosition, repositionInterval);
+      }
+    }
+
     setTimeout(() => {
       setSimulatedEvent(prev => prev && prev.type === type && prev.content === content ? { ...prev, visible: false } : prev);
+      // Clean up repositioning state
+      if (simImageTimerRef.current) {
+        clearTimeout(simImageTimerRef.current);
+        simImageTimerRef.current = null;
+      }
+      simImagePositionsRef.current = [];
+      setSimImagePositionIndex(0);
     }, 8000);
   };
 
@@ -679,6 +735,8 @@ export default function AdminPage() {
     overlayMediaWidth?: number;
     overlayMediaMessageSize?: number;
     overlayMediaRepeatCount?: number;
+    overlayImageDurationSeconds?: number;
+    overlayImageRepositionInterval?: number;
     overlayRandomPosition?: boolean;
   }) => {
     if (!isAdmin) return;
@@ -2547,6 +2605,34 @@ export default function AdminPage() {
                   />
                   <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>1x (normal)</span><span>8x (sticker bomb)</span></div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Duración imagen (s)</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_image_duration_seconds ?? 3}s</span>
+                  </label>
+                  <input
+                    type="range" min="1" max="15" step="1"
+                    value={streamSettings.overlay_image_duration_seconds ?? 3}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_image_duration_seconds: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>1s</span><span>15s</span></div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Intervalo reposicionamiento</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_image_reposition_interval_seconds ?? 1}s</span>
+                  </label>
+                  <input
+                    type="range" min="0.5" max="5" step="0.5"
+                    value={streamSettings.overlay_image_reposition_interval_seconds ?? 1}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_image_reposition_interval_seconds: parseFloat(e.target.value) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0.5s (rápido)</span><span>5s (lento)</span></div>
+                </div>
               </div>
 
               {/* Guardar + Pruebas */}
@@ -2566,6 +2652,8 @@ export default function AdminPage() {
                     overlayMediaWidth: streamSettings.overlay_media_width,
                     overlayMediaMessageSize: streamSettings.overlay_media_message_size,
                     overlayMediaRepeatCount: streamSettings.overlay_media_repeat_count,
+                    overlayImageDurationSeconds: streamSettings.overlay_image_duration_seconds,
+                    overlayImageRepositionInterval: streamSettings.overlay_image_reposition_interval_seconds,
                     overlayRandomPosition: streamSettings.overlay_random_position
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
@@ -2739,6 +2827,7 @@ export default function AdminPage() {
                   particles={simulatedParticles}
                   senderLabel={simulatedEvent?.visible ? simulatedEvent.senderRobloxUser : 'MilumonGaming'}
                   showBackgroundGuide={showBackgroundGuide}
+                  mediaPosition={simulatedEvent?.type === 'image' && simImagePositionsRef.current.length > 0 ? simImagePositionsRef.current[simImagePositionIndex] : undefined}
                 />
               </div>
             </div>
