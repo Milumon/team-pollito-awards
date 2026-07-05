@@ -216,7 +216,7 @@ export function OverlayCanvas({
               width: `${width}px`,
               maxWidth: '90%',
               left: `${left}%`,
-              transform: 'translateX(0)',
+              transform: 'translateX(-50%)',
               position: 'absolute',
             }}
           >
@@ -239,7 +239,7 @@ export function OverlayCanvas({
               width: `${mediaWidth}px`,
               maxWidth: '90%',
               left: `${mediaLeft}%`,
-              transform: 'translateX(0)',
+              transform: 'translateX(-50%)',
               position: 'absolute',
             }}
           >
