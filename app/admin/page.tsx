@@ -289,11 +289,14 @@ export default function AdminPage() {
     image_url?: string;
     audio_url?: string;
     video_url?: string;
+    message?: string;
   } | null>(null);
 
   const [simulatedParticles, setSimulatedParticles] = useState<OverlayParticle[]>([]);
   const [simulatedAnimation, setSimulatedAnimation] = useState<OverlayAnimationType>(null);
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
+  const [testMessage, setTestMessage] = useState('');
+  const [testMessageEnabled, setTestMessageEnabled] = useState(false);
 
   // Canvas viewer state
   const [canvasContainerEl, setCanvasContainerEl] = useState<HTMLDivElement | null>(null);
@@ -314,12 +317,13 @@ export default function AdminPage() {
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
-  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
+  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string; message?: string }) => {
     setSimulatedEvent({
       type,
       content,
       senderRobloxUser: 'MilumonGaming',
       visible: true,
+      message: testMessageEnabled ? testMessage.trim() || undefined : undefined,
       ...extra
     });
     
@@ -357,6 +361,14 @@ export default function AdminPage() {
   const triggerLiveTestEvent = async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string }) => {
     setSendingTestEvent(true);
     try {
+      const body: Record<string, unknown> = {
+        type,
+        content,
+        senderRobloxUser: 'PruebaAdmin',
+        senderTiktokUser: 'prueba_admin',
+        ...extra
+      };
+      if (testMessageEnabled && testMessage.trim()) body.message = testMessage.trim();
       const response = await apiFetch('/api/admin/stream/test-event', {
         method: 'POST',
         body: JSON.stringify({
@@ -2543,6 +2555,25 @@ export default function AdminPage() {
 
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Pruebas locales (Preview)</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                      placeholder="Mensaje opcional para imagen/video..."
+                      maxLength={120}
+                      className="flex-1 bg-neutral-900 border border-neutral-700/60 rounded-lg px-2.5 py-1.5 text-[10px] text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
+                    />
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={testMessageEnabled}
+                        onChange={(e) => setTestMessageEnabled(e.target.checked)}
+                        className="w-3 h-3 accent-[#FFC200] cursor-pointer"
+                      />
+                      <span className="text-[9px] text-gray-400 font-medium">Enviar</span>
+                    </label>
+                  </div>
                   <div className="grid gap-2 grid-cols-2">
                     <button type="button" onClick={() => triggerLocalTestEvent('sound', 'prueba_sonido')}
                       className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
@@ -2568,21 +2599,35 @@ export default function AdminPage() {
                       className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
                       🎬 Video
                     </button>
+                    <button type="button" onClick={() => triggerLocalTestEvent('image', 'Prueba Imagen', { image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400' })}
+                      className="py-2 px-2 bg-neutral-800 hover:bg-neutral-700 text-gray-200 text-xs font-semibold rounded-xl border border-neutral-700/60 transition-all cursor-pointer active:scale-95 text-center">
+                      🖼️ Imagen
+                    </button>
                   </div>
                 </div>
 
                 <div>
                   <p className="text-[9px] uppercase tracking-widest font-bold text-gray-600 mb-2">Probar en OBS en vivo</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button type="button" disabled={sendingTestEvent}
                       onClick={() => triggerLiveTestEvent('sound', 'sorpresa')}
-                      className="flex-1 py-2 px-2 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      className="flex-1 min-w-[90px] py-2 px-2 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
                       {sendingTestEvent ? 'Enviando...' : '📡 Sonido OBS'}
                     </button>
                     <button type="button" disabled={sendingTestEvent}
                       onClick={() => triggerLiveTestEvent('tts', 'Mensaje de prueba en vivo desde el panel de administración')}
-                      className="flex-1 py-2 px-2 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      className="flex-1 min-w-[90px] py-2 px-2 bg-[#FFC200] hover:brightness-105 text-black text-[10px] font-display font-black uppercase rounded-xl transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
                       {sendingTestEvent ? 'Enviando...' : '📡 TTS OBS'}
+                    </button>
+                    <button type="button" disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('image', 'Prueba Imagen', { image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400' })}
+                      className="flex-1 min-w-[90px] py-2 px-2 bg-neutral-700 hover:bg-neutral-600 text-gray-200 text-[10px] font-semibold rounded-xl border border-neutral-600/60 transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      {sendingTestEvent ? 'Enviando...' : '📡 Imagen OBS'}
+                    </button>
+                    <button type="button" disabled={sendingTestEvent}
+                      onClick={() => triggerLiveTestEvent('video', 'Prueba Video', { video_url: 'https://www.w3schools.com/html/mov_bbb.mp4' })}
+                      className="flex-1 min-w-[90px] py-2 px-2 bg-neutral-700 hover:bg-neutral-600 text-gray-200 text-[10px] font-semibold rounded-xl border border-neutral-600/60 transition-all cursor-pointer disabled:opacity-50 active:scale-95 text-center">
+                      {sendingTestEvent ? 'Enviando...' : '📡 Video OBS'}
                     </button>
                   </div>
                 </div>
@@ -2646,16 +2691,17 @@ export default function AdminPage() {
                   settings={streamSettings}
                   event={
                     simulatedEvent?.visible
-                      ? {
-                          id: simulatedEvent.content,
-                          type: simulatedEvent.type,
-                          content: simulatedEvent.content,
-                          sender_roblox_user: simulatedEvent.senderRobloxUser,
-                          sender_avatar_url: adminVerifiedProfile?.avatarUrl || null,
-                          image_url: simulatedEvent.image_url,
-                          audio_url: simulatedEvent.audio_url,
-                          video_url: simulatedEvent.video_url,
-                        }
+                          ? {
+                              id: simulatedEvent.content,
+                              type: simulatedEvent.type,
+                              content: simulatedEvent.content,
+                              sender_roblox_user: simulatedEvent.senderRobloxUser,
+                              sender_avatar_url: adminVerifiedProfile?.avatarUrl || null,
+                              image_url: simulatedEvent.image_url,
+                              audio_url: simulatedEvent.audio_url,
+                              video_url: simulatedEvent.video_url,
+                              message: simulatedEvent.message,
+                            }
                       : staticPreviewEvent
                   }
                   staticPreview={!simulatedEvent?.visible}
