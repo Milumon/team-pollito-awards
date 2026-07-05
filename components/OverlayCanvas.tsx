@@ -15,6 +15,7 @@ export type OverlaySettings = {
   overlay_media_top?: number;
   overlay_media_left?: number;
   overlay_media_width?: number;
+  overlay_media_message_size?: number;
   overlay_random_position?: boolean;
 };
 
@@ -139,6 +140,7 @@ export function OverlayCanvas({
   const mediaTop = settings.overlay_media_top ?? 48;
   const mediaLeft = settings.overlay_media_left ?? 50;
   const mediaWidth = settings.overlay_media_width ?? 400;
+  const messageSize = settings.overlay_media_message_size ?? 12;
 
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
@@ -316,7 +318,7 @@ export function OverlayCanvas({
 
               {event.message && (
                 <div className="px-2 pb-1">
-                  <p className="text-xs font-bold text-white/90 leading-relaxed">
+                  <p className="font-bold text-white/90 leading-relaxed" style={{ fontSize: `${messageSize}px` }}>
                     {event.message}
                   </p>
                 </div>

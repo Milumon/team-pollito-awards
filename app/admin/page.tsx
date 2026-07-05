@@ -128,6 +128,7 @@ type StreamSettings = {
   overlay_media_top: number;
   overlay_media_left: number;
   overlay_media_width: number;
+  overlay_media_message_size: number;
   overlay_random_position: boolean;
 };
 
@@ -659,6 +660,7 @@ export default function AdminPage() {
     overlayMediaTop?: number;
     overlayMediaLeft?: number;
     overlayMediaWidth?: number;
+    overlayMediaMessageSize?: number;
     overlayRandomPosition?: boolean;
   }) => {
     if (!isAdmin) return;
@@ -2500,6 +2502,20 @@ export default function AdminPage() {
                   />
                   <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>200px (compacto)</span><span>700px (ancho)</span></div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Tamaño del mensaje</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_message_size ?? 12}px</span>
+                  </label>
+                  <input
+                    type="range" min="8" max="36" step="1"
+                    value={streamSettings.overlay_media_message_size ?? 12}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_message_size: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px (chico)</span><span>36px (grande)</span></div>
+                </div>
               </div>
 
               {/* Guardar + Pruebas */}
@@ -2517,6 +2533,7 @@ export default function AdminPage() {
                     overlayMediaTop: streamSettings.overlay_media_top,
                     overlayMediaLeft: streamSettings.overlay_media_left,
                     overlayMediaWidth: streamSettings.overlay_media_width,
+                    overlayMediaMessageSize: streamSettings.overlay_media_message_size,
                     overlayRandomPosition: streamSettings.overlay_random_position
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
