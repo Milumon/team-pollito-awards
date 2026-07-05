@@ -142,6 +142,9 @@ export default function MemberConsolePage() {
   const [customImageMessage, setCustomImageMessage] = useState('');
   const customImageMessageRef = useRef('');
   useEffect(() => { customImageMessageRef.current = customImageMessage; }, [customImageMessage]);
+  const [sendMessageEnabled, setSendMessageEnabled] = useState(false);
+  const sendMessageEnabledRef = useRef(false);
+  useEffect(() => { sendMessageEnabledRef.current = sendMessageEnabled; }, [sendMessageEnabled]);
 
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; trim_start?: number | null; trim_end?: number | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
@@ -457,7 +460,7 @@ export default function MemberConsolePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody, ...(((type === 'image' || type === 'image_audio' || type === 'video') && customImageMessageRef.current.trim()) ? { message: customImageMessageRef.current.trim() } : {}) }),
+        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody, ...(((type === 'image' || type === 'image_audio' || type === 'video') && customImageMessageRef.current.trim() && sendMessageEnabledRef.current) ? { message: customImageMessageRef.current.trim() } : {}) }),
       });
 
       const data = await response.json();
@@ -1336,8 +1339,8 @@ export default function MemberConsolePage() {
                             return (
                               <div className="space-y-4 p-1">
                                 {soundboardSubTab === 'multimedia' && !confirmSpamGuard && (
-                                  <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-700/40">
-                                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block mb-1.5">Mensaje opcional</span>
+                                  <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-700/40 space-y-2">
+                                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Mensaje opcional</span>
                                     <input
                                       type="text"
                                       value={customImageMessage}
@@ -1346,9 +1349,17 @@ export default function MemberConsolePage() {
                                       maxLength={120}
                                       className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
                                     />
-                                    <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
-                                      El mensaje aparecerá debajo de la imagen/video cuando toques una tarjeta. Si lo dejás vacío no se muestra nada.
-                                    </p>
+                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={sendMessageEnabled}
+                                        onChange={(e) => setSendMessageEnabled(e.target.checked)}
+                                        className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
+                                      />
+                                      <span className="text-[10px] text-gray-400 font-medium leading-tight">
+                                        Enviar este mensaje con la imagen/video
+                                      </span>
+                                    </label>
                                   </div>
                                 )}
                                 {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
