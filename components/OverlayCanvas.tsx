@@ -15,6 +15,7 @@ export type OverlaySettings = {
   overlay_media_top?: number;
   overlay_media_left?: number;
   overlay_media_width?: number;
+  overlay_random_position?: boolean;
 };
 
 export type OverlayEvent = {
@@ -141,6 +142,25 @@ export function OverlayCanvas({
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
 
+  const randomPosRef = React.useRef<{ x: number; y: number }>({ x: mediaLeft, y: mediaTop });
+
+  React.useEffect(() => {
+    if (!settings.overlay_random_position || !event) return;
+
+    const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
+    const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
+    const randomX = Math.random() * maxXPercent;
+
+    const estimatedMaxHeight = 720;
+    const maxY = CANVAS_H - estimatedMaxHeight;
+    const randomY = 420 + Math.random() * (maxY - 420);
+
+    randomPosRef.current = { x: randomX, y: randomY };
+  }, [event?.id, settings.overlay_random_position, mediaWidth]);
+
+  const effectiveMediaTop = settings.overlay_random_position && event ? randomPosRef.current.y : mediaTop;
+  const effectiveMediaLeft = settings.overlay_random_position && event ? randomPosRef.current.x : mediaLeft;
+
   return (
     /**
      * Wrapper que recorta el canvas al tamaño escalado.
@@ -235,10 +255,10 @@ export function OverlayCanvas({
         {event && (event.type === 'image_audio' || event.type === 'video' || event.type === 'image') && (isObs ? !isMuted : true) && (
           <div
             style={{
-              top: `${mediaTop}px`,
+              top: `${effectiveMediaTop}px`,
               width: `${mediaWidth}px`,
               maxWidth: '90%',
-              left: `${mediaLeft}%`,
+              left: `${effectiveMediaLeft}%`,
               transform: 'none',
               position: 'absolute',
             }}

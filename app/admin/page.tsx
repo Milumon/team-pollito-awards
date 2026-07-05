@@ -128,6 +128,7 @@ type StreamSettings = {
   overlay_media_top: number;
   overlay_media_left: number;
   overlay_media_width: number;
+  overlay_random_position: boolean;
 };
 
 type AuditLog = {
@@ -658,6 +659,7 @@ export default function AdminPage() {
     overlayMediaTop?: number;
     overlayMediaLeft?: number;
     overlayMediaWidth?: number;
+    overlayRandomPosition?: boolean;
   }) => {
     if (!isAdmin) return;
     setUpdatingStreamSettings(true);
@@ -2398,10 +2400,31 @@ export default function AdminPage() {
                       value={streamSettings.overlay_notification_badge_size ?? 10}
                       disabled={updatingStreamSettings}
                       onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_badge_size: parseInt(e.target.value, 10) } : null)}
-                      className="w-full accent-[#FFC200] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>24px</span><span>64px</span></div>
-                  </div>
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>200px (compacto)</span><span>700px (ancho)</span></div>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <label className="text-xs text-gray-400 font-bold cursor-pointer" htmlFor="randomPosition">
+                    Posición aleatoria por evento
+                  </label>
+                  <button
+                    id="randomPosition"
+                    type="button"
+                    role="switch"
+                    aria-checked={streamSettings.overlay_random_position}
+                    disabled={updatingStreamSettings}
+                    onClick={() => setStreamSettings((prev) => prev ? { ...prev, overlay_random_position: !prev.overlay_random_position } : null)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-neutral-600 transition-colors ${
+                      streamSettings.overlay_random_position ? 'bg-[#FFC200]' : 'bg-neutral-700'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 rounded-full bg-black transition-transform mt-[1.5px] ml-[2px] ${
+                      streamSettings.overlay_random_position ? 'translate-x-[14px]' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+                <p className="text-[9px] text-gray-600 leading-relaxed">Al activarlo, cada imagen aparece en una posición X/Y aleatoria dentro del canvas, respetando un margen mínimo de 420px desde el borde superior y sin salirse de los bordes.</p>
                   <div className="space-y-1.5">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
                       <span>Remitente</span>
@@ -2494,7 +2517,8 @@ export default function AdminPage() {
                     overlayNotificationSenderSize: streamSettings.overlay_notification_sender_size,
                     overlayMediaTop: streamSettings.overlay_media_top,
                     overlayMediaLeft: streamSettings.overlay_media_left,
-                    overlayMediaWidth: streamSettings.overlay_media_width
+                    overlayMediaWidth: streamSettings.overlay_media_width,
+                    overlayRandomPosition: streamSettings.overlay_random_position
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
                 >

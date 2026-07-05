@@ -61,7 +61,8 @@ export async function POST(request: NextRequest) {
       overlayNotificationSenderSize,
       overlayMediaTop,
       overlayMediaLeft,
-      overlayMediaWidth
+      overlayMediaWidth,
+      overlayRandomPosition
     } = body;
 
     const updates: Record<string, string | number | boolean | null> = {};
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
     if (typeof overlayMediaTop === 'number') updates.overlay_media_top = overlayMediaTop;
     if (typeof overlayMediaLeft === 'number') updates.overlay_media_left = overlayMediaLeft;
     if (typeof overlayMediaWidth === 'number') updates.overlay_media_width = overlayMediaWidth;
+    if (typeof overlayRandomPosition === 'boolean') updates.overlay_random_position = overlayRandomPosition;
     
     updates.updated_at = new Date().toISOString();
 

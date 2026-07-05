@@ -35,6 +35,7 @@ type StreamSettings = {
   overlay_media_top?: number;
   overlay_media_left?: number;
   overlay_media_width?: number;
+  overlay_random_position?: boolean;
 };
 
 
