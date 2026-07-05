@@ -1364,6 +1364,7 @@ export default function MemberConsolePage() {
                                     {ownerSounds.map((sound) => {
                                   const isCooldown = soundCooldown > 0;
                                   const handleSoundClick = () => {
+                                    if (!isLocalTestMode && isCooldown) return;
                                     if (isLocalTestMode) {
                                       // Close any existing overlay first
                                       if (localTestAudioRef.current) { localTestAudioRef.current.pause(); localTestAudioRef.current = null; }
@@ -1509,7 +1510,7 @@ export default function MemberConsolePage() {
                                             </span>
                                           ) : (
                                             <button
-                                              onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isMuted) {
+                                              onClick={(e) => { e.stopPropagation(); if (!isLocalTestMode && !isCooldown && !isMuted) {
                                                 if (sound.media_type === 'image_audio') void triggerEvent('image_audio', sound.name, false, { image_url: sound.image_url, audio_url: sound.audio_url || sound.url });
                                                 else if (sound.media_type === 'video') void triggerEvent('video', sound.name, false, { video_url: sound.video_url });
                                                 else if (sound.media_type === 'image') void triggerEvent('image', sound.name, false, { image_url: sound.image_url });
