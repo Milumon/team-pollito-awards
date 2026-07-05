@@ -1346,6 +1346,9 @@ export default function MemberConsolePage() {
                                       maxLength={120}
                                       className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
                                     />
+                                    <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed">
+                                      El mensaje aparecerá debajo de la imagen/video cuando toques una tarjeta. Si lo dejás vacío no se muestra nada.
+                                    </p>
                                   </div>
                                 )}
                                 {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (

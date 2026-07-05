@@ -17,6 +17,7 @@ type StreamEvent = {
   video_url?: string | null;
   trim_start?: number | null;
   trim_end?: number | null;
+  message?: string | null;
   created_at: string;
   played: boolean;
 };
