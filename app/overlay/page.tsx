@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { OverlayCanvas, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
+import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 
 type StreamEvent = {
   id: string;
@@ -63,6 +63,8 @@ export default function ObsOverlayPage() {
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const [isDebug, setIsDebug] = useState(false);
   const [soundVolume, setSoundVolume] = useState(1);
+  const [canvasFitScale, setCanvasFitScale] = useState(1);
+  const aspectContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -71,6 +73,21 @@ export default function ObsOverlayPage() {
       const vol = parseFloat(params.get('volume') ?? '1');
       if (!isNaN(vol)) setSoundVolume(Math.max(0, Math.min(1, vol)));
     }
+  }, []);
+
+  useEffect(() => {
+    const el = aspectContainerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setCanvasFitScale(Math.min(height / CANVAS_H, width / CANVAS_W, 1));
+    });
+    observer.observe(el);
+    const { clientWidth: w, clientHeight: h } = el;
+    if (w > 0 && h > 0) {
+      setCanvasFitScale(Math.min(h / CANVAS_H, w / CANVAS_W, 1));
+    }
+    return () => observer.disconnect();
   }, []);
 
   // Queue state
@@ -737,20 +754,20 @@ export default function ObsOverlayPage() {
 
       {/* Canvas real 720×1280 escalado al viewport 9:16 */}
       <div
+        ref={aspectContainerRef}
         className={`relative aspect-[9/16] h-full overflow-hidden ${
           isDebug ? 'outline outline-4 outline-dashed outline-[#FFD700]/60' : ''
         }`}
         style={{ background: 'transparent' }}
       >
         {/*
-         * OverlayCanvas en mode='obs' ocupa el espacio completo del padre.
-         * scale=1 → el canvas mide exactamente 720×1280 y el padre
-         * lo recorta / centra vía aspect-ratio.
+         * OverlayCanvas en mode='obs' se auto-escala para caber
+         * dentro del contenedor 9:16, evitando overflow y clipping.
          */}
         <div className="absolute inset-0 flex items-center justify-center">
           <OverlayCanvas
             mode="obs"
-            scale={1}
+            scale={canvasFitScale}
             settings={settings ?? {}}
             event={isPlaying && currentEvent ? currentEvent : null}
             animation={activeAnimation}
