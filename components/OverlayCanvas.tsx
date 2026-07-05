@@ -159,23 +159,38 @@ export function OverlayCanvas({
 
     const estimatedMaxHeight = 720;
     const maxY = CANVAS_H - estimatedMaxHeight;
+    const minY = 420;
 
     // Single random position (for overlay_random_position OR as repeat center)
     if (settings.overlay_random_position || (event.repeat_enabled && repeatCount > 1)) {
       const randomX = Math.random() * maxXPercent;
-      const randomY = 420 + Math.random() * (maxY - 420);
+      const randomY = minY + Math.random() * (maxY - minY);
       randomPosRef.current = { x: randomX, y: randomY };
     } else {
       randomPosRef.current = { x: mediaLeft, y: mediaTop };
     }
 
-    // Generate repeat positions if enabled (independent of overlay_random_position)
+    // Generate repeat positions using grid-with-jitter (no collisions)
     if (event.repeat_enabled && repeatCount > 1) {
+      const cols = Math.ceil(Math.sqrt(repeatCount));
+      const rows = Math.ceil(repeatCount / cols);
+
+      const validWidth = maxXPercent;
+      const validHeight = maxY - minY;
+      const cellWidth = validWidth / cols;
+      const cellHeight = validHeight / rows;
+      const jitterX = cellWidth * 0.12;
+      const jitterY = cellHeight * 0.12;
+
       const positions: Array<{ x: number; y: number }> = [];
       for (let i = 0; i < repeatCount; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const cx = col * cellWidth + cellWidth / 2;
+        const cy = row * cellHeight + cellHeight / 2;
         positions.push({
-          x: Math.random() * maxXPercent,
-          y: 420 + Math.random() * (maxY - 420),
+          x: Math.max(0, Math.min(maxXPercent, cx + (Math.random() * 2 - 1) * jitterX)),
+          y: Math.max(minY, Math.min(maxY, cy + (Math.random() * 2 - 1) * jitterY)),
         });
       }
       repeatPositionsRef.current = positions;
