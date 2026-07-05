@@ -1313,6 +1313,44 @@ export default function MemberConsolePage() {
                       } : undefined}
                     />
 
+                    {/* Message + Repeat options for images — above the grid */}
+                    {soundboardSubTab === 'multimedia' && (
+                      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3 sm:p-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex-1 min-w-[180px]">
+                            <input
+                              type="text"
+                              value={customImageMessage}
+                              onChange={(e) => setCustomImageMessage(e.target.value)}
+                              placeholder="Mensaje opcional para imagen..."
+                              maxLength={120}
+                              className="w-full bg-neutral-900 border border-neutral-700/60 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
+                            />
+                          </div>
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={sendMessageEnabled}
+                              onChange={(e) => setSendMessageEnabled(e.target.checked)}
+                              className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
+                            />
+                            <span className="text-[10px] text-gray-400 font-medium">Enviar mensaje</span>
+                          </label>
+                          {(streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={sendRepeatEnabled}
+                                onChange={(e) => setSendRepeatEnabled(e.target.checked)}
+                                className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
+                              />
+                              <span className="text-[10px] text-gray-400 font-medium">🔥 Repeat ({streamSettings?.overlay_media_repeat_count ?? 1}x)</span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* SOUND GRID — filtered by sub-tab */}
                     <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3 sm:p-4 md:p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden min-h-[400px]">
                       <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
@@ -1349,43 +1387,6 @@ export default function MemberConsolePage() {
 
                             return (
                               <div className="space-y-4 p-1">
-                                {soundboardSubTab === 'multimedia' && !confirmSpamGuard && (
-                                  <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-700/40 space-y-2">
-                                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Mensaje opcional</span>
-                                    <input
-                                      type="text"
-                                      value={customImageMessage}
-                                      onChange={(e) => setCustomImageMessage(e.target.value)}
-                                      placeholder="Milu cuando no se baña:"
-                                      maxLength={120}
-                                      className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
-                                    />
-                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        checked={sendMessageEnabled}
-                                        onChange={(e) => setSendMessageEnabled(e.target.checked)}
-                                        className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
-                                      />
-                                      <span className="text-[10px] text-gray-400 font-medium leading-tight">
-                                        Enviar este mensaje con la imagen/video
-                                      </span>
-                                    </label>
-                                    {(streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
-                                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                                        <input
-                                          type="checkbox"
-                                          checked={sendRepeatEnabled}
-                                          onChange={(e) => setSendRepeatEnabled(e.target.checked)}
-                                          className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
-                                        />
-                                        <span className="text-[10px] text-gray-400 font-medium leading-tight">
-                                          Enviar con repeticiones ({streamSettings?.overlay_media_repeat_count ?? 1}x)
-                                        </span>
-                                      </label>
-                                    )}
-                                  </div>
-                                )}
                                 {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
                                   <div key={ownerName}>
                                     <div className="flex items-center gap-2.5 mb-2 px-1">
