@@ -78,6 +78,7 @@ type StreamSettings = {
   is_muted: boolean;
   global_cooldown_seconds: number;
   personal_cooldown_seconds: number;
+  overlay_media_repeat_count?: number;
 };
 
 interface PendingTrigger {
@@ -145,6 +146,9 @@ export default function MemberConsolePage() {
   const [sendMessageEnabled, setSendMessageEnabled] = useState(false);
   const sendMessageEnabledRef = useRef(false);
   useEffect(() => { sendMessageEnabledRef.current = sendMessageEnabled; }, [sendMessageEnabled]);
+  const [sendRepeatEnabled, setSendRepeatEnabled] = useState(false);
+  const sendRepeatEnabledRef = useRef(false);
+  useEffect(() => { sendRepeatEnabledRef.current = sendRepeatEnabled; }, [sendRepeatEnabled]);
 
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; trim_start?: number | null; trim_end?: number | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
@@ -436,7 +440,7 @@ export default function MemberConsolePage() {
     }
 
     // Local checks before calling the API
-    if ((type === 'sound' || type === 'audio' || type === 'image') && soundCooldown > 0) {
+    if ((type === 'sound' || type === 'audio' || type === 'image' || type === 'image_audio' || type === 'video') && soundCooldown > 0) {
       setError(`Esperá el cooldown de sonidos (${soundCooldown}s)`);
       return;
     }
@@ -460,7 +464,11 @@ export default function MemberConsolePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody, ...(((type === 'image' || type === 'image_audio' || type === 'video') && customImageMessageRef.current.trim() && sendMessageEnabledRef.current) ? { message: customImageMessageRef.current.trim() } : {}) }),
+        body: JSON.stringify({
+          type, content, ...mediaUrls, ...extraBody,
+          ...(((type === 'image' || type === 'image_audio' || type === 'video') && customImageMessageRef.current.trim() && sendMessageEnabledRef.current) ? { message: customImageMessageRef.current.trim() } : {}),
+          ...(((type === 'image' || type === 'image_audio') && sendRepeatEnabledRef.current) ? { repeat_enabled: true } : {})
+        }),
       });
 
       const data = await response.json();
@@ -504,10 +512,13 @@ export default function MemberConsolePage() {
       const trimmed = customImageMessage.trim();
       if (trimmed) extraFields.message = trimmed;
     }
+    if ((type === 'image' || type === 'image_audio') && sendRepeatEnabled) {
+      extraFields.repeat_enabled = 'true';
+    }
     setPendingTrigger(null);
     setCustomImageMessage('');
     await triggerEvent(type, content, true, mediaUrls, extraFields);
-  }, [pendingTrigger, triggerEvent, customImageMessage]);
+  }, [pendingTrigger, triggerEvent, customImageMessage, sendRepeatEnabled]);
 
   const fetchSounds = useCallback(async () => {
     try {
@@ -1360,6 +1371,19 @@ export default function MemberConsolePage() {
                                         Enviar este mensaje con la imagen/video
                                       </span>
                                     </label>
+                                    {(streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
+                                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={sendRepeatEnabled}
+                                          onChange={(e) => setSendRepeatEnabled(e.target.checked)}
+                                          className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
+                                        />
+                                        <span className="text-[10px] text-gray-400 font-medium leading-tight">
+                                          Enviar con repeticiones ({streamSettings?.overlay_media_repeat_count ?? 1}x)
+                                        </span>
+                                      </label>
+                                    )}
                                   </div>
                                 )}
                                 {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
@@ -2543,6 +2567,19 @@ export default function MemberConsolePage() {
                       className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
                       autoFocus
                     />
+                    {(pendingTrigger.type === 'image' || pendingTrigger.type === 'image_audio') && (streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
+                      <label className="flex items-center gap-2 cursor-pointer select-none mt-2">
+                        <input
+                          type="checkbox"
+                          checked={sendRepeatEnabled}
+                          onChange={(e) => setSendRepeatEnabled(e.target.checked)}
+                          className="w-3.5 h-3.5 accent-[#FFC200] cursor-pointer"
+                        />
+                        <span className="text-[10px] text-gray-400 font-medium leading-tight">
+                          Enviar con repeticiones ({streamSettings?.overlay_media_repeat_count ?? 1}x)
+                        </span>
+                      </label>
+                    )}
                   </div>
                 )}
               </div>

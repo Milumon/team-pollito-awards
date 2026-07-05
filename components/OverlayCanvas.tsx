@@ -16,6 +16,7 @@ export type OverlaySettings = {
   overlay_media_left?: number;
   overlay_media_width?: number;
   overlay_media_message_size?: number;
+  overlay_media_repeat_count?: number;
   overlay_random_position?: boolean;
 };
 
@@ -32,6 +33,7 @@ export type OverlayEvent = {
   trim_start?: number | null;
   trim_end?: number | null;
   message?: string | null;
+  repeat_enabled?: boolean;
 };
 
 export type OverlayParticle = {
@@ -141,28 +143,46 @@ export function OverlayCanvas({
   const mediaLeft = settings.overlay_media_left ?? 50;
   const mediaWidth = settings.overlay_media_width ?? 400;
   const messageSize = settings.overlay_media_message_size ?? 12;
+  const repeatCount = settings.overlay_media_repeat_count ?? 1;
 
   const isObs = mode === 'obs';
   const isPreview = mode === 'preview';
 
   const randomPosRef = React.useRef<{ x: number; y: number }>({ x: mediaLeft, y: mediaTop });
+  const repeatPositionsRef = React.useRef<Array<{ x: number; y: number }>>([]);
 
   React.useEffect(() => {
     if (!settings.overlay_random_position || !event) return;
 
     const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
     const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
-    const randomX = Math.random() * maxXPercent;
 
     const estimatedMaxHeight = 720;
     const maxY = CANVAS_H - estimatedMaxHeight;
+
+    // Single position for non-repeat or fallback
+    const randomX = Math.random() * maxXPercent;
     const randomY = 420 + Math.random() * (maxY - 420);
-
     randomPosRef.current = { x: randomX, y: randomY };
-  }, [event?.id, settings.overlay_random_position, mediaWidth]);
 
-  const effectiveMediaTop = settings.overlay_random_position && event ? randomPosRef.current.y : mediaTop;
-  const effectiveMediaLeft = settings.overlay_random_position && event ? randomPosRef.current.x : mediaLeft;
+    // Generate repeat positions if enabled
+    if (event.repeat_enabled && repeatCount > 1) {
+      const positions: Array<{ x: number; y: number }> = [];
+      for (let i = 0; i < repeatCount; i++) {
+        positions.push({
+          x: Math.random() * maxXPercent,
+          y: 420 + Math.random() * (maxY - 420),
+        });
+      }
+      repeatPositionsRef.current = positions;
+    } else {
+      repeatPositionsRef.current = [];
+    }
+  }, [event?.id, settings.overlay_random_position, mediaWidth, event?.repeat_enabled, repeatCount]);
+
+  const useRepeat = event?.repeat_enabled && repeatCount > 1 && repeatPositionsRef.current.length > 0;
+  const effectiveMediaTop = (useRepeat || settings.overlay_random_position) && event ? randomPosRef.current.y : mediaTop;
+  const effectiveMediaLeft = (useRepeat || settings.overlay_random_position) && event ? randomPosRef.current.x : mediaLeft;
 
   return (
     /**
@@ -256,104 +276,115 @@ export function OverlayCanvas({
 
         {/* ── Media display (image_audio / video / image) ── */}
         {event && (event.type === 'image_audio' || event.type === 'video' || event.type === 'image') && (isObs ? !isMuted : true) && (
-          <div
-            style={{
-              top: `${effectiveMediaTop}px`,
-              width: `${mediaWidth}px`,
-              maxWidth: '90%',
-              left: `${effectiveMediaLeft}%`,
-              transform: 'none',
-              position: 'absolute',
-            }}
-          >
-            <div className="relative bg-[#15100a]/92 border border-[#e8a33d]/70 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
-              {/* corner brackets */}
-              <span className="absolute -top-px -left-px w-3 h-3 border-t-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
-              <span className="absolute -top-px -right-px w-3 h-3 border-t-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
-              <span className="absolute -bottom-px -left-px w-3 h-3 border-b-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
-              <span className="absolute -bottom-px -right-px w-3 h-3 border-b-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
-
-              {/* live indicator */}
-              <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[#f5b94a] animate-pulse pointer-events-none z-10" />
-
-              {/* Media content */}
-              <div className="p-2">
-                {event.type === 'image_audio' && event.image_url && (
-                  <img
-                    src={event.image_url}
-                    alt={event.content}
-                    className="w-full object-contain max-h-[50vh] rounded-lg"
-                  />
-                )}
-                {event.type === 'video' && event.video_url && (
-                  <video
-                    src={event.video_url}
-                    autoPlay
-                    loop={false}
-                    playsInline
-                    muted={false}
-                    className="w-full object-contain max-h-[50vh] rounded-lg"
-                    onLoadedMetadata={(e) => {
-                      const vid = e.currentTarget;
-                      if (event.trim_start && event.trim_start > 0) {
-                        vid.currentTime = event.trim_start;
-                      }
-                    }}
-                    onTimeUpdate={(e) => {
-                      const vid = e.currentTarget;
-                      if (event.trim_end && event.trim_end > 0 && vid.currentTime >= event.trim_end) {
-                        vid.pause();
-                      }
-                    }}
-                  />
-                )}
-                {event.type === 'image' && event.image_url && (
-                  <img
-                    src={event.image_url}
-                    alt={event.content}
-                    className="w-full object-contain max-h-[50vh] rounded-lg"
-                  />
-                )}
-              </div>
-
-              {event.message && (
-                <div className="px-2 pb-1">
-                  <p className="font-bold text-white/90 leading-relaxed" style={{ fontSize: `${messageSize}px` }}>
-                    {event.message}
-                  </p>
-                </div>
-              )}
-
-              {/* Sender info — same style as NotificationPopup */}
-              <div className="flex items-center gap-2 p-2.5 border-t border-[#e8a33d]/30">
-                {event.sender_avatar_url ? (
-                  <div className="w-7 h-7 border border-[#e8a33d]/70 overflow-hidden shrink-0">
-                    <img
-                      src={event.sender_avatar_url}
-                      alt={event.sender_roblox_user ?? 'VIP'}
-                      className="w-full h-full object-cover"
-                      style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
+          <>
+            {/* Repeat mode: render N copies at random positions */}
+            {useRepeat && repeatPositionsRef.current.map((pos, idx) => (
+              <div
+                key={`repeat-${event.id}-${idx}`}
+                style={{
+                  top: `${pos.y}px`,
+                  width: `${mediaWidth}px`,
+                  maxWidth: '90%',
+                  left: `${pos.x}%`,
+                  transform: 'none',
+                  position: 'absolute',
+                }}
+              >
+                <div className="relative overflow-hidden rounded-lg shadow-lg">
+                  {event.type === 'image_audio' && event.image_url && (
+                    <img src={event.image_url} alt={event.content} className="w-full object-contain max-h-[50vh] rounded-lg" />
+                  )}
+                  {event.type === 'video' && event.video_url && (
+                    <video src={event.video_url} autoPlay loop={false} playsInline muted={false} className="w-full object-contain max-h-[50vh] rounded-lg"
+                      onLoadedMetadata={(e) => { const vid = e.currentTarget; if (event.trim_start && event.trim_start > 0) vid.currentTime = event.trim_start; }}
+                      onTimeUpdate={(e) => { const vid = e.currentTarget; if (event.trim_end && event.trim_end > 0 && vid.currentTime >= event.trim_end) vid.pause(); }}
                     />
-                  </div>
-                ) : (
-                  <div className="w-7 h-7 bg-[#241a10] border border-[#e8a33d]/70 flex items-center justify-center text-sm shrink-0">
-                    🐣
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a] leading-none">
-                    &gt;&gt;&gt; {event.type === 'video' ? 'video' : event.type === 'image_audio' ? 'imagen + audio' : 'imagen'}
-                  </p>
-                  <p className="text-[10px] font-bold text-[#c99a5b] truncate mt-0.5">
-                    Por: @{event.sender_roblox_user ?? 'VIP'}
-                  </p>
+                  )}
+                  {event.type === 'image' && event.image_url && (
+                    <img src={event.image_url} alt={event.content} className="w-full object-contain max-h-[50vh] rounded-lg" />
+                  )}
                 </div>
               </div>
+            ))}
 
-              {/* bottom filete */}
-              <span className="absolute left-2 right-2 -bottom-[3px] h-[2px] bg-gradient-to-r from-[#f5b94a] to-transparent pointer-events-none" />
-            </div>
-          </div>
+            {/* Single mode or first position with full popup */}
+            {!useRepeat && (
+              <div
+                style={{
+                  top: `${effectiveMediaTop}px`,
+                  width: `${mediaWidth}px`,
+                  maxWidth: '90%',
+                  left: `${effectiveMediaLeft}%`,
+                  transform: 'none',
+                  position: 'absolute',
+                }}
+              >
+                <div className="relative bg-[#15100a]/92 border border-[#e8a33d]/70 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
+                  {/* corner brackets */}
+                  <span className="absolute -top-px -left-px w-3 h-3 border-t-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
+                  <span className="absolute -top-px -right-px w-3 h-3 border-t-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
+                  <span className="absolute -bottom-px -left-px w-3 h-3 border-b-2 border-l-2 border-[#f5b94a] pointer-events-none z-10" />
+                  <span className="absolute -bottom-px -right-px w-3 h-3 border-b-2 border-r-2 border-[#f5b94a] pointer-events-none z-10" />
+
+                  {/* live indicator */}
+                  <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-[#f5b94a] animate-pulse pointer-events-none z-10" />
+
+                  {/* Media content */}
+                  <div className="p-2">
+                    {event.type === 'image_audio' && event.image_url && (
+                      <img src={event.image_url} alt={event.content} className="w-full object-contain max-h-[50vh] rounded-lg" />
+                    )}
+                    {event.type === 'video' && event.video_url && (
+                      <video src={event.video_url} autoPlay loop={false} playsInline muted={false} className="w-full object-contain max-h-[50vh] rounded-lg"
+                        onLoadedMetadata={(e) => { const vid = e.currentTarget; if (event.trim_start && event.trim_start > 0) vid.currentTime = event.trim_start; }}
+                        onTimeUpdate={(e) => { const vid = e.currentTarget; if (event.trim_end && event.trim_end > 0 && vid.currentTime >= event.trim_end) vid.pause(); }}
+                      />
+                    )}
+                    {event.type === 'image' && event.image_url && (
+                      <img src={event.image_url} alt={event.content} className="w-full object-contain max-h-[50vh] rounded-lg" />
+                    )}
+                  </div>
+
+                  {event.message && (
+                    <div className="px-2 pb-1">
+                      <p className="font-bold text-white/90 leading-relaxed" style={{ fontSize: `${messageSize}px` }}>
+                        {event.message}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Sender info — same style as NotificationPopup */}
+                  <div className="flex items-center gap-2 p-2.5 border-t border-[#e8a33d]/30">
+                    {event.sender_avatar_url ? (
+                      <div className="w-7 h-7 border border-[#e8a33d]/70 overflow-hidden shrink-0">
+                        <img
+                          src={event.sender_avatar_url}
+                          alt={event.sender_roblox_user ?? 'VIP'}
+                          className="w-full h-full object-cover"
+                          style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-7 h-7 bg-[#241a10] border border-[#e8a33d]/70 flex items-center justify-center text-sm shrink-0">
+                        🐣
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f5b94a] leading-none">
+                        &gt;&gt;&gt; {event.type === 'video' ? 'video' : event.type === 'image_audio' ? 'imagen + audio' : 'imagen'}
+                      </p>
+                      <p className="text-[10px] font-bold text-[#c99a5b] truncate mt-0.5">
+                        Por: @{event.sender_roblox_user ?? 'VIP'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* bottom filete */}
+                  <span className="absolute left-2 right-2 -bottom-[3px] h-[2px] bg-gradient-to-r from-[#f5b94a] to-transparent pointer-events-none" />
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Partículas de animación ── */}

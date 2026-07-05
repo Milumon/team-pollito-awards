@@ -129,6 +129,7 @@ type StreamSettings = {
   overlay_media_left: number;
   overlay_media_width: number;
   overlay_media_message_size: number;
+  overlay_media_repeat_count: number;
   overlay_random_position: boolean;
 };
 
@@ -290,6 +291,7 @@ export default function AdminPage() {
     audio_url?: string;
     video_url?: string;
     message?: string;
+    repeat_enabled?: boolean;
   } | null>(null);
 
   const [simulatedParticles, setSimulatedParticles] = useState<OverlayParticle[]>([]);
@@ -297,6 +299,7 @@ export default function AdminPage() {
   const [sendingTestEvent, setSendingTestEvent] = useState(false);
   const [testMessage, setTestMessage] = useState('');
   const [testMessageEnabled, setTestMessageEnabled] = useState(false);
+  const [testRepeatEnabled, setTestRepeatEnabled] = useState(false);
 
   // Canvas viewer state
   const [canvasContainerEl, setCanvasContainerEl] = useState<HTMLDivElement | null>(null);
@@ -317,13 +320,14 @@ export default function AdminPage() {
 
   const CONFETTI_COLORS = ['#ff4500', '#ffd700', '#00ff7f', '#1e90ff', '#ff1493', '#8a2be2'];
 
-  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string; message?: string }) => {
+  const triggerLocalTestEvent = (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'audio' | 'image', content: string, extra?: { image_url?: string; audio_url?: string; video_url?: string; message?: string; repeat_enabled?: boolean }) => {
     setSimulatedEvent({
       type,
       content,
       senderRobloxUser: 'MilumonGaming',
       visible: true,
       message: testMessageEnabled ? testMessage.trim() || undefined : undefined,
+      repeat_enabled: testRepeatEnabled || undefined,
       ...extra
     });
     
@@ -369,6 +373,7 @@ export default function AdminPage() {
         ...extra
       };
       if (testMessageEnabled && testMessage.trim()) body.message = testMessage.trim();
+      if (testRepeatEnabled) body.repeat_enabled = true;
       const response = await apiFetch('/api/admin/stream/test-event', {
         method: 'POST',
         body: JSON.stringify({
@@ -673,6 +678,7 @@ export default function AdminPage() {
     overlayMediaLeft?: number;
     overlayMediaWidth?: number;
     overlayMediaMessageSize?: number;
+    overlayMediaRepeatCount?: number;
     overlayRandomPosition?: boolean;
   }) => {
     if (!isAdmin) return;
@@ -2437,7 +2443,6 @@ export default function AdminPage() {
                     }`} />
                   </button>
                 </div>
-                <p className="text-[9px] text-gray-600 leading-relaxed">Al activarlo, cada imagen aparece en una posición X/Y aleatoria dentro del canvas, respetando un margen mínimo de 420px desde el borde superior y sin salirse de los bordes.</p>
                   <div className="space-y-1.5">
                     <label className="text-xs text-gray-400 font-bold flex justify-between">
                       <span>Remitente</span>
@@ -2528,6 +2533,20 @@ export default function AdminPage() {
                   />
                   <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>8px (chico)</span><span>36px (grande)</span></div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-400 font-bold flex justify-between">
+                    <span>Repeticiones de imagen</span>
+                    <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_repeat_count ?? 1}x</span>
+                  </label>
+                  <input
+                    type="range" min="1" max="8" step="1"
+                    value={streamSettings.overlay_media_repeat_count ?? 1}
+                    disabled={updatingStreamSettings}
+                    onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_repeat_count: parseInt(e.target.value, 10) } : null)}
+                    className="w-full accent-[#FFC200] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>1x (normal)</span><span>8x (sticker bomb)</span></div>
+                </div>
               </div>
 
               {/* Guardar + Pruebas */}
@@ -2546,6 +2565,7 @@ export default function AdminPage() {
                     overlayMediaLeft: streamSettings.overlay_media_left,
                     overlayMediaWidth: streamSettings.overlay_media_width,
                     overlayMediaMessageSize: streamSettings.overlay_media_message_size,
+                    overlayMediaRepeatCount: streamSettings.overlay_media_repeat_count,
                     overlayRandomPosition: streamSettings.overlay_random_position
                   })}
                   className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 border border-black text-black text-xs font-display font-black uppercase rounded-2xl transition-all cursor-pointer active:scale-[0.97] shadow-[2px_2px_0_0_#000] text-center"
@@ -2572,6 +2592,15 @@ export default function AdminPage() {
                         className="w-3 h-3 accent-[#FFC200] cursor-pointer"
                       />
                       <span className="text-[9px] text-gray-400 font-medium">Enviar</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={testRepeatEnabled}
+                        onChange={(e) => setTestRepeatEnabled(e.target.checked)}
+                        className="w-3 h-3 accent-[#FFC200] cursor-pointer"
+                      />
+                      <span className="text-[9px] text-gray-400 font-medium">Repeat</span>
                     </label>
                   </div>
                   <div className="grid gap-2 grid-cols-2">
@@ -2701,6 +2730,7 @@ export default function AdminPage() {
                               audio_url: simulatedEvent.audio_url,
                               video_url: simulatedEvent.video_url,
                               message: simulatedEvent.message,
+                              repeat_enabled: simulatedEvent.repeat_enabled,
                             }
                       : staticPreviewEvent
                   }

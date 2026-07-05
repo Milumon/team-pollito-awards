@@ -18,6 +18,7 @@ type StreamEvent = {
   trim_start?: number | null;
   trim_end?: number | null;
   message?: string | null;
+  repeat_enabled?: boolean;
   created_at: string;
   played: boolean;
 };
@@ -37,6 +38,7 @@ type StreamSettings = {
   overlay_media_left?: number;
   overlay_media_width?: number;
   overlay_media_message_size?: number;
+  overlay_media_repeat_count?: number;
   overlay_random_position?: boolean;
 };
 
