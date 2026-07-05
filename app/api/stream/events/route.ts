@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, content, tiktokUser, image_url, audio_url, video_url, trim_start, trim_end } = body;
+    const { type, content, tiktokUser, image_url, audio_url, video_url, trim_start, trim_end, message } = body;
 
     if (!type || !content || !content.trim()) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
@@ -253,6 +253,7 @@ export async function POST(request: NextRequest) {
       sender_avatar_url: profile.roblox_avatar_url,
       played: false,
     };
+    if (message?.trim()) insertPayload.message = message.trim();
     if (type === 'image_audio') {
       if (image_url) insertPayload.image_url = image_url;
       if (audio_url) insertPayload.audio_url = audio_url;

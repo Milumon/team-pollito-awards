@@ -30,6 +30,7 @@ export type OverlayEvent = {
   video_url?: string | null;
   trim_start?: number | null;
   trim_end?: number | null;
+  message?: string | null;
 };
 
 export type OverlayParticle = {
@@ -312,6 +313,14 @@ export function OverlayCanvas({
                   />
                 )}
               </div>
+
+              {event.message && (
+                <div className="px-2 pb-1">
+                  <p className="text-xs font-bold text-white/90 leading-relaxed">
+                    {event.message}
+                  </p>
+                </div>
+              )}
 
               {/* Sender info — same style as NotificationPopup */}
               <div className="flex items-center gap-2 p-2.5 border-t border-[#e8a33d]/30">

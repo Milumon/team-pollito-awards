@@ -139,6 +139,7 @@ export default function MemberConsolePage() {
   // Sound/Animation Trigger State
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
+  const [customImageMessage, setCustomImageMessage] = useState('');
 
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; trim_start?: number | null; trim_end?: number | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
@@ -374,7 +375,7 @@ export default function MemberConsolePage() {
   }, []);
 
   // 3. Trigger Event Helper
-  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'image' | 'audio', content: string, bypassConfirm = false, mediaUrls?: { image_url?: string; audio_url?: string; video_url?: string }) => {
+  const triggerEvent = useCallback(async (type: 'sound' | 'tts' | 'animation' | 'image_audio' | 'video' | 'image' | 'audio', content: string, bypassConfirm = false, mediaUrls?: { image_url?: string; audio_url?: string; video_url?: string }, extraBody?: Record<string, string>) => {
     if (!session) return;
     setError(null);
     setSuccess(null);
@@ -454,7 +455,7 @@ export default function MemberConsolePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, content, ...mediaUrls }),
+        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody }),
       });
 
       const data = await response.json();
@@ -493,9 +494,15 @@ export default function MemberConsolePage() {
   const handleConfirmTrigger = useCallback(async () => {
     if (!pendingTrigger) return;
     const { type, content, mediaUrls } = pendingTrigger;
+    const extraFields: Record<string, string> = {};
+    if (type === 'image' || type === 'image_audio' || type === 'video') {
+      const trimmed = customImageMessage.trim();
+      if (trimmed) extraFields.message = trimmed;
+    }
     setPendingTrigger(null);
-    await triggerEvent(type, content, true, mediaUrls);
-  }, [pendingTrigger, triggerEvent]);
+    setCustomImageMessage('');
+    await triggerEvent(type, content, true, mediaUrls, extraFields);
+  }, [pendingTrigger, triggerEvent, customImageMessage]);
 
   const fetchSounds = useCallback(async () => {
     try {
@@ -2488,6 +2495,20 @@ export default function MemberConsolePage() {
                     <span className="font-sans text-xs text-white italic">
                       "{pendingTrigger.content}"
                     </span>
+                  </div>
+                )}
+                {(pendingTrigger.type === 'image' || pendingTrigger.type === 'image_audio' || pendingTrigger.type === 'video') && (
+                  <div className="bg-neutral-800/60 rounded-xl p-3 border border-neutral-700/40">
+                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block mb-2">Mensaje (opcional)</span>
+                    <input
+                      type="text"
+                      value={customImageMessage}
+                      onChange={(e) => setCustomImageMessage(e.target.value)}
+                      placeholder="Milu cuando no se baña:"
+                      maxLength={120}
+                      className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
+                      autoFocus
+                    />
                   </div>
                 )}
               </div>
