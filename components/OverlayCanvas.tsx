@@ -208,11 +208,6 @@ export function OverlayCanvas({
           </div>
         )}
 
-        {/* ── DEBUG: marcador visual del punto X para notification ── */}
-        {isPreview && event && event.type !== 'animation' && event.type !== 'image_audio' && event.type !== 'video' && event.type !== 'image' && (
-          <div style={{ position: 'absolute', left: `${left}%`, top: `${(top ?? 48) - 10}px`, width: '2px', height: '20px', background: '#00ff00', zIndex: 999, transform: 'none', pointerEvents: 'none' }} />
-        )}
-
         {/* ── Widget de notificación ── */}
         {event && event.type !== 'animation' && event.type !== 'image_audio' && event.type !== 'video' && event.type !== 'image' && (isObs ? !isMuted : true) && (
           <div
@@ -223,7 +218,6 @@ export function OverlayCanvas({
               left: `${left}%`,
               transform: 'none',
               position: 'absolute',
-              outline: isPreview ? '2px dashed #00ff00' : undefined,
             }}
           >
             <NotificationPopup
@@ -237,11 +231,6 @@ export function OverlayCanvas({
           </div>
         )}
 
-        {/* ── DEBUG: marcador visual del punto X para media ── */}
-        {isPreview && event && (event.type === 'image_audio' || event.type === 'video' || event.type === 'image') && (
-          <div style={{ position: 'absolute', left: `${mediaLeft}%`, top: `${(mediaTop ?? 48) - 10}px`, width: '2px', height: '20px', background: '#ff0000', zIndex: 999, transform: 'none' }} />
-        )}
-
         {/* ── Media display (image_audio / video / image) ── */}
         {event && (event.type === 'image_audio' || event.type === 'video' || event.type === 'image') && (isObs ? !isMuted : true) && (
           <div
@@ -252,7 +241,6 @@ export function OverlayCanvas({
               left: `${mediaLeft}%`,
               transform: 'none',
               position: 'absolute',
-              outline: isPreview ? '2px dashed #ff0000' : undefined,
             }}
           >
             <div className="relative bg-[#15100a]/92 border border-[#e8a33d]/70 overflow-hidden shadow-[0_0_30px_rgba(245,185,74,0.15)]">
