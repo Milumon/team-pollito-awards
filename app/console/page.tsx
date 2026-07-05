@@ -140,6 +140,8 @@ export default function MemberConsolePage() {
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
   const [pendingTrigger, setPendingTrigger] = useState<PendingTrigger | null>(null);
   const [customImageMessage, setCustomImageMessage] = useState('');
+  const customImageMessageRef = useRef('');
+  useEffect(() => { customImageMessageRef.current = customImageMessage; }, [customImageMessage]);
 
   // Dynamic Sounds Board
   const [sounds, setSounds] = useState<{ id: string; name: string; url?: string; cooldown_seconds?: number; is_public?: boolean; owner_user_id?: string | null; media_type?: string; image_url?: string; audio_url?: string; video_url?: string; trim_start?: number | null; trim_end?: number | null; profiles?: { roblox_user: string | null; roblox_display_name: string | null; roblox_avatar_url: string | null } | null }[]>([]);
@@ -455,7 +457,7 @@ export default function MemberConsolePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody }),
+        body: JSON.stringify({ type, content, ...mediaUrls, ...extraBody, ...(((type === 'image' || type === 'image_audio' || type === 'video') && customImageMessageRef.current.trim()) ? { message: customImageMessageRef.current.trim() } : {}) }),
       });
 
       const data = await response.json();
@@ -1333,6 +1335,19 @@ export default function MemberConsolePage() {
 
                             return (
                               <div className="space-y-4 p-1">
+                                {soundboardSubTab === 'multimedia' && !confirmSpamGuard && (
+                                  <div className="bg-neutral-800/50 rounded-xl p-3 border border-neutral-700/40">
+                                    <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block mb-1.5">Mensaje opcional</span>
+                                    <input
+                                      type="text"
+                                      value={customImageMessage}
+                                      onChange={(e) => setCustomImageMessage(e.target.value)}
+                                      placeholder="Milu cuando no se baña:"
+                                      maxLength={120}
+                                      className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
+                                    />
+                                  </div>
+                                )}
                                 {Object.entries(grouped).map(([ownerName, { avatar, sounds: ownerSounds }]) => (
                                   <div key={ownerName}>
                                     <div className="flex items-center gap-2.5 mb-2 px-1">
