@@ -710,7 +710,6 @@ export default function AdminPage() {
 
     const interval = setInterval(() => {
       void pingAlexaVM();
-      void loadStreamSettings();
     }, 15000);
 
     return () => {
