@@ -152,7 +152,7 @@ export function OverlayCanvas({
   const repeatPositionsRef = React.useRef<Array<{ x: number; y: number }>>([]);
 
   React.useEffect(() => {
-    if (!settings.overlay_random_position || !event) return;
+    if (!event) return;
 
     const effectiveWidth = Math.min(mediaWidth, CANVAS_W * 0.9);
     const maxXPercent = ((CANVAS_W - effectiveWidth) / CANVAS_W) * 100;
@@ -160,12 +160,16 @@ export function OverlayCanvas({
     const estimatedMaxHeight = 720;
     const maxY = CANVAS_H - estimatedMaxHeight;
 
-    // Single position for non-repeat or fallback
-    const randomX = Math.random() * maxXPercent;
-    const randomY = 420 + Math.random() * (maxY - 420);
-    randomPosRef.current = { x: randomX, y: randomY };
+    // Single random position (for overlay_random_position OR as repeat center)
+    if (settings.overlay_random_position || (event.repeat_enabled && repeatCount > 1)) {
+      const randomX = Math.random() * maxXPercent;
+      const randomY = 420 + Math.random() * (maxY - 420);
+      randomPosRef.current = { x: randomX, y: randomY };
+    } else {
+      randomPosRef.current = { x: mediaLeft, y: mediaTop };
+    }
 
-    // Generate repeat positions if enabled
+    // Generate repeat positions if enabled (independent of overlay_random_position)
     if (event.repeat_enabled && repeatCount > 1) {
       const positions: Array<{ x: number; y: number }> = [];
       for (let i = 0; i < repeatCount; i++) {
@@ -178,7 +182,7 @@ export function OverlayCanvas({
     } else {
       repeatPositionsRef.current = [];
     }
-  }, [event?.id, settings.overlay_random_position, mediaWidth, event?.repeat_enabled, repeatCount]);
+  }, [event?.id, settings.overlay_random_position, mediaWidth, event?.repeat_enabled, repeatCount, mediaLeft, mediaTop]);
 
   const useRepeat = event?.repeat_enabled && repeatCount > 1 && repeatPositionsRef.current.length > 0;
   const effectiveMediaTop = (useRepeat || settings.overlay_random_position) && event ? randomPosRef.current.y : mediaTop;
