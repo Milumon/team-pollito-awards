@@ -1364,7 +1364,11 @@ export default function MemberConsolePage() {
                                     {ownerSounds.map((sound) => {
                                   const isCooldown = soundCooldown > 0;
                                   const handleSoundClick = () => {
-                                    if (!isLocalTestMode && isCooldown) return;
+                                    if (!isLocalTestMode && isCooldown) {
+                                      setError(`Esperá el cooldown de sonidos (${soundCooldown}s)`);
+                                      setTimeout(() => setError(null), 3000);
+                                      return;
+                                    }
                                     if (isLocalTestMode) {
                                       // Close any existing overlay first
                                       if (localTestAudioRef.current) { localTestAudioRef.current.pause(); localTestAudioRef.current = null; }
