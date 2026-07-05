@@ -2356,7 +2356,7 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Posición Horizontal (X)</span>
+                    <span>Posición Horizontal (X) — Borde Izquierdo</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_left ?? 50}%</span>
                   </label>
                   <input
@@ -2452,7 +2452,7 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Posición Horizontal (X)</span>
+                    <span>Posición Horizontal (X) — Borde Izquierdo</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_left ?? 50}%</span>
                   </label>
                   <input
