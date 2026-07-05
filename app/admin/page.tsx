@@ -2356,17 +2356,17 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Posición Horizontal (X) — Centro de la imagen</span>
+                    <span>Posición Horizontal (X)</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_notification_left ?? 50}%</span>
                   </label>
                   <input
-                    type="range" min="10" max="90" step="1"
+                    type="range" min="0" max="100" step="1"
                     value={streamSettings.overlay_notification_left ?? 50}
                     disabled={updatingStreamSettings}
                     onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_notification_left: parseInt(e.target.value, 10) } : null)}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>10% (Izquierda)</span><span>90% (Derecha)</span></div>
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0% (Izquierda)</span><span>100% (Derecha)</span></div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
@@ -2452,17 +2452,17 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
-                    <span>Posición Horizontal (X) — Centro de la imagen</span>
+                    <span>Posición Horizontal (X)</span>
                     <span className="text-[#FFC200] font-mono">{streamSettings.overlay_media_left ?? 50}%</span>
                   </label>
                   <input
-                    type="range" min="10" max="90" step="1"
+                    type="range" min="0" max="100" step="1"
                     value={streamSettings.overlay_media_left ?? 50}
                     disabled={updatingStreamSettings}
                     onChange={(e) => setStreamSettings((prev) => prev ? { ...prev, overlay_media_left: parseInt(e.target.value, 10) } : null)}
                     className="w-full accent-[#FFC200] cursor-pointer"
                   />
-                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>10% (Izquierda)</span><span>90% (Derecha)</span></div>
+                  <div className="flex justify-between text-[8px] text-gray-500 font-mono"><span>0% (Izquierda)</span><span>100% (Derecha)</span></div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs text-gray-400 font-bold flex justify-between">
