@@ -2565,7 +2565,7 @@ export default function MemberConsolePage() {
                       className="w-full bg-neutral-900 border border-neutral-700/60 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 font-medium focus:outline-none focus:border-[#FFC200]/60 transition-colors"
                       autoFocus
                     />
-                    {false && (pendingTrigger.type === 'image' || pendingTrigger.type === 'image_audio') && (streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
+                    {false && (pendingTrigger?.type === 'image' || pendingTrigger?.type === 'image_audio') && (streamSettings?.overlay_media_repeat_count ?? 1) > 1 && (
                       <label className="flex items-center gap-2 cursor-pointer select-none mt-2">
                         <input
                           type="checkbox"

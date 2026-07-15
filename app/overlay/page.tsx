@@ -416,44 +416,79 @@ export default function ObsOverlayPage() {
         setTimeout(() => { playNextRef.current(); }, 500);
       }
     } else if (nextEvent.type === 'image') {
-      // Image-only: display image with repositioning, auto-advance after configured duration
-      const imageDuration = (settingsRef.current?.overlay_image_duration_seconds ?? 3) * 1000;
+      // Image-only: display image with repositioning
+      // If message exists, play TTS and use audio duration; otherwise use configured duration
+      const hasMessage = !!nextEvent.message?.trim();
+      const fallbackDuration = (settingsRef.current?.overlay_image_duration_seconds ?? 3) * 1000;
       const repositionInterval = (settingsRef.current?.overlay_image_reposition_interval_seconds ?? 1) * 1000;
       const mediaWidth = settingsRef.current?.overlay_media_width ?? 400;
 
-      // Compute position sequence
-      const positionCount = Math.max(1, Math.floor(imageDuration / repositionInterval));
-      const positions: Array<{ x: number; y: number }> = [];
-      for (let i = 0; i < positionCount; i++) {
-        positions.push(generateRandomPosition(mediaWidth));
-      }
-      imagePositionsRef.current = positions;
-      setImagePositionIndex(0);
+      const startImageDisplay = async (durationMs: number) => {
+        // Compute position sequence based on actual duration
+        const positionCount = Math.max(1, Math.floor(durationMs / repositionInterval));
+        const positions: Array<{ x: number; y: number }> = [];
+        for (let i = 0; i < positionCount; i++) {
+          positions.push(generateRandomPosition(mediaWidth));
+        }
+        imagePositionsRef.current = positions;
+        setImagePositionIndex(0);
 
-      remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}, duration=${imageDuration}ms, positions=${positionCount}, interval=${repositionInterval}ms`);
+        remoteLog('INFO', `[IMAGE] url=${nextEvent.image_url}, duration=${durationMs}ms, tts=${hasMessage}, positions=${positionCount}`);
 
-      // Set up repositioning timer
-      let currentIndex = 0;
-      const advancePosition = () => {
-        currentIndex++;
-        if (currentIndex < positions.length) {
-          setImagePositionIndex(currentIndex);
+        // Set up repositioning timer
+        let currentIndex = 0;
+        const advancePosition = () => {
+          currentIndex++;
+          if (currentIndex < positions.length) {
+            setImagePositionIndex(currentIndex);
+            imageRepositionTimerRef.current = setTimeout(advancePosition, repositionInterval);
+          }
+        };
+        if (positions.length > 1) {
           imageRepositionTimerRef.current = setTimeout(advancePosition, repositionInterval);
         }
-      };
-      if (positions.length > 1) {
-        imageRepositionTimerRef.current = setTimeout(advancePosition, repositionInterval);
-      }
 
-      // Auto-advance to next event after duration
-      setTimeout(async () => {
-        if (imageRepositionTimerRef.current) {
-          clearTimeout(imageRepositionTimerRef.current);
-          imageRepositionTimerRef.current = null;
+        // Auto-advance after duration (fallback if onEnded doesn't fire)
+        setTimeout(async () => {
+          if (imageRepositionTimerRef.current) {
+            clearTimeout(imageRepositionTimerRef.current);
+            imageRepositionTimerRef.current = null;
+          }
+          await markEventAsPlayed(nextEvent.id);
+          playNextRef.current();
+        }, durationMs);
+      };
+
+      if (hasMessage && audioPlayerRef.current) {
+        // Play TTS of the message — image duration = audio duration
+        const ttsUrl = `/api/stream/tts?text=${encodeURIComponent(nextEvent.message!.trim())}`;
+        remoteLog('INFO', `[IMAGE+TTS] tts=${ttsUrl}`);
+
+        audioPlayerRef.current.src = ttsUrl;
+        audioPlayerRef.current.volume = soundVolume;
+
+        // Wait for metadata to get actual audio duration
+        const onMeta = async () => {
+          audioPlayerRef.current?.removeEventListener('loadedmetadata', onMeta);
+          const audioDuration = ((audioPlayerRef.current?.duration || 5) * 1000) + 500; // +500ms buffer
+          await startImageDisplay(audioDuration);
+        };
+        audioPlayerRef.current.addEventListener('loadedmetadata', onMeta);
+
+        try {
+          await audioPlayerRef.current.play();
+          remoteLog('INFO', `[IMAGE+TTS] play() OK`);
+        } catch (err) {
+          const error = err as Error;
+          remoteLog('ERROR', `[IMAGE+TTS] play() falló: ${error.message}`);
+          audioPlayerRef.current.removeEventListener('loadedmetadata', onMeta);
+          // Fallback: show image without TTS
+          await startImageDisplay(fallbackDuration);
         }
-        await markEventAsPlayed(nextEvent.id);
-        playNextRef.current();
-      }, imageDuration);
+      } else {
+        // No message or no audio player: use configured duration
+        await startImageDisplay(fallbackDuration);
+      }
     } else if (nextEvent.type === 'animation') {
       // Setup particles
       const animType = nextEvent.content as 'eggs' | 'sparkles' | 'confetti';
