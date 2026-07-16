@@ -8,8 +8,8 @@ env:
   REGION: us-central1
   SERVICE_NAME: team-pollito-awards
   REPO_NAME: team-pollito-registry
-  PROJECT_ID: gen-lang-client-0990216808
-  PROJECT_NUMBER: "524050788035"
+  PROJECT_ID: angelic-throne-502610-v3
+  PROJECT_NUMBER: "986642980997"
 
 permissions:
   contents: read
