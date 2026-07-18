@@ -115,6 +115,7 @@ export default function ObsOverlayPage() {
   const isPlayingRef = useRef(false);
   const settingsRef = useRef<StreamSettings | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioEventRef = useRef<string | null>(null);
   
   const warnedRealtimeRef = useRef(false);
   const playNextRef = useRef<() => void>(() => {});
@@ -196,6 +197,7 @@ export default function ObsOverlayPage() {
     const nextEvent = queueRef.current.shift()!;
     setCurrentEvent(nextEvent);
     currentEventRef.current = nextEvent;
+    currentAudioEventRef.current = null;
 
     remoteLog('INFO', `Reproduciendo evento: id=${nextEvent.id}, type=${nextEvent.type}, content=${nextEvent.content}`);
 
@@ -228,6 +230,7 @@ export default function ObsOverlayPage() {
       remoteLog('INFO', `Sonido: key=${cleanKey}, enMapa=${!!soundData}, url=${audioUrl}`);
 
       if (audioPlayerRef.current) {
+        currentAudioEventRef.current = nextEvent.id;
         audioPlayerRef.current.src = audioUrl;
         audioPlayerRef.current.volume = soundVolume;
         try {
@@ -257,6 +260,7 @@ export default function ObsOverlayPage() {
       const ttsUrl = `/api/stream/tts?text=${encodeURIComponent(nextEvent.content)}`;
       remoteLog('INFO', `Reproduciendo TTS: url=${ttsUrl}`);
       if (audioPlayerRef.current) {
+        currentAudioEventRef.current = nextEvent.id;
         audioPlayerRef.current.src = ttsUrl;
         try {
           remoteLog('DEBUG', 'Llamando a audio.play() para TTS...');
@@ -300,6 +304,7 @@ export default function ObsOverlayPage() {
       }
 
       audioPlayerRef.current.src = voiceUrl;
+      currentAudioEventRef.current = nextEvent.id;
       
       // Race: play() vs 5s timeout
       const playPromise = audioPlayerRef.current.play();
@@ -373,7 +378,7 @@ export default function ObsOverlayPage() {
       let soundData = soundsMap[cleanKey];
       let audioUrl = soundData ? soundData.url : nextEvent.audio_url || `/sounds/${nextEvent.content}`;
 
-      if (!soundData && token) {
+      if (!soundData && !nextEvent.audio_url && token) {
         try {
           const res = await fetch(`/api/admin/sounds/${encodeURIComponent(cleanKey)}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -390,6 +395,7 @@ export default function ObsOverlayPage() {
 
       remoteLog('INFO', `[AUDIO] url=${audioUrl}`);
       if (audioPlayerRef.current && audioUrl) {
+        currentAudioEventRef.current = nextEvent.id;
         audioPlayerRef.current.src = audioUrl;
         audioPlayerRef.current.volume = soundVolume;
         const playPromise = audioPlayerRef.current.play();
@@ -449,8 +455,9 @@ export default function ObsOverlayPage() {
         }
 
         // Auto-advance after duration (fallback if onEnded doesn't fire)
-        setTimeout(async () => {
-          if (imageRepositionTimerRef.current) {
+          setTimeout(async () => {
+            if (currentEventRef.current?.id !== nextEvent.id) return;
+            if (imageRepositionTimerRef.current) {
             clearTimeout(imageRepositionTimerRef.current);
             imageRepositionTimerRef.current = null;
           }
@@ -465,6 +472,7 @@ export default function ObsOverlayPage() {
         remoteLog('INFO', `[IMAGE+TTS] tts=${ttsUrl}`);
 
         audioPlayerRef.current.src = ttsUrl;
+        currentAudioEventRef.current = nextEvent.id;
         audioPlayerRef.current.volume = soundVolume;
 
         // Wait for metadata to get actual audio duration
@@ -527,9 +535,15 @@ export default function ObsOverlayPage() {
 
   // 3. Audio Ended Listener
   const handleAudioEnded = useCallback(async () => {
-    remoteLog('DEBUG', `handleAudioEnded - evento actual: ${currentEventRef.current?.id}`);
-    if (currentEventRef.current) {
-      await markEventAsPlayed(currentEventRef.current.id);
+    const audioEventId = currentAudioEventRef.current;
+    if (!audioEventId || currentEventRef.current?.id !== audioEventId) {
+      remoteLog('DEBUG', `handleAudioEnded ignorado: audio=${audioEventId}, evento=${currentEventRef.current?.id}`);
+      return;
+    }
+    currentAudioEventRef.current = null;
+    remoteLog('DEBUG', `handleAudioEnded - evento actual: ${audioEventId}`);
+    if (currentEventRef.current?.id === audioEventId) {
+      await markEventAsPlayed(audioEventId);
     }
     playNextRef.current();
   }, [markEventAsPlayed]);
@@ -542,8 +556,15 @@ export default function ObsOverlayPage() {
       : 'Detalles desconocidos';
     remoteLog('ERROR', 'Evento handleAudioError disparado en elemento <audio>', errorDetails);
 
-    if (currentEventRef.current) {
-      await markEventAsPlayed(currentEventRef.current.id);
+    const failedAudioEventId = currentAudioEventRef.current;
+    if (!failedAudioEventId || currentEventRef.current?.id !== failedAudioEventId) {
+      remoteLog('DEBUG', `handleAudioError ignorado por audio atrasado: audio=${failedAudioEventId}, evento=${currentEventRef.current?.id}`);
+      return;
+    }
+
+    currentAudioEventRef.current = null;
+    if (currentEventRef.current?.id === failedAudioEventId) {
+      await markEventAsPlayed(failedAudioEventId);
     }
     setTimeout(() => {
       playNextRef.current();

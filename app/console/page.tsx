@@ -1492,7 +1492,7 @@ export default function MemberConsolePage() {
                                       )}
                                       <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
                                     </div>
-                                    <div className="grid grid-cols-3 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-2 sm:gap-3">
                                     {ownerSounds.map((sound) => {
                                   const isCooldown = soundCooldown > 0;
                                   const handleSoundClick = () => {
