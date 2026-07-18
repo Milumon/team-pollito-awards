@@ -1721,7 +1721,7 @@ export default function MemberConsolePage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 flex flex-col overflow-hidden max-w-xl mx-auto w-full text-left"
+                  className="absolute inset-0 flex flex-col overflow-hidden max-w-xl mx-auto w-full text-left xl:hidden"
                 >
                   <div className="flex-1 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
@@ -2173,7 +2173,7 @@ export default function MemberConsolePage() {
           {/* Card: Actualizar Nickname */}
           <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3.5 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
             <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
-              <User className="w-4 h-4" /> Actualizar Nickname
+              <User className="w-4 h-4" /> Cambiar mi Nickname
             </h3>
             
             <div className="space-y-1 text-xs">
@@ -2239,100 +2239,13 @@ export default function MemberConsolePage() {
                   </>
                 ) : (
                   <>
-                    <span>🔄</span> Actualizar Nickname
+                    <span>🔄</span> Cambiar mi Nickname
                   </>
                 )}
               </button>
             </form>
           </div>
 
-          {/* Card: Silenciadores Globales */}
-          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
-            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2">
-              <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
-                🔇 Silenciadores Globales
-              </h3>
-              <span className="text-[8px] bg-red-600 text-white font-mono font-black px-2 py-0.5 rounded-2xl border border-neutral-700/60  animate-pulse">
-                EN VIVO
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-left leading-tight pr-2">
-                  <span className="text-xs font-semibold text-white block">Mutear Sonidos</span>
-                  <span className="text-[9px] font-bold text-gray-500 block leading-tight">Bloquea todos los sonidos del stream</span>
-                </div>
-                <button 
-                  disabled
-                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-200 focus:outline-none cursor-not-allowed shrink-0 ${
-                    isMuted ? 'bg-[#FFC200]' : 'bg-neutral-800'
-                  }`}
-                >
-                  <div className={`bg-black w-4.5 h-4.5 rounded-full shadow-md transform duration-200 ease-in-out ${
-                    isMuted ? 'translate-x-4.5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-left leading-tight pr-2">
-                  <span className="text-xs font-semibold text-white block">Mutear TTS</span>
-                  <span className="text-[9px] font-bold text-gray-500 block leading-tight">Bloquea todos los mensajes TTS</span>
-                </div>
-                <button 
-                  disabled
-                  className="w-10 h-5.5 rounded-full p-0.5 bg-neutral-800 focus:outline-none cursor-not-allowed shrink-0"
-                >
-                  <div className="bg-black w-4.5 h-4.5 rounded-full shadow-md transform translate-x-0" />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-left leading-tight pr-2">
-                  <span className="text-xs font-semibold text-white block">Mutear Efectos Visuales</span>
-                  <span className="text-[9px] font-bold text-gray-500 block leading-tight">Bloquea todos los efectos/animaciones</span>
-                </div>
-                <button 
-                  disabled
-                  className="w-10 h-5.5 rounded-full p-0.5 bg-neutral-800 focus:outline-none cursor-not-allowed shrink-0"
-                >
-                  <div className="bg-black w-4.5 h-4.5 rounded-full shadow-md transform translate-x-0" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Card: Sincronización en tiempo real */}
-          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3.5 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
-            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2">
-              <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
-                🔄 Sincronización Realtime
-              </h3>
-              <span className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-neutral-700/60 font-mono font-black px-1.5 py-0.5 rounded-2xl  uppercase">
-                CONECTADO
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-2 space-y-0.5 ">
-                <span className="text-[9px] font-medium text-gray-500 uppercase block">Estado</span>
-                <span className="text-[9px] text-emerald-500 font-black">Activo</span>
-              </div>
-              <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-2 space-y-0.5 ">
-                <span className="text-[9px] font-medium text-gray-500 uppercase block">Canal</span>
-                <span className="text-[8px] text-white font-mono truncate block">vip-console</span>
-              </div>
-              <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-2 space-y-0.5 ">
-                <span className="text-[9px] font-medium text-gray-500 uppercase block">Latencia</span>
-                <span className="text-[9px] text-emerald-400 font-mono">42 ms</span>
-              </div>
-            </div>
-
-            <p className="text-[9px] font-semibold text-gray-500 leading-relaxed">
-              Todos los cambios y disparos en la botonera o silenciadores se reflejan instantáneamente para todos los miembros VIP.
-            </p>
-          </div>
         </aside>
       </div>
 
