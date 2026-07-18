@@ -1819,9 +1819,9 @@ export default function MemberConsolePage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 flex flex-col overflow-hidden max-w-xl mx-auto w-full text-left"
+                  className="absolute inset-0 flex flex-col justify-center overflow-y-auto max-w-2xl mx-auto w-full text-left"
                 >
-                  <div className="flex-1 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
+                  <div className="h-fit max-h-full bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
                       <div className="flex items-center gap-2">
                         <Send className="w-5 h-5 text-gray-400" />
