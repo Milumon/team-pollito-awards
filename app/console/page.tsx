@@ -66,7 +66,7 @@ type StoredRobloxProfile = {
 
 type StreamEvent = {
   id: string;
-  type: 'sound' | 'tts' | 'animation';
+  type: 'sound' | 'tts' | 'animation' | 'audio' | 'image' | 'image_audio' | 'video';
   content: string;
   sender_roblox_user: string | null;
   sender_tiktok_user: string | null;
@@ -1672,8 +1672,8 @@ export default function MemberConsolePage() {
                       </div>
                     </div>
 
-                    {/* USO RECIENTE */}
-                    <div className="shrink-0 overflow-hidden">
+                    {/* USO RECIENTE — móvil/tablet; en escritorio vive en el panel derecho */}
+                    <div className="shrink-0 overflow-hidden xl:hidden">
                       <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block text-left mb-2 px-1">
                         Uso Reciente (Feed Rápido)
                       </span>
@@ -1683,8 +1683,10 @@ export default function MemberConsolePage() {
                         ) : (
                           recentEvents.slice(0, 5).map((evt) => {
                             let label = '';
-                            if (evt.type === 'sound') {
+                            if (evt.type === 'sound' || evt.type === 'audio') {
                               label = `SONÓ: ${sounds.find(s => s.id === evt.content)?.name || evt.content}`;
+                            } else if (evt.type === 'image' || evt.type === 'image_audio' || evt.type === 'video') {
+                              label = `MEDIA: ${evt.content}`;
                             } else if (evt.type === 'tts') {
                               label = `TTS: "${evt.content}"`;
                             } else if (evt.type === 'animation') {
@@ -2169,7 +2171,48 @@ export default function MemberConsolePage() {
 
         {/* ----------------- SIDEBAR DERECHA (360px - WIDGETS FIJOS) ----------------- */}
         <aside className="hidden xl:flex w-[360px] shrink-0 bg-[#2b2d31] border-l border-neutral-700/60 flex-col p-5 gap-4 overflow-y-auto select-none text-left shadow-[-4px_0_0_0_#000]">
-          
+          {activeTab === 'sounds' && (
+            <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
+              <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2">
+                <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
+                  🕘 Uso Reciente
+                </h3>
+                <span className="text-[8px] text-gray-500 font-mono uppercase">Feed rápido</span>
+              </div>
+
+              <div className="space-y-2">
+                {recentEvents.length === 0 ? (
+                  <p className="text-[10px] text-gray-500 font-bold py-2">Ninguna interacción reciente</p>
+                ) : (
+                  recentEvents.slice(0, 5).map((evt) => {
+                    let label = '';
+                    if (evt.type === 'sound' || evt.type === 'audio') {
+                      label = sounds.find(s => s.id === evt.content)?.name || evt.content;
+                    } else if (evt.type === 'image' || evt.type === 'image_audio' || evt.type === 'video') {
+                      label = evt.content;
+                    } else if (evt.type === 'tts') {
+                      label = `TTS: "${evt.content}"`;
+                    } else if (evt.type === 'animation') {
+                      label = `Efecto: ${evt.content}`;
+                    }
+
+                    return (
+                      <div key={evt.id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl px-2.5 py-2 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-[10px] text-white truncate">@{evt.sender_roblox_user || 'VIP'}</strong>
+                          <span className="font-mono text-[8px] text-gray-500 shrink-0">
+                            {new Date(evt.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 truncate">{label || 'Interacción'}</p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
         </aside>
       </div>
 
