@@ -113,6 +113,36 @@ type AdminStats = {
   categoryStats: AdminStatsCategory[];
 };
 
+type DashboardUser = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  count: number;
+};
+
+type DashboardAccess = {
+  userId: string;
+  email: string;
+  name: string;
+  avatarUrl: string | null;
+  lastSignInAt: string;
+};
+
+type AdminDashboard = {
+  summary: {
+    totalUsers: number;
+    approvedUsers: number;
+    newUsers: number;
+    interactions: number;
+    pendingApplications: number;
+    pendingUploads: number;
+  };
+  recentAccesses: DashboardAccess[];
+  topUsers: DashboardUser[];
+  topSounds: { soundId: string; name: string; count: number }[];
+  topUploads: DashboardUser[];
+};
+
 type StreamSettings = {
   id: number;
   is_muted: boolean;
@@ -262,7 +292,7 @@ export default function AdminPage() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials'>('nominees');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials'>('dashboard');
   
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -275,6 +305,8 @@ export default function AdminPage() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [statsPhase, setStatsPhase] = useState(2);
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
 
   // Stream Settings & Services Status
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
@@ -638,6 +670,21 @@ export default function AdminPage() {
     }
   }, [isAdmin, apiFetch, statsPhase]);
 
+  const loadDashboard = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingDashboard(true);
+    try {
+      const response = await apiFetch('/api/admin/dashboard');
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al cargar el dashboard');
+      setDashboard(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar el dashboard');
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }, [isAdmin, apiFetch]);
+
   const loadInterviewSlots = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingSlots(true);
@@ -767,6 +814,7 @@ export default function AdminPage() {
       await Promise.all([
         loadNominees(),
         loadStats(),
+        loadDashboard(),
         loadInterviewSlots(),
         loadStreamSettings(),
         loadSounds(),
@@ -794,7 +842,7 @@ export default function AdminPage() {
       void channel.unsubscribe();
       clearInterval(interval);
     };
-  }, [isAdmin, loadNominees, loadStats, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
+  }, [isAdmin, loadNominees, loadStats, loadDashboard, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
 
   // Load admin's own Roblox profile for preview avatar
   useEffect(() => {
@@ -1450,6 +1498,141 @@ export default function AdminPage() {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const renderDashboard = () => {
+    const summary = dashboard?.summary;
+    const metricCards = [
+      { label: 'Usuarios totales', value: summary?.totalUsers ?? 0, icon: '👥' },
+      { label: 'Miembros aprobados', value: summary?.approvedUsers ?? 0, icon: '✅' },
+      { label: 'Nuevos esta semana', value: summary?.newUsers ?? 0, icon: '🌱' },
+      { label: 'Interacciones esta semana', value: summary?.interactions ?? 0, icon: '⚡' },
+      { label: 'Postulaciones pendientes', value: summary?.pendingApplications ?? 0, icon: '📝' },
+      { label: 'Uploads pendientes', value: summary?.pendingUploads ?? 0, icon: '📦' },
+    ];
+
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Centro de control</span>
+            <h1 className="font-display font-bold text-2xl text-white mt-1">Dashboard</h1>
+            <p className="text-xs text-gray-400 mt-2 font-semibold">Actividad real de la comunidad y del stream.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void loadDashboard()}
+            disabled={loadingDashboard}
+            className="px-3 py-2 bg-[#2b2d31] border border-neutral-700/60 rounded-xl text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 inline mr-1.5 ${loadingDashboard ? 'animate-spin' : ''}`} /> Actualizar
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          {metricCards.map((metric) => (
+            <div key={metric.label} className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+              <span className="text-lg">{metric.icon}</span>
+              <p className="text-[10px] text-gray-500 font-semibold mt-3 leading-tight">{metric.label}</p>
+              <p className="text-2xl text-white font-mono font-black mt-1">{loadingDashboard ? '—' : metric.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Actividad reciente</span>
+                <h2 className="font-display font-semibold text-lg text-white mt-1">Últimos accesos</h2>
+              </div>
+              <span className="text-[10px] text-gray-500 font-mono">Auth</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(dashboard?.recentAccesses ?? []).map((access) => (
+                <div key={access.userId} className="flex items-center gap-3 bg-[#35373d] border border-neutral-700/40 rounded-xl p-3">
+                  <div className="w-9 h-9 rounded-full overflow-hidden bg-[#2b2d31] border border-neutral-600 flex items-center justify-center shrink-0">
+                    {access.avatarUrl ? <img src={access.avatarUrl} alt={`Avatar de ${access.name}`} className="w-full h-full object-cover" /> : <span>🐣</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate">{access.name}</p>
+                    <p className="text-[9px] text-gray-500 truncate">{access.email}</p>
+                  </div>
+                  <span className="text-[8px] text-gray-500 font-mono shrink-0">
+                    {new Date(access.lastSignInAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {(dashboard?.recentAccesses.length ?? 0) === 0 && <p className="text-xs text-gray-500 py-6 text-center">No hay accesos registrados.</p>}
+          </section>
+
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Comunidad activa</span>
+                <h2 className="font-display font-semibold text-lg text-white mt-1">Top usuarios</h2>
+              </div>
+              <span className="text-[10px] text-gray-500">Esta semana</span>
+            </div>
+            <div className="space-y-2">
+              {(dashboard?.topUsers ?? []).map((user, index) => (
+                <div key={user.userId} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${index === 0 ? 'bg-[#FFC200]/10 border border-[#FFC200]/50' : 'bg-[#35373d] border border-neutral-700/40'}`}>
+                  <span className="w-5 text-center font-black text-sm">{index === 0 ? '👑' : `${index + 1}.`}</span>
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-[#2b2d31] border border-neutral-600 flex items-center justify-center shrink-0">
+                    {user.avatarUrl ? <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-sm">🐣</span>}
+                  </div>
+                  <span className="text-xs text-white font-bold truncate flex-1">@{user.name}</span>
+                  <span className="text-[10px] text-[#FFC200] font-mono font-bold">{user.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <h2 className="font-display font-semibold text-base text-white mb-4">🔊 Sonidos más usados</h2>
+            <div className="space-y-2">
+              {(dashboard?.topSounds ?? []).map((sound, index) => (
+                <div key={sound.soundId} className="flex items-center gap-2 bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-2">
+                  <span className="text-xs text-gray-500 font-black w-4">{index + 1}</span>
+                  <span className="text-xs text-white font-semibold truncate flex-1">{sound.name}</span>
+                  <span className="text-[10px] text-[#FFC200] font-mono">{sound.count}x</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <h2 className="font-display font-semibold text-base text-white mb-4">📤 Usuarios que más suben</h2>
+            <div className="space-y-2">
+              {(dashboard?.topUploads ?? []).map((user, index) => (
+                <div key={user.userId} className="flex items-center gap-2 bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-2">
+                  <span className="text-xs text-gray-500 font-black w-4">{index + 1}</span>
+                  <span className="text-xs text-white font-semibold truncate flex-1">@{user.name}</span>
+                  <span className="text-[10px] text-[#FFC200] font-mono">{user.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+            <h2 className="font-display font-semibold text-base text-white mb-4">🎯 Acciones pendientes</h2>
+            <div className="space-y-2">
+              <button type="button" onClick={() => setActiveTab('applications')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
+                <span className="text-xs text-gray-300 font-semibold">Postulaciones por revisar</span>
+                <span className="text-[#FFC200] font-mono font-black">{summary?.pendingApplications ?? 0}</span>
+              </button>
+              <button type="button" onClick={() => setActiveTab('media-submissions')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
+                <span className="text-xs text-gray-300 font-semibold">Uploads por moderar</span>
+                <span className="text-[#FFC200] font-mono font-black">{summary?.pendingUploads ?? 0}</span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+    );
   };
 
   const renderOverview = () => (
@@ -3334,6 +3517,8 @@ export default function AdminPage() {
 
   const renderActiveTabContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return renderDashboard();
       case 'nominees':
         return renderOverview();
       case 'votes':
@@ -3357,7 +3542,7 @@ export default function AdminPage() {
       case 'testimonials':
         return renderTestimonials();
       default:
-        return renderOverview();
+        return renderDashboard();
     }
   };
 
@@ -3474,8 +3659,8 @@ export default function AdminPage() {
           {/* Módulo: Comunidad */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Comunidad</p>
-            <button type="button" onClick={() => { setActiveTab('nominees'); setMobileMenuOpen(false); }} className={navBtnClass('nominees')}>
-              <span>👥</span> Overview Nominados
+            <button type="button" onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }} className={navBtnClass('dashboard')}>
+              <span>📊</span> Dashboard
             </button>
             <button type="button" onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={navBtnClass('users')}>
               <span>👑</span> Usuarios
@@ -3486,16 +3671,19 @@ export default function AdminPage() {
             <button type="button" onClick={() => { setActiveTab('testimonials'); setMobileMenuOpen(false); }} className={navBtnClass('testimonials')}>
               <span>💬</span> Opiniones
             </button>
+            <button type="button" onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }} className={navBtnClass('agenda')}>
+              <span>📅</span> Agenda Viernes
+            </button>
           </div>
 
           {/* Módulo: Awards */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Awards</p>
+            <button type="button" onClick={() => { setActiveTab('nominees'); setMobileMenuOpen(false); }} className={navBtnClass('nominees')}>
+              <span>👥</span> Overview Nominados
+            </button>
             <button type="button" onClick={() => { setActiveTab('votes'); setMobileMenuOpen(false); }} className={navBtnClass('votes')}>
               <span>📊</span> Recuento de Votos
-            </button>
-            <button type="button" onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }} className={navBtnClass('agenda')}>
-              <span>📅</span> Agenda Viernes
             </button>
           </div>
 
