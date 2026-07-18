@@ -12,6 +12,12 @@ type LeaderboardEntry = {
 
 type AggregateEntry = LeaderboardEntry & { fallbackAvatarUrl: string | null };
 
+type LeaderboardMaps = {
+  usage: Map<string, AggregateEntry>;
+  sounds: Map<string, AggregateEntry>;
+  images: Map<string, AggregateEntry>;
+};
+
 const getWeekStart = () => {
   const now = new Date();
   const day = now.getDay();
@@ -25,6 +31,52 @@ const sortTopThree = (entries: AggregateEntry[]) => entries
   .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
   .slice(0, 3)
   .map(({ fallbackAvatarUrl: _fallbackAvatarUrl, ...entry }) => entry);
+
+const buildLeaderboardMaps = (
+  events: Array<{ user_id: string; sender_roblox_user: string | null; sender_avatar_url: string | null }>,
+  uploads: Array<{ owner_user_id: string; media_type: string | null }>,
+): LeaderboardMaps => {
+  const maps: LeaderboardMaps = {
+    usage: new Map(),
+    sounds: new Map(),
+    images: new Map(),
+  };
+
+  for (const event of events) {
+    const current = maps.usage.get(event.user_id) ?? {
+      userId: event.user_id,
+      name: event.sender_roblox_user || 'Pollito',
+      avatarUrl: null,
+      fallbackAvatarUrl: event.sender_avatar_url,
+      count: 0,
+    };
+    current.count += 1;
+    if (event.sender_roblox_user) current.name = event.sender_roblox_user;
+    if (event.sender_avatar_url) current.fallbackAvatarUrl = event.sender_avatar_url;
+    maps.usage.set(event.user_id, current);
+  }
+
+  for (const upload of uploads) {
+    const target = upload.media_type === 'image' || upload.media_type === 'image_audio'
+      ? maps.images
+      : upload.media_type === 'video'
+        ? null
+        : maps.sounds;
+    if (!target) continue;
+
+    const current = target.get(upload.owner_user_id) ?? {
+      userId: upload.owner_user_id,
+      name: 'Pollito',
+      avatarUrl: null,
+      fallbackAvatarUrl: null,
+      count: 0,
+    };
+    current.count += 1;
+    target.set(upload.owner_user_id, current);
+  }
+
+  return maps;
+};
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
@@ -43,59 +95,32 @@ export async function GET(request: NextRequest) {
     const [{ data: events, error: eventsError }, { data: uploads, error: uploadsError }] = await Promise.all([
       supabaseAdmin
         .from('stream_events')
-        .select('user_id, sender_roblox_user, sender_avatar_url')
-        .gte('created_at', weekStart)
+        .select('user_id, sender_roblox_user, sender_avatar_url, created_at')
         .not('user_id', 'is', null),
       supabaseAdmin
         .from('soundboard_sounds')
-        .select('owner_user_id, media_type')
-        .gte('created_at', weekStart)
+        .select('owner_user_id, media_type, created_at')
         .not('owner_user_id', 'is', null),
     ]);
 
     if (eventsError) throw eventsError;
     if (uploadsError) throw uploadsError;
 
-    const usageMap = new Map<string, AggregateEntry>();
-    for (const event of events ?? []) {
-      const current = usageMap.get(event.user_id) ?? {
-        userId: event.user_id,
-        name: event.sender_roblox_user || 'Pollito',
-        avatarUrl: null,
-        fallbackAvatarUrl: event.sender_avatar_url,
-        count: 0,
-      };
-      current.count += 1;
-      if (event.sender_roblox_user) current.name = event.sender_roblox_user;
-      if (event.sender_avatar_url) current.fallbackAvatarUrl = event.sender_avatar_url;
-      usageMap.set(event.user_id, current);
-    }
-
-    const soundMap = new Map<string, AggregateEntry>();
-    const imageMap = new Map<string, AggregateEntry>();
-    for (const upload of uploads ?? []) {
-      const target = upload.media_type === 'image' || upload.media_type === 'image_audio'
-        ? imageMap
-        : upload.media_type === 'video'
-          ? null
-          : soundMap;
-      if (!target) continue;
-
-      const current = target.get(upload.owner_user_id) ?? {
-        userId: upload.owner_user_id,
-        name: 'Pollito',
-        avatarUrl: null,
-        fallbackAvatarUrl: null,
-        count: 0,
-      };
-      current.count += 1;
-      target.set(upload.owner_user_id, current);
-    }
+    const allEvents = events ?? [];
+    const allUploads = uploads ?? [];
+    const weeklyMaps = buildLeaderboardMaps(
+      allEvents.filter((event) => event.created_at >= weekStart),
+      allUploads.filter((upload) => upload.created_at >= weekStart),
+    );
+    const allTimeMaps = buildLeaderboardMaps(allEvents, allUploads);
 
     const userIds = [...new Set([
-      ...usageMap.keys(),
-      ...soundMap.keys(),
-      ...imageMap.keys(),
+      ...weeklyMaps.usage.keys(),
+      ...weeklyMaps.sounds.keys(),
+      ...weeklyMaps.images.keys(),
+      ...allTimeMaps.usage.keys(),
+      ...allTimeMaps.sounds.keys(),
+      ...allTimeMaps.images.keys(),
     ])];
     if (userIds.length > 0) {
       const { data: profiles, error: profilesError } = await supabaseAdmin
@@ -106,21 +131,30 @@ export async function GET(request: NextRequest) {
       if (profilesError) throw profilesError;
 
       const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
-      for (const map of [usageMap, soundMap, imageMap]) {
-        for (const entry of map.values()) {
-          const profile = profileMap.get(entry.userId);
-          if (!profile) continue;
-          entry.name = profile.roblox_display_name || profile.roblox_user || entry.name;
-          entry.avatarUrl = profile.roblox_avatar_url || entry.fallbackAvatarUrl;
+      for (const maps of [weeklyMaps, allTimeMaps]) {
+        for (const map of [maps.usage, maps.sounds, maps.images]) {
+          for (const entry of map.values()) {
+            const profile = profileMap.get(entry.userId);
+            if (!profile) continue;
+            entry.name = profile.roblox_display_name || profile.roblox_user || entry.name;
+            entry.avatarUrl = profile.roblox_avatar_url || entry.fallbackAvatarUrl;
+          }
         }
       }
     }
 
     return NextResponse.json({
       weekStart,
-      usage: sortTopThree([...usageMap.values()]),
-      sounds: sortTopThree([...soundMap.values()]),
-      images: sortTopThree([...imageMap.values()]),
+      weekly: {
+        usage: sortTopThree([...weeklyMaps.usage.values()]),
+        sounds: sortTopThree([...weeklyMaps.sounds.values()]),
+        images: sortTopThree([...weeklyMaps.images.values()]),
+      },
+      allTime: {
+        usage: sortTopThree([...allTimeMaps.usage.values()]),
+        sounds: sortTopThree([...allTimeMaps.sounds.values()]),
+        images: sortTopThree([...allTimeMaps.images.values()]),
+      },
     });
   } catch (error) {
     console.error('[Leaderboard GET Error]:', error);

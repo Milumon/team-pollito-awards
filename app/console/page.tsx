@@ -108,6 +108,58 @@ const ANIMATIONS = [
   { id: 'confetti', name: '🎉 Lluvia de Confeti', color: 'from-pink-200 to-purple-300' },
 ];
 
+const LEADERBOARD_SECTIONS = [
+  { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
+  { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
+  { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
+];
+
+function LeaderboardGrid({ leaderboards, loading, emptyLabel }: { leaderboards: WeeklyLeaderboards; loading: boolean; emptyLabel: string }) {
+  if (loading) {
+    return <div className="py-12 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">Cargando ranking...</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {LEADERBOARD_SECTIONS.map((section) => {
+        const entries = leaderboards[section.key];
+        return (
+          <section key={section.key} className="bg-[#24262b] border border-neutral-700/60 rounded-2xl p-3.5">
+            <div className="flex items-center gap-2 border-b border-neutral-700/60 pb-2.5 mb-3">
+              <span className="text-lg">{section.icon}</span>
+              <h3 className="font-display font-bold text-xs text-white">{section.title}</h3>
+            </div>
+
+            {entries.length === 0 ? (
+              <p className="text-[10px] text-gray-500 font-semibold py-5 text-center">{emptyLabel}</p>
+            ) : (
+              <div className="space-y-2">
+                {entries.map((entry, index) => (
+                  <div
+                    key={entry.userId}
+                    className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${index === 0 ? 'bg-[#FFC200]/10 border border-[#FFC200]/50 shadow-[0_0_16px_rgba(255,194,0,.12)]' : 'bg-[#2b2d31] border border-neutral-700/40'}`}
+                  >
+                    <span className={`w-5 text-center font-black ${index === 0 ? 'text-[#FFC200] text-base' : 'text-gray-500 text-xs'}`}>
+                      {index === 0 ? '👑' : `${index + 1}.`}
+                    </span>
+                    <div className={`${index === 0 ? 'w-10 h-10 border-2 border-[#FFC200]' : 'w-7 h-7 border'} rounded-full overflow-hidden bg-[#35373d] shrink-0 flex items-center justify-center`}>
+                      {entry.avatarUrl ? <img src={entry.avatarUrl} alt={index === 0 ? `Avatar de ${entry.name}` : ''} className="w-full h-full object-cover" /> : <span className={index === 0 ? 'text-xl' : 'text-sm'}>🐣</span>}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate font-bold ${index === 0 ? 'text-[#FFC200] text-xs' : 'text-white text-[11px]'}`}>@{entry.name}</p>
+                      <p className="text-[9px] text-gray-500 font-semibold">{entry.count} {section.suffix}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 const getSoundColor = (soundId: string) => {
   switch (soundId) {
     case 'risa': return { text: 'text-[#FFC200]', badge: 'bg-[#FFC200]/10 text-[#FFC200] border-[#FFC200]/20' };
@@ -128,6 +180,7 @@ export default function MemberConsolePage() {
   const [profile, setProfile] = useState<StoredRobloxProfile | null>(null);
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
   const [weeklyLeaderboards, setWeeklyLeaderboards] = useState<WeeklyLeaderboards>({ usage: [], sounds: [], images: [] });
+  const [allTimeLeaderboards, setAllTimeLeaderboards] = useState<WeeklyLeaderboards>({ usage: [], sounds: [], images: [] });
   const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
 
   // Navigation state (app feel)
@@ -394,9 +447,14 @@ export default function MemberConsolePage() {
       const data = await response.json();
       if (response.ok) {
         setWeeklyLeaderboards({
-          usage: data.usage ?? [],
-          sounds: data.sounds ?? [],
-          images: data.images ?? [],
+          usage: data.weekly?.usage ?? [],
+          sounds: data.weekly?.sounds ?? [],
+          images: data.weekly?.images ?? [],
+        });
+        setAllTimeLeaderboards({
+          usage: data.allTime?.usage ?? [],
+          sounds: data.allTime?.sounds ?? [],
+          images: data.allTime?.images ?? [],
         });
       }
     } catch (err) {
@@ -1998,6 +2056,16 @@ export default function MemberConsolePage() {
                           })}
                         </div>
                       )}
+                      <div className="mt-6 pt-5 border-t border-neutral-700/60">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h2 className="font-display font-bold text-base md:text-lg text-white">Top de Todos los Tiempos</h2>
+                            <p className="text-[10px] text-gray-500 font-semibold mt-1">El ranking histórico de la comunidad</p>
+                          </div>
+                          <span className="text-lg">🏆</span>
+                        </div>
+                        <LeaderboardGrid leaderboards={allTimeLeaderboards} loading={loadingLeaderboards} emptyLabel="Todavía no hay datos históricos." />
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -2222,8 +2290,7 @@ export default function MemberConsolePage() {
 
         {/* ----------------- SIDEBAR DERECHA (360px - WIDGETS FIJOS) ----------------- */}
         <aside className="hidden xl:flex w-[360px] shrink-0 bg-[#2b2d31] border-l border-neutral-700/60 flex-col p-5 gap-4 overflow-y-auto select-none text-left shadow-[-4px_0_0_0_#000]">
-          {activeTab === 'sounds' && (
-            <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
+          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
               <div className="flex items-center justify-between border-b border-neutral-700/60 pb-2">
                 <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
                   🕘 Uso Reciente
@@ -2262,7 +2329,6 @@ export default function MemberConsolePage() {
                 )}
               </div>
             </div>
-          )}
 
         </aside>
       </div>
