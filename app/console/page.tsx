@@ -1120,7 +1120,7 @@ export default function MemberConsolePage() {
               { id: 'tts', label: 'TTS Mensajes', icon: Send },
               { id: 'animations', label: 'Efectos Visuales', icon: Sparkles },
               { id: 'feed', label: 'Feed de Actividad', icon: List },
-              { id: 'nickname', label: 'Nickname', icon: User },
+              { id: 'nickname', label: 'Cambiar mi Nickname', icon: User },
             ].map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1721,7 +1721,7 @@ export default function MemberConsolePage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 flex flex-col overflow-hidden max-w-xl mx-auto w-full text-left xl:hidden"
+                  className="absolute inset-0 flex flex-col overflow-hidden max-w-xl mx-auto w-full text-left"
                 >
                   <div className="flex-1 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
@@ -1964,7 +1964,7 @@ export default function MemberConsolePage() {
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
                       <div className="flex items-center gap-2">
                         <User className="w-5 h-5 text-gray-400" />
-                        <h2 className="font-display font-bold text-base md:text-lg text-white">Configurar Nickname</h2>
+                        <h2 className="font-display font-bold text-base md:text-lg text-white">Cambiar mi Nickname</h2>
                       </div>
                       <span className="text-[10px] bg-neutral-800 rounded-lg px-2.5 py-0.5 font-medium text-gray-500">
                         Tag de Roblox
@@ -2170,82 +2170,6 @@ export default function MemberConsolePage() {
         {/* ----------------- SIDEBAR DERECHA (360px - WIDGETS FIJOS) ----------------- */}
         <aside className="hidden xl:flex w-[360px] shrink-0 bg-[#2b2d31] border-l border-neutral-700/60 flex-col p-5 gap-4 overflow-y-auto select-none text-left shadow-[-4px_0_0_0_#000]">
           
-          {/* Card: Actualizar Nickname */}
-          <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3.5 shadow-[0_2px_8px_rgba(0,0,0,.25)]">
-            <h3 className="font-display font-semibold text-xs text-[#FFC200] flex items-center gap-1.5 leading-none">
-              <User className="w-4 h-4" /> Cambiar mi Nickname
-            </h3>
-            
-            <div className="space-y-1 text-xs">
-              <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Tu nickname actual</span>
-              <p className="font-mono text-[13px] bg-black/40 border border-neutral-700/60 rounded-2xl p-2 text-white font-bold leading-none select-text ">
-                {profile.roblox_display_name}
-              </p>
-            </div>
-
-            <form onSubmit={handleNicknameSubmit} className="space-y-3">
-              <div className="space-y-1">
-                <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Nuevo nickname</span>
-                <input
-                  type="text"
-                  value={newNickname}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.length <= 15) {
-                      setNewNickname(val);
-                    }
-                  }}
-                  placeholder="Escribe tu nuevo nickname..."
-                  disabled={submittingNickname}
-                  className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-2.5 font-bold text-xs outline-none focus:border-[#FFC200] text-white placeholder-gray-600 "
-                  required
-                />
-              </div>
-
-              {/* COOLDOWN INDICATOR */}
-              {(() => {
-                const cooldown = getCooldownRemaining(profile.last_nickname_updated_at);
-                if (cooldown) {
-                  const totalMins = cooldown.hours * 60 + cooldown.minutes;
-                  const percent = Math.max(0, Math.min(100, (totalMins / 1440) * 100));
-                  return (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[9px] font-mono font-bold text-[#ea580c]">
-                        <span>COOLDOWN DISPONIBLE EN:</span>
-                        <span>{cooldown.hours.toString().padStart(2, '0')}:{cooldown.minutes.toString().padStart(2, '0')}</span>
-                      </div>
-                      <div className="w-full h-2 bg-black rounded-full overflow-hidden border border-black ">
-                        <div className="h-full bg-[#ea580c]" style={{ width: `${percent}%` }} />
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {nicknameError && (
-                <p className="text-[9px] font-bold text-red-500 leading-tight">⚠️ {nicknameError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={submittingNickname || getCooldownRemaining(profile.last_nickname_updated_at) !== null || newNickname.trim().length < 3 || newNickname.trim().length > 15}
-                className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-[0.97] disabled:bg-neutral-800 disabled:text-gray-600 disabled:border-transparent disabled:cursor-not-allowed cursor-pointer"
-              >
-                {submittingNickname ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin text-black" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <span>🔄</span> Cambiar mi Nickname
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
         </aside>
       </div>
 
