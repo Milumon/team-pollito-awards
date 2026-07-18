@@ -73,6 +73,19 @@ type StreamEvent = {
   created_at: string;
 };
 
+type LeaderboardEntry = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  count: number;
+};
+
+type WeeklyLeaderboards = {
+  usage: LeaderboardEntry[];
+  sounds: LeaderboardEntry[];
+  images: LeaderboardEntry[];
+};
+
 type StreamSettings = {
   id: number;
   is_muted: boolean;
@@ -114,6 +127,8 @@ export default function MemberConsolePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StoredRobloxProfile | null>(null);
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
+  const [weeklyLeaderboards, setWeeklyLeaderboards] = useState<WeeklyLeaderboards>({ usage: [], sounds: [], images: [] });
+  const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
 
   // Navigation state (app feel)
   const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
@@ -371,6 +386,26 @@ export default function MemberConsolePage() {
     }
   }, []);
 
+  const fetchLeaderboards = useCallback(async (currentSession: Session) => {
+    try {
+      const response = await fetch('/api/console/leaderboard', {
+        headers: { Authorization: `Bearer ${currentSession.access_token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setWeeklyLeaderboards({
+          usage: data.usage ?? [],
+          sounds: data.sounds ?? [],
+          images: data.images ?? [],
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching weekly leaderboards:', err);
+    } finally {
+      setLoadingLeaderboards(false);
+    }
+  }, []);
+
   const fetchStreamSettings = useCallback(async () => {
     try {
       const response = await fetch('/api/stream/settings');
@@ -495,6 +530,7 @@ export default function MemberConsolePage() {
       }
 
       void fetchRecentEvents();
+      void fetchLeaderboards(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar');
       setTimeout(() => setError(null), 6000);
@@ -502,7 +538,7 @@ export default function MemberConsolePage() {
       setTriggeringId(null);
       setSendingTts(false);
     }
-  }, [session, profile, soundCooldown, ttsCooldown, animationCooldown, fetchRecentEvents, streamSettings, confirmSpamGuard, isLocalTestMode]);
+  }, [session, profile, soundCooldown, ttsCooldown, animationCooldown, fetchRecentEvents, fetchLeaderboards, streamSettings, confirmSpamGuard, isLocalTestMode]);
 
   const handleConfirmTrigger = useCallback(async () => {
     if (!pendingTrigger) return;
@@ -784,6 +820,7 @@ export default function MemberConsolePage() {
       if (initialSession) {
         await fetchProfile(initialSession);
         await fetchRecentEvents();
+        await fetchLeaderboards(initialSession);
         await fetchSounds();
         await fetchStreamSettings();
         await fetchStats();
@@ -802,6 +839,7 @@ export default function MemberConsolePage() {
       if (nextSession) {
         await fetchProfile(nextSession);
         await fetchRecentEvents();
+        await fetchLeaderboards(nextSession);
         await fetchSounds();
         await fetchStreamSettings();
         await fetchStats();
@@ -812,7 +850,7 @@ export default function MemberConsolePage() {
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, fetchRecentEvents, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
+  }, [fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
 
   // Load current audio for editing when audio editor is enabled
   useEffect(() => {
@@ -1300,7 +1338,7 @@ export default function MemberConsolePage() {
                     {/* Upload Form (MediaUploadForm) */}
                     <MediaUploadForm
                       session={session}
-                      onSuccess={() => { void fetchSounds(); if (session) { void fetchMedia(); void loadMediaSubmissions(session); } }}
+                      onSuccess={() => { void fetchSounds(); if (session) { void fetchLeaderboards(session); void fetchMedia(); void loadMediaSubmissions(session); } }}
                       permissions={profile ? {
                         perm_upload_images: (profile as Record<string, unknown>).perm_upload_images as boolean,
                         perm_upload_videos: (profile as Record<string, unknown>).perm_upload_videos as boolean,
@@ -1894,58 +1932,71 @@ export default function MemberConsolePage() {
                     <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
                       <div className="flex items-center gap-2">
                         <List className="w-5 h-5 text-gray-400" />
-                        <h2 className="font-display font-bold text-base md:text-lg text-white">Historial del Stream</h2>
+                        <div>
+                          <h2 className="font-display font-bold text-base md:text-lg text-white">Top de la Semana</h2>
+                          <p className="text-[10px] text-gray-500 font-semibold mt-1">Compite, participa y escala el ranking</p>
+                        </div>
                       </div>
                       <span className="text-[10px] bg-neutral-800 rounded-lg px-2.5 py-0.5 font-medium text-gray-500">
-                        Feed Completo
+                        Se reinicia cada lunes
                       </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin space-y-3">
-                      {recentEvents.length === 0 ? (
-                        <div className="py-12 text-center border border-dashed border-[#FFC200]/45 rounded-2xl bg-black/20">
-                          <p className="text-xs font-bold text-gray-500 uppercase">Sin eventos recientes</p>
-                        </div>
+                    <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
+                      {loadingLeaderboards ? (
+                        <div className="py-12 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">Cargando ranking...</div>
                       ) : (
-                        recentEvents.map((evt) => {
-                          let label = '';
-                          let icon = '🔊';
-                          if (evt.type === 'sound') {
-                            label = `REPRODUJO SONIDO: ${sounds.find(s => s.id === evt.content)?.name || evt.content}`;
-                            icon = '🔊';
-                          } else if (evt.type === 'tts') {
-                            label = `ENVIÓ TTS: "${evt.content}"`;
-                            icon = '🗣️';
-                          } else if (evt.type === 'animation') {
-                            label = `DISPARÓ EFECTO: ${evt.content}`;
-                            icon = '✨';
-                          }
-
-                          return (
-                            <motion.div 
-                              layout
-                              key={evt.id} 
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3.5 text-xs flex items-start gap-3 text-left "
-                            >
-                              <div className="w-9 h-9 rounded-2xl bg-[#2b2d31] border border-neutral-700/60 flex items-center justify-center text-lg shrink-0">
-                                {icon}
-                              </div>
-                              <div className="min-w-0 flex-1 space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-display font-medium text-[10px] uppercase tracking-wider text-[#FFC200]">
-                                    @{evt.sender_roblox_user || 'VIP'}
-                                  </span>
-                                  <span className="text-[8px] font-mono font-bold text-gray-500">
-                                    {new Date(evt.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                  </span>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                          {([
+                            { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
+                            { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
+                            { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
+                          ]).map((section) => {
+                            const entries = weeklyLeaderboards[section.key];
+                            return (
+                              <section key={section.key} className="bg-[#24262b] border border-neutral-700/60 rounded-2xl p-3.5">
+                                <div className="flex items-center gap-2 border-b border-neutral-700/60 pb-2.5 mb-3">
+                                  <span className="text-lg">{section.icon}</span>
+                                  <h3 className="font-display font-bold text-xs text-white">{section.title}</h3>
                                 </div>
-                                <p className="font-semibold text-white break-words pr-1 leading-snug">{label}</p>
-                              </div>
-                            </motion.div>
-                          );
-                        })
+
+                                {entries.length === 0 ? (
+                                  <p className="text-[10px] text-gray-500 font-semibold py-5 text-center">Todavía no hay datos esta semana.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {entries.map((entry, index) => (
+                                      <div
+                                        key={entry.userId}
+                                        className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 ${index === 0 ? 'bg-[#FFC200]/10 border border-[#FFC200]/50 shadow-[0_0_16px_rgba(255,194,0,.12)]' : 'bg-[#2b2d31] border border-neutral-700/40'}`}
+                                      >
+                                        <span className={`w-5 text-center font-black ${index === 0 ? 'text-[#FFC200] text-base' : 'text-gray-500 text-xs'}`}>
+                                          {index === 0 ? '👑' : `${index + 1}.`}
+                                        </span>
+                                        {index === 0 ? (
+                                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#FFC200] bg-[#35373d] shrink-0 flex items-center justify-center">
+                                            {entry.avatarUrl ? (
+                                              <img src={entry.avatarUrl} alt={`Avatar de ${entry.name}`} className="w-full h-full object-cover" />
+                                            ) : (
+                                              <span className="text-xl">🐣</span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="w-7 h-7 rounded-full overflow-hidden border border-neutral-600 bg-[#35373d] shrink-0 flex items-center justify-center">
+                                            {entry.avatarUrl ? <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" /> : <span className="text-sm">🐣</span>}
+                                          </div>
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                          <p className={`truncate font-bold ${index === 0 ? 'text-[#FFC200] text-xs' : 'text-white text-[11px]'}`}>@{entry.name}</p>
+                                          <p className="text-[9px] text-gray-500 font-semibold">{entry.count} {section.suffix}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </section>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   </div>
