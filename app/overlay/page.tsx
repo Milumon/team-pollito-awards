@@ -185,7 +185,7 @@ export default function ObsOverlayPage() {
 
     // Failsafe: Si el siguiente es sonido pero la lista no ha cargado, esperamos
     const nextPeek = queueRef.current[0];
-    if (nextPeek.type === 'sound' && !soundsLoadedRef.current) {
+    if ((nextPeek.type === 'sound' || nextPeek.type === 'audio') && !soundsLoadedRef.current && !nextPeek.audio_url) {
       remoteLog('WARN', `El siguiente evento es sonido (${nextPeek.content}) pero el mapa de sonidos no ha cargado. Re-intentando en 500ms...`);
       setTimeout(() => { playNextRef.current(); }, 500);
       return;

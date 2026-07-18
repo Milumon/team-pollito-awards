@@ -262,6 +262,9 @@ export async function POST(request: NextRequest) {
     if (type === 'video') {
       if (video_url) insertPayload.video_url = video_url;
     }
+    if (type === 'audio' && audio_url) {
+      insertPayload.audio_url = audio_url;
+    }
     if (type === 'image') {
       if (image_url) insertPayload.image_url = image_url;
     }
