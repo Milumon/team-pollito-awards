@@ -3122,7 +3122,7 @@ export default function AdminPage() {
                           <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{ownerName}</span>
                           <span className="text-[9px] text-gray-600 font-mono">({ownerSounds.length})</span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                        <div className="space-y-2">
                           {ownerSounds.map((sound) => {
                             const soundStyles = getSoundColor(sound.id);
                             const handleCardClick = () => {
@@ -3151,17 +3151,37 @@ export default function AdminPage() {
                               <div
                                 key={sound.id}
                                 onClick={handleCardClick}
-                                className={`relative h-[135px] md:h-[140px] w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-2xl p-4 flex flex-col justify-between items-start transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer group ${isLocalTestMode ? 'border-emerald-500/30' : ''}`}
+                                className={`relative w-full bg-[#2b2d31] hover:bg-[#20242D] border border-neutral-700/60 rounded-xl px-3 py-2.5 flex items-center gap-3 transition-all duration-150 select-none overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,.25)] cursor-pointer group ${isLocalTestMode ? 'border-emerald-500/30' : ''}`}
                               >
-                                <div className="flex items-center justify-between w-full relative z-10">
+                                <div className="w-9 h-9 rounded-lg overflow-hidden border border-neutral-700/60 bg-[#35373d] flex items-center justify-center shrink-0 relative z-10">
                                   {sound.image_url ? (
-                                    <img src={sound.image_url} alt="" className="w-8 h-8 rounded-lg object-cover border border-neutral-700/60" />
+                                    <img src={sound.image_url} alt="" className="w-full h-full object-cover" />
                                   ) : (
                                     <span className="text-lg">
                                       {sound.media_type === 'video' ? '🎬' : sound.media_type === 'image' ? '🖼️' : '🔊'}
                                     </span>
                                   )}
-                                  <div className="flex items-center gap-1.5">
+                                </div>
+
+                                <div className="min-w-0 flex-1 relative z-10">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`truncate font-display font-semibold text-xs md:text-sm ${soundStyles.text}`} title={sound.name}>
+                                      {sound.name}
+                                    </span>
+                                    {sound.media_type && (
+                                      <span className="text-[8px] uppercase font-mono text-gray-500 shrink-0">
+                                        {sound.media_type === 'image_audio' ? 'imagen + audio' : sound.media_type}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1 text-[9px] text-gray-500 font-bold">
+                                    <span>{sound.cooldown_seconds ? `CD: ${sound.cooldown_seconds}s` : 'Sin CD'}</span>
+                                    <span>·</span>
+                                    <span>{sound.is_public ? 'Público' : 'Privado'}</span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 relative z-10 shrink-0">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -3196,27 +3216,17 @@ export default function AdminPage() {
                                     <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-2xl border ${soundStyles.badge}`}>
                                       {sound.cooldown_seconds && sound.cooldown_seconds > 0 ? `CD: ${sound.cooldown_seconds}s` : 'LISTO'}
                                     </span>
-                                  </div>
                                 </div>
-
-                                <span className={`block truncate font-display font-semibold text-xs md:text-sm relative z-10 leading-none mb-1 text-left w-full ${soundStyles.text}`} title={sound.name}>
-                                  {sound.name}
-                                </span>
-
-                                <div className="flex items-center justify-between w-full relative z-10">
-                                  <span className="text-[9px] text-gray-500 font-bold">
-                                    {sound.cooldown_seconds ? `CD: ${sound.cooldown_seconds}s` : 'Sin CD'}
-                                  </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteSound(sound.id);
-                                    }}
-                                    className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSound(sound.id);
+                                  }}
+                                  className="relative z-10 text-[9px] font-bold px-1.5 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Eliminar sonido"
+                                >
+                                  🗑️
+                                </button>
                               </div>
                             );
                           })}
