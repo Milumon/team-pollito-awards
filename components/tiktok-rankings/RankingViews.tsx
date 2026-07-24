@@ -49,7 +49,7 @@ function formatWindow(set: RankingSet | undefined) {
 function tiktokAvatarUrl(uri: string | null | undefined): string | null {
   if (!uri) return null;
   if (uri.startsWith('http')) return uri;
-  return `https://p16-sign-sg.tiktokcdn.com/obj/${uri}`;
+  return `/api/tiktok/avatar?uri=${encodeURIComponent(uri)}`;
 }
 
 function Avatar({ entry, large = false }: { entry: RankingEntry; large?: boolean }) {
