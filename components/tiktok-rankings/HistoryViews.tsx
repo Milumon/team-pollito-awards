@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, LogIn, LogOut, Minus } from 'lucide-react';
 import { compareHistoryPosition, type HistoryChange } from '@/lib/tiktokRankingHistory';
+import { formatValue } from './RankingViews';
 import {
   METRIC_LABELS,
   PERIOD_LABELS,
@@ -142,7 +143,7 @@ export function TikTokRankingHistory({ accessToken }: { accessToken: string }) {
                     {new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium' }).format(new Date(snapshot.captured_at))}
                   </p>
                   <p className="text-[10px] text-gray-500">
-                    {entry ? `Posición #${entry.position} · Valor ${entry.value}` : 'Sin actividad en este snapshot'}
+                    {entry ? `Posición #${entry.position} · ${formatValue(entry.value, metric)}` : 'Sin actividad en este snapshot'}
                   </p>
                 </div>
                 <Change value={change} />

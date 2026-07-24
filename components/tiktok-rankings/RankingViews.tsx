@@ -16,8 +16,16 @@ import {
   type RankingsState,
 } from './types';
 
-function formatValue(value: string) {
+export function formatValue(value: string, metric?: RankingMetric) {
   try {
+    if (metric === 'viewers') {
+      const ms = Number(BigInt(value));
+      if (!Number.isFinite(ms) || ms <= 0) return '0 h';
+      const hours = ms / 1000 / 3600;
+      if (hours >= 1) return `${hours.toFixed(1).replace(/\.0$/, '')} h`;
+      const minutes = ms / 1000 / 60;
+      return `${minutes.toFixed(0)} min`;
+    }
     return BigInt(value).toLocaleString('es-ES');
   } catch {
     return value;
@@ -38,14 +46,23 @@ function formatWindow(set: RankingSet | undefined) {
   return `${formatDate(set.window.begin)} - ${formatDate(set.window.end)}`;
 }
 
+function tiktokAvatarUrl(uri: string | null | undefined): string | null {
+  if (!uri) return null;
+  if (uri.startsWith('http')) return uri;
+  return `https://p16-sign-sg.tiktokcdn.com/obj/${uri}`;
+}
+
 function Avatar({ entry, large = false }: { entry: RankingEntry; large?: boolean }) {
+  const robloxUrl = entry.profile?.roblox_avatar_url;
+  const tiktokUrl = tiktokAvatarUrl(entry.tiktok_avatar_uri);
+  const imgSrc = robloxUrl || tiktokUrl;
+
   return (
     <div className={`${large ? 'h-11 w-11' : 'h-8 w-8'} flex shrink-0 items-center justify-center overflow-hidden rounded-full border ${entry.profile ? 'border-[#FFC200]' : 'border-neutral-700'} bg-[#35373d]`}>
-      {entry.profile?.roblox_avatar_url ? (
-        // Roblox avatar URLs are already generated and persisted by the portal.
+      {imgSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={entry.profile.roblox_avatar_url}
+          src={imgSrc}
           alt={`Avatar de @${entry.display_id}`}
           className="h-full w-full object-cover"
         />
@@ -81,7 +98,7 @@ function StatusState({ state }: { state: RankingsState }) {
   return null;
 }
 
-function RankingRows({ entries, dark = false, limit }: { entries: RankingEntry[]; dark?: boolean; limit?: number }) {
+function RankingRows({ entries, dark = false, limit, metric }: { entries: RankingEntry[]; dark?: boolean; limit?: number; metric?: RankingMetric }) {
   return (
     <div className="space-y-2">
       {entries.slice(0, limit).map((entry) => {
@@ -99,12 +116,12 @@ function RankingRows({ entries, dark = false, limit }: { entries: RankingEntry[]
             <Avatar entry={entry} large={winner} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <p className={`truncate text-xs font-bold ${dark ? 'text-white' : 'text-[#2D3139]'}`}>@{entry.display_id}</p>
+                <p className={`truncate text-xs font-bold ${dark ? 'text-white' : 'text-[#2D3139]'}`}>{entry.nickname || `@${entry.display_id}`}</p>
                 {linked && <span className="shrink-0 rounded-full bg-[#FFC200]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4A000]">Miembro</span>}
               </div>
               {linked && <p className="truncate text-[10px] text-gray-500">Perfil vinculado: @{entry.profile?.roblox_user}</p>}
             </div>
-            <span className={`shrink-0 font-mono text-xs font-bold ${dark ? 'text-gray-300' : 'text-[#2D3139]'}`}>{formatValue(entry.value)}</span>
+            <span className={`shrink-0 font-mono text-xs font-bold ${dark ? 'text-gray-300' : 'text-[#2D3139]'}`}>{formatValue(entry.value, metric)}</span>
           </div>
         );
       })}
@@ -176,7 +193,7 @@ export function TikTokRankingLanding() {
           </div>
           {!selected || selected.entries.length === 0
             ? <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." />
-            : <RankingRows entries={selected.entries} limit={10} />}
+            : <RankingRows entries={selected.entries} limit={10} metric={metric} />}
         </div>
       )}
     </section>
@@ -217,7 +234,7 @@ export function TikTokRankingConsole({ accessToken }: { accessToken: string }) {
             </div>
             {selected.entries.length === 0
               ? <EmptyState title="Sin actividad" detail="No hay actividad en esta combinación." />
-              : <RankingRows entries={selected.entries} dark />}
+              : <RankingRows entries={selected.entries} dark metric={metric} />}
 
             <div className={`mt-5 rounded-xl border p-4 ${me ? meIsVisible ? 'border-[#FFC200]/40 bg-[#FFC200]/10' : 'border-sky-500/30 bg-sky-500/10' : 'border-neutral-700 bg-[#24262b]'}`}>
               <div className="flex items-center gap-3">
@@ -225,7 +242,7 @@ export function TikTokRankingConsole({ accessToken }: { accessToken: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Tu posición</p>
                   {me ? (
-                    <p className="truncate font-display text-sm font-bold text-white">#{me.position} · @{me.display_id} · {formatValue(me.value)}</p>
+                    <p className="truncate font-display text-sm font-bold text-white">#{me.position} · {me.nickname || `@${me.display_id}`} · {formatValue(me.value, metric)}</p>
                   ) : (
                     <p className="text-xs font-semibold text-gray-400">Sin actividad vinculada en esta combinación.</p>
                   )}

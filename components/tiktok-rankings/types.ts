@@ -15,6 +15,7 @@ export type RankingEntry = {
   display_id: string;
   nickname: string;
   value: string;
+  tiktok_avatar_uri?: string | null;
   profile?: LinkedMember | null;
 };
 
