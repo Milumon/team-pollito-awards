@@ -109,47 +109,47 @@ create trigger tiktok_activations_immutable before update or delete on public.ti
 create or replace function public.publish_tiktok_ranking_batch(p_batch jsonb)
 returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare
-  batch_id uuid;
-  set_id uuid;
+  v_batch_id uuid;
+  v_set_id uuid;
   item jsonb;
   entry jsonb;
-  existing_hash text;
-  incoming_hash text;
-  set_count integer;
-  linked_profile_id uuid;
+  v_existing_hash text;
+  v_incoming_hash text;
+  v_set_count integer;
+  v_linked_profile_id uuid;
 begin
   if jsonb_typeof(p_batch->'sets') <> 'array' or jsonb_array_length(p_batch->'sets') <> 8 then raise exception 'batch must contain exactly 8 sets'; end if;
-  incoming_hash := encode(extensions.digest(convert_to(p_batch::text, 'UTF8'), 'sha256'::text), 'hex');
+  v_incoming_hash := encode(extensions.digest(convert_to(p_batch::text, 'UTF8'), 'sha256'::text), 'hex');
   perform pg_advisory_xact_lock(hashtextextended(p_batch->>'idempotency_key', 0));
-  select content_hash, id into existing_hash, batch_id from tiktok_ranking_batches where idempotency_key = p_batch->>'idempotency_key';
-  if batch_id is not null then
-    if existing_hash <> incoming_hash then raise exception 'idempotency_conflict'; end if;
-    return jsonb_build_object('status', 'replayed', 'batch_id', batch_id);
+  select content_hash, id into v_existing_hash, v_batch_id from tiktok_ranking_batches where idempotency_key = p_batch->>'idempotency_key';
+  if v_batch_id is not null then
+    if v_existing_hash <> v_incoming_hash then raise exception 'idempotency_conflict'; end if;
+    return jsonb_build_object('status', 'replayed', 'batch_id', v_batch_id);
   end if;
-  insert into tiktok_ranking_batches (idempotency_key, content_hash, captured_at) values (p_batch->>'idempotency_key', incoming_hash, (p_batch->>'captured_at')::timestamptz) returning id into batch_id;
+  insert into tiktok_ranking_batches (idempotency_key, content_hash, captured_at) values (p_batch->>'idempotency_key', v_incoming_hash, (p_batch->>'captured_at')::timestamptz) returning id into v_batch_id;
   for item in select value from jsonb_array_elements(p_batch->'sets') loop
-    insert into tiktok_ranking_sets (batch_id, metric, period, window_begin, window_end) values (batch_id, item->>'metric', item->>'period', (item->'window'->>'begin')::timestamptz, (item->'window'->>'end')::timestamptz) returning id into set_id;
+    insert into tiktok_ranking_sets (batch_id, metric, period, window_begin, window_end) values (v_batch_id, item->>'metric', item->>'period', (item->'window'->>'begin')::timestamptz, (item->'window'->>'end')::timestamptz) returning id into v_set_id;
     for entry in select value from jsonb_array_elements(item->'entries') loop
-      select case when count(*) = 1 then (array_agg(id))[1] else null end into linked_profile_id
+      select case when count(*) = 1 then (array_agg(id))[1] else null end into v_linked_profile_id
       from profiles
       where link_status = 'approved'
         and lower(regexp_replace(trim(tiktok_user), '^@', '')) = lower(regexp_replace(trim(entry->>'display_id'), '^@', ''));
       insert into tiktok_ranking_entries (set_id, position, tiktok_id, display_id, nickname, avatar_uri, value, linked_profile_id)
-      values (set_id, (entry->>'position')::integer, entry->>'tiktok_id', entry->>'display_id', entry->>'nickname', nullif(entry->>'avatar_uri', ''), entry->>'value', linked_profile_id);
+      values (v_set_id, (entry->>'position')::integer, entry->>'tiktok_id', entry->>'display_id', entry->>'nickname', nullif(entry->>'avatar_uri', ''), entry->>'value', v_linked_profile_id);
     end loop;
   end loop;
-  select count(*) into set_count from tiktok_ranking_sets ranking_set where ranking_set.batch_id = batch_id;
-  if set_count <> 8 or (
+  select count(*) into v_set_count from tiktok_ranking_sets ranking_set where ranking_set.batch_id = v_batch_id;
+  if v_set_count <> 8 or (
     select count(*) from tiktok_ranking_sets ranking_set
-    where ranking_set.batch_id = batch_id
+    where ranking_set.batch_id = v_batch_id
       and (ranking_set.metric, ranking_set.period) in (
         ('viewers', 'last_live'), ('viewers', '7_days'), ('viewers', '28_days'), ('viewers', '60_days'),
         ('gifts', 'last_live'), ('gifts', '7_days'), ('gifts', '28_days'), ('gifts', '60_days')
       )
   ) <> 8 then raise exception 'batch must contain exactly 8 unique combinations'; end if;
   insert into tiktok_ranking_activations (batch_id, activated_by, reason)
-    values (batch_id, 'tiktok-extension', 'Importación automática');
-  return jsonb_build_object('status', 'published', 'batch_id', batch_id, 'sets', 8);
+    values (v_batch_id, 'tiktok-extension', 'Importación automática');
+  return jsonb_build_object('status', 'published', 'batch_id', v_batch_id, 'sets', 8);
 end; $$;
 
 create or replace function public.list_tiktok_identity_review(p_limit integer default 200)
