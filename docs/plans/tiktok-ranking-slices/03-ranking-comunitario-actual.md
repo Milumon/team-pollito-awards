@@ -4,7 +4,7 @@
 
 ## What to build
 
-Vincular entries del snapshot activo con Miembros Oficiales aprobados y mostrar el ranking comunitario actual en la consola y una selección compacta en la landing. Los espectadores no vinculados deben permanecer almacenados para historia, pero no exponerse públicamente.
+Vincular entries del snapshot activo con Miembros Oficiales aprobados y mostrar el ranking completo en la consola y landing. Todas las identidades usan `display_id`; los Miembros Oficiales vinculados se distinguen visualmente.
 
 ## Acceptance criteria
 
@@ -12,8 +12,8 @@ Vincular entries del snapshot activo con Miembros Oficiales aprobados y mostrar 
 - [ ] La API permite consultar las ocho combinaciones del mismo batch activo.
 - [ ] La consola ofrece selectores de métrica/período, top comunitario y tarjeta de posición personal.
 - [ ] Se distinguen claramente “sin snapshot”, “sin actividad” y “fuera del tramo visible”.
-- [ ] La landing muestra un top compacto, período, actualización y CTA hacia la consola.
-- [ ] Ninguna respuesta pública expone identidades TikTok no vinculadas.
+- [ ] La landing muestra Top 10, filtros de métrica/período, actualización y CTA hacia la consola.
+- [ ] Las identidades no vinculadas se muestran solo mediante su `display_id`; los perfiles vinculados aparecen destacados.
 - [ ] Las pruebas cubren filtrado, reordenamiento comunitario y posición personal.
 
 ## Blocked by

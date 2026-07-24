@@ -258,13 +258,14 @@ begin
       e.nickname,
       e.value,
        case when l.tiktok_id is not null then l.profile_id else e.linked_profile_id end as linked_profile_id,
+       p.id as approved_profile_id,
       p.roblox_user,
       p.roblox_display_name,
-      p.roblox_avatar_url as avatar_uri,
-      row_number() over (partition by e.set_id order by e.position)::integer as community_position
+       p.roblox_avatar_url as avatar_uri,
+       e.position as community_position
      from tiktok_ranking_entries e
      left join tiktok_identity_links l on l.tiktok_id = e.tiktok_id
-     join profiles p on p.id = case when l.tiktok_id is not null then l.profile_id else e.linked_profile_id end
+     left join profiles p on p.id = case when l.tiktok_id is not null then l.profile_id else e.linked_profile_id end
        and p.link_status = 'approved'
   ),
   ranking_sets as (
@@ -279,11 +280,11 @@ begin
             'display_id', r.display_id,
             'nickname', r.nickname,
             'value', r.value,
-            'profile', jsonb_build_object(
+            'profile', case when r.approved_profile_id is null then null else jsonb_build_object(
               'roblox_user', coalesce(r.roblox_user, ''),
               'roblox_display_name', coalesce(r.roblox_display_name, r.roblox_user, r.display_id),
               'roblox_avatar_url', r.avatar_uri
-            )
+            ) end
           ) order by r.community_position)
           from ranked_entries r
           where r.set_id = s.id and r.community_position <= p_limit

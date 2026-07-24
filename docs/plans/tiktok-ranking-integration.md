@@ -59,8 +59,8 @@ La landing mostrará clasificaciones comunitarias actuales y la consola permitir
 - El ID estable de TikTok será la identidad primaria externa. `display_id` y nickname serán snapshots de presentación.
 - En el primer import, `display_id` normalizado se comparará con `profiles.tiktok_user` de Miembros Oficiales aprobados.
 - Los vínculos ausentes no invalidarán un batch. Los vínculos ambiguos sí impedirán una asignación automática y quedarán pendientes de corrección administrativa.
-- Las clasificaciones públicas y de miembros mostrarán exclusivamente Miembros Oficiales vinculados. No se expondrán espectadores externos.
-- La landing mostrará una selección compacta de rankings actuales; la consola ofrecerá las ocho combinaciones y la posición personal.
+- Las clasificaciones públicas y de miembros mostrarán el Top completo entregado por TikTok usando `display_id`; los Miembros Oficiales vinculados aparecerán destacados con su perfil.
+- La landing mostrará el Top 10 y filtros para las ocho combinaciones; la consola ofrecerá el ranking ampliado y la posición personal.
 - El historial comparará únicamente snapshots completos de la misma métrica y período.
 - La extensión usará una credencial estática pero exclusiva y revocable en el primer alcance; pairing codes y distribución multiusuario quedan fuera de alcance.
 - El endpoint de ingestión aplicará límites de tamaño, comparación timing-safe de credencial y no utilizará `ADMIN_PANEL_TOKEN` ni `OVERLAY_TOKEN`.
@@ -85,7 +85,6 @@ La landing mostrará clasificaciones comunitarias actuales y la consola permitir
 - Evadir login, CAPTCHA, controles anti-bot o restricciones de TikTok.
 - Garantizar estabilidad de una API privada de TikTok.
 - Enviar cookies, tokens o firmas TikTok al portal.
-- Publicar identidades de espectadores no vinculados.
 - Editar manualmente valores o posiciones.
 - Rankings en tiempo real durante un live.
 - Premios, puntos o moderación automática basados en rankings.

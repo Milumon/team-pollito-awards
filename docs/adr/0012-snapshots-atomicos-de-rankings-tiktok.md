@@ -18,6 +18,7 @@ También se necesita conservar actividad histórica y recuperar una publicación
 * Un rollback crea una nueva activación que señala un batch anterior; nunca sobrescribe snapshots.
 * El ID estable de TikTok y los valores se almacenan y transportan como texto decimal.
 * `display_id` es metadata mutable y se usa únicamente para proponer el vínculo inicial con un Miembro Oficial.
+* El ranking público muestra `display_id` de todos los participantes importados; un vínculo aprobado añade el distintivo de Miembro Oficial sin reemplazar la identidad TikTok visible.
 
 ## Consecuencias
 

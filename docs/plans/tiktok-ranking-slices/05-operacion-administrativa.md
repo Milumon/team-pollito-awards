@@ -9,7 +9,7 @@ Dar al Owner visibilidad operativa de importaciones y herramientas para corregir
 ## Acceptance criteria
 
 - [ ] El Panel de Control muestra último intento, resultado 8/8, batch activo y fecha de actualización.
-- [ ] Se pueden revisar identidades no vinculadas o ambiguas sin exponerlas en vistas públicas.
+- [ ] Se pueden revisar identidades no vinculadas o ambiguas y controlar qué perfiles reciben el distintivo de Miembro Oficial.
 - [ ] El Administrador puede asignar o corregir el perfil vinculado sin editar valores ni posiciones históricas.
 - [ ] Las correcciones quedan en el Registro de Auditoría.
 - [ ] Las rutas administrativas exigen JWT de Supabase y no aceptan credenciales estáticas históricas.
