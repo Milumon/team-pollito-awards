@@ -36,8 +36,13 @@ const asString = (value, name) => {
 };
 
 const stableAvatarUri = (user) => {
-  const uri = user?.avatar_thumb?.uri || user?.avatar_medium?.uri || user?.avatar_large?.uri;
-  return typeof uri === "string" && uri.length > 0 ? uri : undefined;
+  const avatars = [user?.avatar_thumb, user?.avatar_medium, user?.avatar_large];
+  for (const avatar of avatars) {
+    const url = avatar?.url_list?.find((value) => typeof value === "string" && value.startsWith("https://"));
+    if (url) return url;
+  }
+  const uri = avatars.find((avatar) => typeof avatar?.uri === "string" && avatar.uri.length > 0)?.uri;
+  return uri;
 };
 
 export function normalizeResponse(raw, expected) {

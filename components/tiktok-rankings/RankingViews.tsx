@@ -19,12 +19,11 @@ import {
 export function formatValue(value: string, metric?: RankingMetric) {
   try {
     if (metric === 'viewers') {
-      const ms = Number(BigInt(value));
-      if (!Number.isFinite(ms) || ms <= 0) return '0 h';
-      const hours = ms / 1000 / 3600;
-      if (hours >= 1) return `${hours.toFixed(1).replace(/\.0$/, '')} h`;
-      const minutes = ms / 1000 / 60;
-      return `${minutes.toFixed(0)} min`;
+      const totalMinutes = BigInt(value) / BigInt(60_000);
+      const hours = totalMinutes / BigInt(60);
+      const minutes = totalMinutes % BigInt(60);
+      if (hours > BigInt(0)) return `${hours} h ${minutes} min`;
+      return `${minutes} min`;
     }
     return BigInt(value).toLocaleString('es-ES');
   } catch {
@@ -48,7 +47,6 @@ function formatWindow(set: RankingSet | undefined) {
 
 function tiktokAvatarUrl(uri: string | null | undefined): string | null {
   if (!uri) return null;
-  if (uri.startsWith('http')) return uri;
   return `/api/tiktok/avatar?uri=${encodeURIComponent(uri)}`;
 }
 

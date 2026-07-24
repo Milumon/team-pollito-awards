@@ -3,14 +3,28 @@ import { NextRequest, NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const TIKTOK_CDN = 'https://p16-sign-sg.tiktokcdn.com/obj/';
+const ALLOWED_HOSTS = ['.tiktokcdn.com', '.tiktokcdn-us.com', '.byteoversea.com'];
+
+function resolveAvatarUrl(uri: string): URL | null {
+  try {
+    const url = new URL(uri.startsWith('https://') ? uri : `${TIKTOK_CDN}${uri}`);
+    if (url.protocol !== 'https:' || !ALLOWED_HOSTS.some((suffix) => url.hostname.endsWith(suffix))) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const uri = request.nextUrl.searchParams.get('uri');
-  if (!uri || uri.length > 512) {
+  if (!uri || uri.length > 4096) {
     return NextResponse.json({ error: 'Missing or invalid uri param' }, { status: 400 });
   }
 
-  const targetUrl = uri.startsWith('http') ? uri : `${TIKTOK_CDN}${uri}`;
+  const targetUrl = resolveAvatarUrl(uri);
+  if (!targetUrl) {
+    return NextResponse.json({ error: 'Unsupported avatar URL' }, { status: 400 });
+  }
 
   try {
     const res = await fetch(targetUrl, {
@@ -22,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json({ error: ' upstream error' }, { status: 502 });
+      return NextResponse.json({ error: 'TikTok avatar upstream error' }, { status: 502 });
     }
 
     const contentType = res.headers.get('content-type') || 'image/jpeg';
