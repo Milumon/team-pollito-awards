@@ -143,9 +143,12 @@ export default function ObsOverlayPage() {
     }
     try {
       remoteLog('DEBUG', `Marcando evento ${eventId} como jugado...`);
-      const response = await fetch(`/api/stream/events/played?token=${encodeURIComponent(token)}`, {
+      const response = await fetch('/api/stream/events/played', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-overlay-token': token,
+        },
         body: JSON.stringify({ eventId }),
       });
       const data = await response.json();
@@ -576,7 +579,7 @@ export default function ObsOverlayPage() {
       remoteLog('DEBUG', 'loadSounds - Buscando sonidos desde API...');
       const headers: Record<string, string> = {};
       if (token) {
-        headers['x-admin-token'] = token;
+        headers['x-overlay-token'] = token;
       }
       const response = await fetch('/api/admin/sounds', { headers });
       const data = await response.json();
@@ -601,12 +604,12 @@ export default function ObsOverlayPage() {
   useEffect(() => {
     const initializeOverlay = async () => {
       const params = new URLSearchParams(window.location.search);
-      const queryToken = params.get('token') || params.get('TOKEN');
+      const queryToken = params.get('key');
 
-      remoteLog('DEBUG', `Iniciando inicialización de overlay. Token query: ${queryToken}`);
+      remoteLog('DEBUG', 'Iniciando inicialización de overlay.');
 
       if (!queryToken) {
-        remoteLog('WARN', 'No se encontró token en los parámetros query de URL.');
+        remoteLog('WARN', 'El enlace no contiene una clave de overlay.');
         setLoading(false);
         setAuthorized(false);
         return;
@@ -618,7 +621,7 @@ export default function ObsOverlayPage() {
       try {
         remoteLog('DEBUG', 'Verificando token cargando ajustes...');
         const response = await fetch('/api/stream/settings', {
-          headers: { 'x-admin-token': queryToken },
+          headers: { 'x-overlay-token': queryToken },
         });
 
         if (!response.ok) {
@@ -636,7 +639,9 @@ export default function ObsOverlayPage() {
 
         // Fetch unplayed events to initialize the queue
         remoteLog('DEBUG', 'Buscando eventos no jugados para inicializar cola...');
-        const eventsResponse = await fetch('/api/stream/events');
+        const eventsResponse = await fetch('/api/stream/events', {
+          headers: { 'x-overlay-token': queryToken },
+        });
         const eventsData = await eventsResponse.json();
         if (eventsData.events) {
           const unplayed = (eventsData.events as StreamEvent[])
@@ -696,7 +701,7 @@ export default function ObsOverlayPage() {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
-            'x-admin-token': token,
+            'x-overlay-token': token,
           },
           body: JSON.stringify({ heartbeat: true }),
         });
@@ -844,9 +849,9 @@ export default function ObsOverlayPage() {
     return (
       <div className="min-h-screen bg-black text-red-500 flex flex-col items-center justify-center p-6 font-sans text-center">
         <ShieldAlert className="w-12 h-12 mb-3" />
-        <h1 className="font-black text-2xl uppercase">Token Inválido o Faltante</h1>
+        <h1 className="font-black text-2xl uppercase">Enlace de overlay inválido</h1>
         <p className="text-sm font-semibold text-gray-400 mt-2 max-w-sm">
-          Por favor, agrega el parámetro de token correcto en la URL para conectar el overlay con Supabase. (ej: `/overlay?token=TU_TOKEN`)
+          Copia el enlace del overlay desde el panel de administración y úsalo como fuente de navegador en OBS.
         </p>
       </div>
     );

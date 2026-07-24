@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { isAuthorized } from '@/lib/adminAuth';
+import { isOverlayAuthorized } from '@/lib/overlayAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const isAuthorizedRequest = await isAuthorized(request);
-
-    if (!isAuthorizedRequest) {
+    if (!isOverlayAuthorized(request)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

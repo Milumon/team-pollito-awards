@@ -72,3 +72,19 @@ _Avoid_: Sonido global, Audio comunitario, Sonido del admin
 Mecanismo de seguridad opcional en la Consola del Miembro que solicita confirmación en pantalla antes de disparar sonidos o efectos para evitar clics accidentales. Puede ser deshabilitado por el usuario en el propio diálogo de confirmación o en el panel de Ajustes.
 _Avoid_: Diálogo molesto, Confirmación de envío, Alert de spam
 
+**Identidad TikTok (TikTok Identity)**:
+Persona reconocida de forma estable por TikTok, aunque cambie su nombre público. Puede estar vinculada a un Miembro Oficial o permanecer sin vincular.
+_Avoid_: Username de TikTok, Perfil del portal, Nickname
+
+**Batch de Rankings (Ranking Batch)**:
+Conjunto indivisible de las clasificaciones de espectadores y regalos para último live, 7, 28 y 60 días, capturadas durante una misma importación. Solo puede aceptarse completo.
+_Avoid_: Importación parcial, Archivo de rankings, Lista semanal
+
+**Snapshot de Ranking (Ranking Snapshot)**:
+Registro histórico e inmutable de una clasificación para una métrica, período y ventana temporal concretos dentro de un Batch de Rankings.
+_Avoid_: Ranking actual, Tabla editable, Acumulado
+
+**Activación de Ranking (Ranking Activation)**:
+Decisión de hacer visible un Batch de Rankings completo. Una activación posterior puede volver a señalar un batch anterior sin modificar sus snapshots.
+_Avoid_: Sobrescritura, Restauración de datos, Publicación parcial
+

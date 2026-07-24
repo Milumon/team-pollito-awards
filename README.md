@@ -41,7 +41,9 @@ There is an admin dashboard at `/admin` to import Roblox friends who wear the Te
 
 Required server environment variables:
 
-- `ADMIN_PANEL_TOKEN`
+- `ADMIN_PANEL_TOKEN` (compatibilidad con integraciones administrativas antiguas)
+- `OVERLAY_TOKEN` (clave exclusiva incluida automáticamente en el enlace de OBS)
+- `TIKTOK_IMPORT_TOKEN` (credencial exclusiva de la extensión privada de rankings)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ROBLOSECURITY_COOKIE`
 - `ROBLOX_CLOTHING_ID` (optional, defaults to `75919610314518`)

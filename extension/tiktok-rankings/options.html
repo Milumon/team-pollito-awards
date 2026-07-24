@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Opciones - Rankings</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main>
+      <h1>Configuracion privada</h1>
+      <p>Configura el backend de Team Pollito. No uses la URL de TikTok LIVE Center.</p>
+      <form id="form">
+        <label>
+          URL del portal Team Pollito
+          <input id="portalUrl" type="url" placeholder="http://localhost:3000" required>
+        </label>
+        <label>
+          TIKTOK_IMPORT_TOKEN
+          <input id="importToken" type="password" placeholder="Dejalo vacio para conservar el token guardado">
+        </label>
+        <button>Guardar configuracion</button>
+      </form>
+      <p id="status" role="status"></p>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

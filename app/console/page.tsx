@@ -31,6 +31,7 @@ import {
   Activity,
   ExternalLink,
   Scissors,
+  Trophy,
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
@@ -38,6 +39,8 @@ import MediaUploadForm from '@/components/console/MediaUploadForm';
 import MediaSubmissionsHistory from '@/components/console/MediaSubmissionsHistory';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
+import { TikTokRankingConsole } from '@/components/tiktok-rankings/RankingViews';
+import { TikTokRankingHistory } from '@/components/tiktok-rankings/HistoryViews';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 
 type StoredRobloxProfile = {
@@ -184,7 +187,7 @@ export default function MemberConsolePage() {
   const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
 
   // Navigation state (app feel)
-  const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'nickname' | 'settings' | 'help'>('sounds');
+  const [activeTab, setActiveTab] = useState<'sounds' | 'tts' | 'animations' | 'feed' | 'dashboard' | 'rankings' | 'nickname' | 'settings' | 'help'>('sounds');
   const [soundboardSubTab, setSoundboardSubTab] = useState<'audios' | 'multimedia' | 'videos'>('audios');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
@@ -428,8 +431,11 @@ export default function MemberConsolePage() {
 
   // 2. Fetch Recent Events
   const fetchRecentEvents = useCallback(async () => {
+    if (!session?.access_token) return;
     try {
-      const response = await fetch('/api/stream/events');
+      const response = await fetch('/api/stream/events', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       const data = await response.json();
       if (data.events) {
         setRecentEvents(data.events);
@@ -437,7 +443,7 @@ export default function MemberConsolePage() {
     } catch (err) {
       console.error('Error fetching recent events:', err);
     }
-  }, []);
+  }, [session?.access_token]);
 
   const fetchLeaderboards = useCallback(async (currentSession: Session) => {
     try {
@@ -1212,6 +1218,7 @@ export default function MemberConsolePage() {
             
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'rankings', label: 'Rankings', icon: Trophy },
               { id: 'sounds', label: 'Banco', icon: Volume2 },
               { id: 'tts', label: 'TTS Mensajes', icon: Send },
               { id: 'animations', label: 'Efectos Visuales', icon: Sparkles },
@@ -1346,6 +1353,23 @@ export default function MemberConsolePage() {
                       </ul>
                     </div>
                   </div>
+                </motion.div>
+              )}
+
+              {/* TAB: RANKINGS */}
+              {activeTab === 'rankings' && (
+                <motion.div
+                  key="rankings-tab"
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute inset-0 overflow-hidden"
+                >
+                   <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1 scrollbar-thin">
+                     <TikTokRankingConsole accessToken={session.access_token} />
+                     <TikTokRankingHistory accessToken={session.access_token} />
+                   </div>
                 </motion.div>
               )}
 
@@ -2337,6 +2361,7 @@ export default function MemberConsolePage() {
       <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-around z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
         {[
           { id: 'sounds', label: 'Sonidos', icon: Volume2 },
+          { id: 'rankings', label: 'Ranking', icon: Trophy },
           { id: 'tts', label: 'Voz', icon: Send },
           { id: 'animations', label: 'Efectos', icon: Sparkles },
           { id: 'feed', label: 'Feed', icon: List },
@@ -2483,6 +2508,7 @@ export default function MemberConsolePage() {
         variant="tabbar"
         tabs={[
           { id: 'dashboard', name: 'Dash', icon: <LayoutDashboard className="w-4 h-4" />, onClick: () => setActiveTab('dashboard') },
+          { id: 'rankings', name: 'Ranking', icon: <Trophy className="w-4 h-4" />, onClick: () => setActiveTab('rankings') },
           { id: 'sounds', name: 'Banco', icon: <Volume2 className="w-4 h-4" />, onClick: () => setActiveTab('sounds') },
           { id: 'tts', name: 'TTS', icon: <Send className="w-4 h-4" />, onClick: () => setActiveTab('tts') },
           { id: 'animations', name: 'Efectos', icon: <Sparkles className="w-4 h-4" />, onClick: () => setActiveTab('animations') },

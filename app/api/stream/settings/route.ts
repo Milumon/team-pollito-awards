@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
+import { isOverlayAuthorized } from '@/lib/overlayAuth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (request.headers.has('x-overlay-token') && !isOverlayAuthorized(request)) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   try {
     const { data, error } = await supabaseAdmin
       .from('stream_settings')
@@ -34,11 +39,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!await isAuthorized(request)) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  }
-
   try {
+    const body = await request.json();
+    const isHeartbeat = body.heartbeat === true;
+
+    if (isHeartbeat ? !isOverlayAuthorized(request) : !await isAuthorized(request)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     const authHeader = request.headers.get('Authorization');
     let adminEmail = 'admin-token@system';
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -47,7 +55,6 @@ export async function POST(request: NextRequest) {
       if (user?.email) adminEmail = user.email;
     }
 
-    const body = await request.json();
     const { 
       isMuted, 
       globalCooldown, 

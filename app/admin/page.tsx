@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type { Session } from '@supabase/supabase-js';
 import { CATEGORIES } from '@/src/data/categories';
 import { Category } from '@/src/types';
-import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Scissors } from 'lucide-react';
+import { RefreshCw, Save, Search, ShieldAlert, X, Play, Trash2, Music, Upload, Loader, Edit, ChevronLeft, ChevronRight, Scissors, Copy, ExternalLink } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
 import dynamic from 'next/dynamic';
@@ -173,6 +173,38 @@ type AuditLog = {
   created_at: string;
 };
 
+type TikTokIdentityReview = {
+  tiktok_id: string;
+  display_id: string;
+  nickname: string;
+  ranking_entry_count: number;
+  status: 'unlinked' | 'ambiguous' | 'linked';
+  linked_profile_id: string | null;
+  candidate_count: number;
+  candidates: { id: string; name: string; roblox_user: string | null }[];
+};
+
+type TikTokImportAttempt = {
+  id: string;
+  status: 'validation_failed' | 'publish_failed' | 'published' | 'replayed';
+  idempotency_key: string | null;
+  captured_at: string | null;
+  sets_received: number;
+  sets_validated: number;
+  batch_id: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+type TikTokAdminOperations = {
+  history: { batch_id: string; captured_at: string; activations: { activated_at: string; reason: string | null }[] }[];
+  active_batch: { batch_id: string; captured_at: string; activated_at: string } | null;
+  latest_import: TikTokImportAttempt | null;
+  import_attempts: TikTokImportAttempt[];
+  identities: TikTokIdentityReview[];
+  import_token_configured: boolean;
+};
+
 type SoundItem = {
   id: string;
   name: string;
@@ -292,7 +324,7 @@ export default function AdminPage() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>('dashboard');
   
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -312,6 +344,9 @@ export default function AdminPage() {
   const [streamSettings, setStreamSettings] = useState<StreamSettings | null>(null);
   const [loadingStreamSettings, setLoadingStreamSettings] = useState(false);
   const [updatingStreamSettings, setUpdatingStreamSettings] = useState(false);
+  const [overlayUrl, setOverlayUrl] = useState('');
+  const [overlayLinkError, setOverlayLinkError] = useState<string | null>(null);
+  const [loadingOverlayUrl, setLoadingOverlayUrl] = useState(false);
   const [vmStatus, setVmStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [pingingVM, setPingingVM] = useState(false);
 
@@ -509,6 +544,10 @@ export default function AdminPage() {
   // Audit Logs
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+  const [tiktokOperations, setTiktokOperations] = useState<TikTokAdminOperations | null>(null);
+  const [loadingTiktokOperations, setLoadingTiktokOperations] = useState(false);
+  const [updatingTiktokIdentity, setUpdatingTiktokIdentity] = useState<string | null>(null);
+  const [rollingBackTiktok, setRollingBackTiktok] = useState<string | null>(null);
   const [moderatingTestimonial, setModeratingTestimonial] = useState<string | null>(null);
 
   // Calculated properties
@@ -717,6 +756,22 @@ export default function AdminPage() {
     }
   }, [isAdmin, apiFetch]);
 
+  const loadOverlayUrl = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingOverlayUrl(true);
+    setOverlayLinkError(null);
+    try {
+      const response = await apiFetch('/api/admin/overlay-link');
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al cargar el enlace del overlay');
+      setOverlayUrl(typeof data.url === 'string' ? data.url : '');
+    } catch (err) {
+      setOverlayLinkError(err instanceof Error ? err.message : 'Error al cargar el enlace del overlay');
+    } finally {
+      setLoadingOverlayUrl(false);
+    }
+  }, [isAdmin, apiFetch]);
+
   const loadSounds = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingSounds(true);
@@ -748,6 +803,21 @@ export default function AdminPage() {
       setLoadingAuditLogs(false);
     }
   }, [isAdmin, apiFetch]);
+
+  const loadTiktokOperations = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingTiktokOperations(true);
+    try {
+      const response = await apiFetch('/api/admin/tiktok/rankings');
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'Error al cargar operaciones TikTok');
+      setTiktokOperations(data as TikTokAdminOperations);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar operaciones TikTok');
+    } finally {
+      setLoadingTiktokOperations(false);
+    }
+  }, [isAdmin, apiFetch, setLoadingTiktokOperations, setTiktokOperations, setError]);
 
   const pingAlexaVM = useCallback(async () => {
     if (!isAdmin) return;
@@ -817,8 +887,10 @@ export default function AdminPage() {
         loadDashboard(),
         loadInterviewSlots(),
         loadStreamSettings(),
+        loadOverlayUrl(),
         loadSounds(),
         loadAuditLogs(),
+        loadTiktokOperations(),
         pingAlexaVM(),
       ]);
     })();
@@ -842,7 +914,7 @@ export default function AdminPage() {
       void channel.unsubscribe();
       clearInterval(interval);
     };
-  }, [isAdmin, loadNominees, loadStats, loadDashboard, loadInterviewSlots, loadStreamSettings, loadSounds, loadAuditLogs, pingAlexaVM]);
+  }, [isAdmin, loadNominees, loadStats, loadDashboard, loadInterviewSlots, loadStreamSettings, loadOverlayUrl, loadSounds, loadAuditLogs, loadTiktokOperations, pingAlexaVM]);
 
   // Load admin's own Roblox profile for preview avatar
   useEffect(() => {
@@ -1635,6 +1707,46 @@ export default function AdminPage() {
     );
   };
 
+  const handleTiktokIdentityLink = async (identity: TikTokIdentityReview, profileId: string | null) => {
+    const reason = window.prompt('Motivo de la corrección del vínculo TikTok:');
+    if (reason === null || reason.trim().length < 3) return;
+    setUpdatingTiktokIdentity(identity.tiktok_id);
+    try {
+      const response = await apiFetch('/api/admin/tiktok/identities', {
+        method: 'PATCH',
+        body: JSON.stringify({ tiktok_id: identity.tiktok_id, profile_id: profileId, reason }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo corregir el vínculo');
+      setStatus('Vínculo de identidad TikTok actualizado. Los snapshots históricos no fueron modificados.');
+      await Promise.all([loadTiktokOperations(), loadAuditLogs()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al corregir vínculo TikTok');
+    } finally {
+      setUpdatingTiktokIdentity(null);
+    }
+  };
+
+  const handleTiktokRollback = async (batchId: string) => {
+    const reason = window.prompt('Motivo obligatorio del rollback:');
+    if (reason === null || reason.trim().length < 3) return;
+    setRollingBackTiktok(batchId);
+    try {
+      const response = await apiFetch('/api/admin/tiktok/rankings', {
+        method: 'POST',
+        body: JSON.stringify({ batch_id: batchId, reason }),
+      });
+      const data = await readApiPayload(response);
+      if (!response.ok) throw new Error(data.error || 'No se pudo reactivar el snapshot');
+      setStatus('Snapshot reactivado mediante una nueva activación append-only.');
+      await Promise.all([loadTiktokOperations(), loadAuditLogs()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al hacer rollback');
+    } finally {
+      setRollingBackTiktok(null);
+    }
+  };
+
   const renderOverview = () => (
     <div className="grid gap-6 lg:grid-cols-[300px_1fr] items-start animate-fade-in">
       <aside className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 lg:sticky lg:top-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
@@ -2419,6 +2531,59 @@ export default function AdminPage() {
         ) : (
           <div className="text-center text-xs text-gray-500 py-4 font-bold">Sin datos de configuración</div>
         )}
+
+        <div className="border-t border-neutral-700/60 pt-5 space-y-3">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-[#FFC200]">Fuente de navegador</span>
+            <h3 className="font-display font-semibold text-sm text-white mt-1">Overlay para OBS</h3>
+            <p className="text-[10px] text-gray-400 mt-1 font-semibold leading-normal">
+              Copia este enlace en OBS. No necesitas escribir ninguna contraseña.
+            </p>
+          </div>
+
+          {loadingOverlayUrl ? (
+            <div className="py-3 text-center text-gray-500 text-[10px] font-bold uppercase animate-pulse">Cargando enlace...</div>
+          ) : overlayLinkError ? (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-[10px] font-semibold text-red-300">
+              {overlayLinkError}
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                readOnly
+                value={overlayUrl}
+                aria-label="Enlace del overlay para OBS"
+                className="w-full rounded-xl border border-neutral-700/60 bg-[#1c1f27] px-3 py-2 text-[10px] font-mono text-gray-300 outline-none"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!overlayUrl}
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(overlayUrl);
+                    setStatus('Enlace del overlay copiado.');
+                    setTimeout(() => setStatus(null), 3000);
+                  }}
+                  className="flex items-center justify-center gap-1.5 rounded-xl border border-neutral-700/60 bg-[#FFC200] px-3 py-2 text-[10px] font-black uppercase text-black disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copiar
+                </button>
+                <a
+                  href={overlayUrl || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-disabled={!overlayUrl}
+                  className={`flex items-center justify-center gap-1.5 rounded-xl border border-neutral-700/60 bg-[#1c1f27] px-3 py-2 text-[10px] font-black uppercase text-white ${!overlayUrl ? 'pointer-events-none opacity-50' : 'hover:bg-neutral-700'}`}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Abrir
+                </a>
+              </div>
+            </>
+          )}
+        </div>
       </aside>
 
       <main className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-6 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
@@ -3525,6 +3690,72 @@ export default function AdminPage() {
     </div>
   );
 
+  const renderTiktokOperations = () => {
+    const operations = tiktokOperations;
+    const latest = operations?.latest_import;
+    const approvedMembers = (stats?.users ?? []).filter((user) => user.linkStatus === 'approved');
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Operaciones privadas</span>
+            <h1 className="font-display font-bold text-2xl text-white mt-1">Rankings TikTok</h1>
+            <p className="text-xs text-gray-400 mt-2 font-semibold">Estado de importaciones, identidades y activaciones. Los snapshots son inmutables.</p>
+          </div>
+          <button type="button" onClick={() => void loadTiktokOperations()} disabled={loadingTiktokOperations} className="px-3 py-2 bg-[#2b2d31] border border-neutral-700/60 rounded-xl text-xs font-bold text-gray-300 hover:text-white disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 inline mr-1.5 ${loadingTiktokOperations ? 'animate-spin' : ''}`} /> Actualizar
+          </button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4">
+            <p className="text-[10px] uppercase text-gray-500">Batch activo</p>
+            <p className="text-sm font-mono font-bold text-white mt-2 break-all">{operations?.active_batch?.batch_id ?? 'Sin snapshot'}</p>
+            <p className="text-[10px] text-gray-400 mt-2">{operations?.active_batch ? formatDate(operations.active_batch.captured_at) : 'Aún no hay publicación válida'}</p>
+          </section>
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4">
+            <p className="text-[10px] uppercase text-gray-500">Último intento</p>
+            <p className="text-lg font-mono font-black text-[#FFC200] mt-2">{latest ? `${latest.sets_validated}/8` : '—'}</p>
+            <p className="text-[10px] text-gray-400 mt-1">{latest ? `${latest.status} · ${formatDate(latest.created_at)}` : 'Sin intentos registrados'}</p>
+            {latest?.error_message && <p className="text-[10px] text-red-400 mt-2">{latest.error_message}</p>}
+          </section>
+          <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4">
+            <p className="text-[10px] uppercase text-gray-500">Credencial de ingestión</p>
+            <p className={`text-sm font-bold mt-2 ${operations?.import_token_configured ? 'text-emerald-400' : 'text-red-400'}`}>{operations?.import_token_configured ? 'Configurada' : 'No configurada'}</p>
+            <p className="text-[10px] text-gray-400 mt-2">Nunca se muestra el token en el panel.</p>
+          </section>
+        </div>
+
+        <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-3">
+          <h2 className="font-display font-semibold text-lg text-white">Rotación y reconfiguración</h2>
+          <p className="text-xs text-gray-400 leading-relaxed">Define un nuevo <code className="text-[#FFC200]">TIKTOK_IMPORT_TOKEN</code> en el entorno del servidor y reinicia o redeploya la aplicación. Después actualiza el token en la configuración privada de la extensión y vuelve a probar una importación manual. El portal no permite consultar ni recuperar el valor anterior.</p>
+        </section>
+
+        <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4">
+          <div><h2 className="font-display font-semibold text-lg text-white">Identidades TikTok</h2><p className="text-xs text-gray-400 mt-1">Las identidades pendientes aparecen primero, pero también puedes corregir vínculos automáticos. El cambio afecta el mapa efectivo, no los snapshots.</p></div>
+          {operations?.identities.length === 0 ? <p className="text-xs text-gray-500 py-5">No hay identidades importadas.</p> : (
+            <div className="space-y-3">
+              {(operations?.identities ?? []).map((identity) => (
+                <article key={identity.tiktok_id} className="bg-[#35373d] border border-neutral-700/40 rounded-xl p-3 flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="min-w-0 flex-1"><p className="text-xs font-bold text-white truncate">@{identity.display_id} <span className="text-gray-500 font-normal">({identity.tiktok_id})</span></p><p className="text-[10px] text-gray-400">{identity.nickname || 'Sin nickname'} · {identity.ranking_entry_count} entries · <span className={identity.status === 'ambiguous' ? 'text-amber-400' : 'text-red-400'}>{identity.status}</span></p></div>
+                  <div className="flex gap-2 w-full lg:w-auto"><select defaultValue="" disabled={updatingTiktokIdentity === identity.tiktok_id} onChange={(event) => { if (event.target.value) void handleTiktokIdentityLink(identity, event.target.value); }} className="flex-1 lg:w-64 bg-[#171A20] border border-neutral-700/60 rounded-xl px-3 py-2 text-xs text-white"><option value="">Seleccionar Miembro Oficial</option>{approvedMembers.map((member) => <option key={member.id} value={member.id}>{member.robloxDisplayName || member.robloxUser || member.email}{member.robloxUser ? ` (@${member.robloxUser})` : ''}</option>)}</select><button type="button" disabled={updatingTiktokIdentity === identity.tiktok_id} onClick={() => void handleTiktokIdentityLink(identity, null)} className="px-3 py-2 text-xs text-gray-300 border border-neutral-700/60 rounded-xl hover:text-white disabled:opacity-50">Dejar sin vincular</button></div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-3">
+          <h2 className="font-display font-semibold text-lg text-white">Historial y rollback</h2>
+          {(operations?.history ?? []).map((snapshot) => { const active = snapshot.batch_id === operations?.active_batch?.batch_id; return <article key={snapshot.batch_id} className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between border-b border-neutral-700/40 pb-3"><div><p className="text-xs font-mono text-white break-all">{snapshot.batch_id}</p><p className="text-[10px] text-gray-400">Capturado: {formatDate(snapshot.captured_at)} · {snapshot.activations.length} activación(es) {active && <span className="text-emerald-400">· ACTIVO</span>}</p></div><button type="button" disabled={active || rollingBackTiktok === snapshot.batch_id} onClick={() => void handleTiktokRollback(snapshot.batch_id)} className="px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs font-bold disabled:opacity-40">{rollingBackTiktok === snapshot.batch_id ? 'Reactivando...' : 'Rollback con motivo'}</button></article>; })}
+          {(operations?.history.length ?? 0) === 0 && <p className="text-xs text-gray-500 py-5">No hay batches completos publicados.</p>}
+        </section>
+
+        <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5"><h2 className="font-display font-semibold text-lg text-white mb-3">Intentos recientes</h2><div className="space-y-2">{(operations?.import_attempts ?? []).map((attempt) => <div key={attempt.id} className="flex items-center gap-3 text-xs"><span className={`font-mono font-bold ${attempt.sets_validated === 8 ? 'text-emerald-400' : 'text-red-400'}`}>{attempt.sets_validated}/8</span><span className="text-gray-300">{attempt.status}</span><span className="text-gray-500 ml-auto">{formatDate(attempt.created_at)}</span></div>)}</div></section>
+      </div>
+    );
+  };
+
   const renderActiveTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -3551,6 +3782,8 @@ export default function AdminPage() {
         return renderStreamStatusMobileTab();
       case 'testimonials':
         return renderTestimonials();
+      case 'tiktok':
+        return renderTiktokOperations();
       default:
         return renderDashboard();
     }
@@ -3680,6 +3913,9 @@ export default function AdminPage() {
             </button>
             <button type="button" onClick={() => { setActiveTab('testimonials'); setMobileMenuOpen(false); }} className={navBtnClass('testimonials')}>
               <span>💬</span> Opiniones
+            </button>
+            <button type="button" onClick={() => { setActiveTab('tiktok'); setMobileMenuOpen(false); }} className={navBtnClass('tiktok')}>
+              <span>🎵</span> Rankings TikTok
             </button>
             <button type="button" onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }} className={navBtnClass('agenda')}>
               <span>📅</span> Agenda Viernes

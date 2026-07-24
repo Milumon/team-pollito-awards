@@ -2,10 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAuthorized } from '@/lib/adminAuth';
 import { logAdminAction } from '@/lib/auditLogger';
+import { isOverlayAuthorized } from '@/lib/overlayAuth';
 
 // GET: Listar todos los sonidos del soundboard (público / filtrado por privacidad)
 export async function GET(request: NextRequest) {
   try {
+    if (isOverlayAuthorized(request)) {
+      const { data: sounds, error } = await supabaseAdmin
+        .from('soundboard_sounds')
+        .select('id,name,url')
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return NextResponse.json({ sounds: sounds ?? [] });
+    }
+
     const isAdminUser = await isAuthorized(request);
     
     let query = supabaseAdmin

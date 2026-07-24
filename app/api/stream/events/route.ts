@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { isOverlayAuthorized } from '@/lib/overlayAuth';
+import { getSupabaseUser } from '@/lib/supabaseAdminAuth';
 
 // GET: Fetch recent 10 events (useful for overlay initial queue and console list)
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!isOverlayAuthorized(request) && !await getSupabaseUser(request)) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
   try {
     const { data: events, error } = await supabaseAdmin
       .from('stream_events')

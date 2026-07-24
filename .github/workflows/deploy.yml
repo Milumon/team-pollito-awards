@@ -29,6 +29,14 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate integration secrets
+        env:
+          OVERLAY_TOKEN: ${{ secrets.OVERLAY_TOKEN }}
+          TIKTOK_IMPORT_TOKEN: ${{ secrets.TIKTOK_IMPORT_TOKEN }}
+        run: |
+          test -n "$OVERLAY_TOKEN" || { echo "Missing OVERLAY_TOKEN"; exit 1; }
+          test -n "$TIKTOK_IMPORT_TOKEN" || { echo "Missing TIKTOK_IMPORT_TOKEN"; exit 1; }
+
       - name: Create Artifact Registry (first time only)
         run: |
           gcloud artifacts repositories create ${{ env.REPO_NAME }} \
@@ -76,6 +84,8 @@ jobs:
             --set-env-vars "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             --set-env-vars "NEXT_PUBLIC_VOTING_PHASE=${{ secrets.NEXT_PUBLIC_VOTING_PHASE }}" \
             --set-env-vars "ADMIN_PANEL_TOKEN=${{ secrets.ADMIN_PANEL_TOKEN }}" \
+            --set-env-vars "OVERLAY_TOKEN=${{ secrets.OVERLAY_TOKEN }}" \
+            --set-env-vars "TIKTOK_IMPORT_TOKEN=${{ secrets.TIKTOK_IMPORT_TOKEN }}" \
             --set-env-vars "ROBLOSECURITY_COOKIE=${{ secrets.ROBLOSECURITY_COOKIE }}" \
             --set-env-vars "ROBLOX_CLOTHING_ID=${{ secrets.ROBLOX_CLOTHING_ID }}" \
             --set-env-vars "ROBLOX_ALEXA_VM_URL=${{ secrets.ROBLOX_ALEXA_VM_URL }}" \

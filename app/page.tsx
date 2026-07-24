@@ -23,6 +23,7 @@ import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { TikTokRankingLanding } from '@/components/tiktok-rankings/RankingViews';
 
 type Member = {
   roblox_user: string;
@@ -85,13 +86,6 @@ export default function ComunidadPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [statusInfo, setStatusInfo] = useState<InterviewStatus>({ status: 'none' });
-  const [stats, setStats] = useState({
-    totalProfiles: 2847,
-    officialMembers: 147,
-    pendingInterviews: 23,
-    eventsThisMonth: 8,
-    newMembersThisWeek: 0,
-  });
 
   // Testimonials States
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
@@ -109,7 +103,6 @@ export default function ComunidadPage() {
   // Loading states
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
-  const [loadingStats, setLoadingStats] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Calendar State
@@ -163,20 +156,6 @@ export default function ComunidadPage() {
       }
     } catch (err) {
       console.error('Error fetching slots:', err);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const res = await fetch('/api/comunidad/stats');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    } finally {
-      setLoadingStats(false);
     }
   };
 
@@ -412,7 +391,6 @@ export default function ComunidadPage() {
       setAlreadyInterviewed(false);
       resetRobloxVerification();
       fetchSlots();
-      fetchStats();
       if (token) {
         fetchUserStatus(token);
       }
@@ -454,7 +432,6 @@ export default function ComunidadPage() {
     Promise.resolve().then(() => {
       fetchMembers();
       fetchSlots();
-      fetchStats();
       fetchTestimonials();
     });
 
@@ -517,44 +494,6 @@ export default function ComunidadPage() {
   for (let d = 1; d <= totalDays; d++) {
     calendarCells.push(new Date(currentYear, currentMonth, d));
   }
-  const [onlineCount, setOnlineCount] = useState(52);
-  const [countdownText, setCountdownText] = useState('Calculando...');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOnlineCount(prev => {
-        const diff = Math.floor(Math.random() * 5) - 2; // de -2 a +2
-        const next = prev + diff;
-        return next > 30 && next < 80 ? next : prev;
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date();
-      // Próximo sábado a las 20:00 (8:00 PM)
-      const nextEvent = new Date();
-      nextEvent.setDate(now.getDate() + ((6 + 7 - now.getDay()) % 7)); // siguiente sábado
-      nextEvent.setHours(20, 0, 0, 0);
-      
-      if (nextEvent.getTime() < now.getTime()) {
-        nextEvent.setDate(nextEvent.getDate() + 7);
-      }
-      
-      const diffMs = nextEvent.getTime() - now.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      
-      setCountdownText(`${diffDays}d ${diffHrs}h ${diffMins}m`);
-    };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Filtrar slots de la fecha seleccionada
   const selectedDateStr = selectedDate
     ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
@@ -738,59 +677,7 @@ export default function ComunidadPage() {
             </div>
           </section>
 
-          {/* STATS & EVENT BANNER */}
-          <section id="stats-evento" className="space-y-6 pt-8">
-            {/* Stats: una sola superficie con divisores internos */}
-            <div className="bg-white border border-gray-200/80 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.06)] divide-x divide-gray-100 grid grid-cols-2 md:grid-cols-4">
-              {[
-                { emoji: '👥', value: loadingStats ? '...' : stats.totalProfiles.toLocaleString('es-ES'), label: 'Miembros' },
-                { emoji: '🪶', value: loadingStats ? '...' : stats.officialMembers.toLocaleString('es-ES'), label: 'Oficiales' },
-                { emoji: '🟢', value: String(onlineCount), label: 'Online ahora', accent: true },
-                { emoji: '✨', value: `+${loadingStats ? '...' : stats.newMembersThisWeek}`, label: 'Esta semana' },
-              ].map((s, i) => (
-                <div key={i} className="flex flex-col items-center justify-center gap-1 py-6 px-4 text-center">
-                  <span className="text-2xl mb-1">{s.emoji}</span>
-                  <p className={`font-display font-bold text-2xl leading-none ${s.accent ? 'text-emerald-600' : 'text-[#2D3139]'}`}>
-                    {s.accent && <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse inline-block mr-1.5" />}
-                    {s.value}
-                  </p>
-                  <p className="font-sans text-xs text-gray-400 mt-0.5">{s.label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* BANNER EVENTO */}
-            <div className="bg-gradient-to-r from-[#FFF9E6] to-white border border-[#FFC200]/20 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-40 h-40 bg-[#FFC200] opacity-5 rounded-full translate-x-16 -translate-y-16 select-none" />
-              <div className="space-y-3 z-10 text-center md:text-left">
-                <Badge variant="warning">⭐ Próximo evento en vivo</Badge>
-                <h4 className="font-display font-bold text-2xl sm:text-3xl tracking-tight text-[#2D3139] leading-tight">
-                  Noche de juegos con Milumon 🎮
-                </h4>
-                <p className="font-sans text-sm text-gray-500 leading-relaxed max-w-xl">
-                  ¡Únete para jugar Roblox en directo! Escape de ladrillos, escape de teclado, 99 noches en el bosque y más. Habrá sorteos de Robux, efectos interactivos en pantalla y VIP a los mejores pollitos.
-                </p>
-                <div className="flex flex-wrap gap-4 text-sm font-sans text-gray-500 justify-center md:justify-start">
-                  <span className="flex items-center gap-1.5">🕒 Sábado 8:00 PM</span>
-                  <span className="flex items-center gap-1.5 text-purple-600">📺 Directo en TikTok</span>
-                </div>
-              </div>
-              <div className="bg-white border border-[#FFC200]/20 p-5 rounded-2xl text-center shadow-[0_4px_12px_rgba(0,0,0,.06)] shrink-0 z-10 w-full md:w-auto min-w-[160px]">
-                <p className="font-sans text-xs text-gray-400 uppercase tracking-wide">Comienza en:</p>
-                <p className="font-display font-bold text-2xl text-[#D4A000] mt-1 tracking-tight">
-                  {countdownText}
-                </p>
-                <a
-                  href="https://tiktok.com/@milumon_gaming"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block mt-3 w-full py-2 bg-[#FFC200] hover:brightness-105 rounded-xl font-display font-semibold text-sm text-black transition-all cursor-pointer text-center active:scale-[0.97]"
-                >
-                  Ir al directo 📺
-                </a>
-              </div>
-            </div>
-          </section>
+          <TikTokRankingLanding />
 
           {/* TIMELINE DE INGRESO */}
           <section id="timeline-ingreso" className="space-y-8 pt-8">

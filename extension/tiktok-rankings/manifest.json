@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Team Pollito - TikTok Rankings",
+  "version": "0.1.0",
+  "description": "Importacion privada y manual de rankings de TikTok LIVE.",
+  "permissions": ["storage", "tabs", "debugger"],
+  "host_permissions": ["https://*.tiktok.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "service-worker.js", "type": "module" },
+  "action": { "default_title": "Importar rankings", "default_popup": "popup.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": true }
+}
