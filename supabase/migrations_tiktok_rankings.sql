@@ -107,24 +107,26 @@ drop trigger if exists tiktok_activations_immutable on public.tiktok_ranking_act
 create trigger tiktok_activations_immutable before update or delete on public.tiktok_ranking_activations for each row execute function public.reject_tiktok_ranking_mutation();
 
 create or replace function public.publish_tiktok_ranking_batch(p_batch jsonb)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
 declare
   batch_id uuid;
   set_id uuid;
   item jsonb;
   entry jsonb;
   existing_hash text;
+  incoming_hash text;
   set_count integer;
   linked_profile_id uuid;
 begin
   if jsonb_typeof(p_batch->'sets') <> 'array' or jsonb_array_length(p_batch->'sets') <> 8 then raise exception 'batch must contain exactly 8 sets'; end if;
+  incoming_hash := encode(extensions.digest(convert_to(p_batch::text, 'UTF8'), 'sha256'::text), 'hex');
   perform pg_advisory_xact_lock(hashtextextended(p_batch->>'idempotency_key', 0));
   select content_hash, id into existing_hash, batch_id from tiktok_ranking_batches where idempotency_key = p_batch->>'idempotency_key';
   if batch_id is not null then
-    if existing_hash <> encode(digest(p_batch::text, 'sha256'), 'hex') then raise exception 'idempotency_conflict'; end if;
+    if existing_hash <> incoming_hash then raise exception 'idempotency_conflict'; end if;
     return jsonb_build_object('status', 'replayed', 'batch_id', batch_id);
   end if;
-  insert into tiktok_ranking_batches (idempotency_key, content_hash, captured_at) values (p_batch->>'idempotency_key', encode(digest(p_batch::text, 'sha256'), 'hex'), (p_batch->>'captured_at')::timestamptz) returning id into batch_id;
+  insert into tiktok_ranking_batches (idempotency_key, content_hash, captured_at) values (p_batch->>'idempotency_key', incoming_hash, (p_batch->>'captured_at')::timestamptz) returning id into batch_id;
   for item in select value from jsonb_array_elements(p_batch->'sets') loop
     insert into tiktok_ranking_sets (batch_id, metric, period, window_begin, window_end) values (batch_id, item->>'metric', item->>'period', (item->'window'->>'begin')::timestamptz, (item->'window'->>'end')::timestamptz) returning id into set_id;
     for entry in select value from jsonb_array_elements(item->'entries') loop
