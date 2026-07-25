@@ -204,6 +204,14 @@ export async function POST(request: NextRequest) {
     const displayName = String(profile?.displayName || robloxUser || `user-${robloxUserId}`).trim();
     const avatarUrl = await fetchRobloxAvatar(robloxUserId);
 
+    if (body.validateOnly === true) {
+      return NextResponse.json({
+        id: robloxUserId,
+        displayName,
+        avatarUrl,
+      });
+    }
+
     // Obtener perfil existente para verificar si tiene nickname personalizado (🐣)
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
