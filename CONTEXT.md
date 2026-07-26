@@ -36,6 +36,10 @@ _Avoid_: Lector de voz, Voz sintética, Audio de texto
 Panel exclusivo para administradores autorizados para gestionar Horarios, Candidatos, Miembros y configurar los límites de transmisión.
 _Avoid_: Admin dashboard, Consola de control
 
+**Panel del Miembro (Member Portal)**:
+Área privada donde un Miembro Oficial consulta su actividad y rankings, administra su perfil y utiliza las herramientas de interacción con el stream. Su entrada principal es un resumen, no una herramienta concreta.
+_Avoid_: Consola, Dashboard administrativo, Panel de Control
+
 **Administrador (Admin / Owner)**:
 Usuario con permisos elevados para gestionar la plataforma. El creador principal (Owner) con email kpopxfull@gmail.com posee acceso absoluto inmutable. Los administradores pueden delegar o revocar el rol de administrador a otros Miembros Oficiales desde el Panel de Control.
 _Avoid_: Moderador, Staff, Encargado
