@@ -4,17 +4,17 @@ import { execFile } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { z } from 'zod';
 
 const exec = promisify(execFile);
 const MODEL = 'openai/gpt-5.6-sol';
 const MAX_PARALLEL = 2;
 
-const planSchema = z.object({
-  issues: z.array(
-    z.object({ id: z.string(), title: z.string(), branch: z.string() }),
-  ),
-});
+type GitHubIssue = {
+  number: number;
+  title: string;
+  body: string;
+  labels: { name: string }[];
+};
 
 const ghToken = (await exec('gh', ['auth', 'token'])).stdout.trim();
 
@@ -44,19 +44,68 @@ const hooks = {
   },
 };
 
-const plan = await sandcastle.run({
-  agent: agent(),
-  sandbox: sandboxProvider(),
-  name: 'planner',
-  maxIterations: 1,
-  promptFile: './.sandcastle/plan-prompt.md',
-  output: sandcastle.Output.object({ tag: 'plan', schema: planSchema }),
-});
+function extractBlockers(body: string) {
+  const marker = '## Blocked by';
+  const markerIndex = body.indexOf(marker);
+  if (markerIndex === -1) return [];
 
-const issues = plan.output.issues.slice(0, MAX_PARALLEL);
+  const tail = body.slice(markerIndex + marker.length);
+  const nextSectionIndex = tail.search(/\n##\s/);
+  const section =
+    nextSectionIndex === -1 ? tail : tail.slice(0, nextSectionIndex);
+  return [...section.matchAll(/#(\d+)/g)].map((match) => match[1]!);
+}
+
+const listed = await exec('gh', [
+  'issue',
+  'list',
+  '--state',
+  'open',
+  '--label',
+  'ready-for-agent',
+  '--limit',
+  '100',
+  '--json',
+  'number,title,body,labels',
+]);
+
+const candidates = (JSON.parse(listed.stdout) as GitHubIssue[])
+  .filter((issue) => !issue.labels.some((label) => label.name === 'prd'))
+  .sort((a, b) => a.number - b.number);
+
+const blockerIds = [
+  ...new Set(candidates.flatMap((issue) => extractBlockers(issue.body))),
+];
+const blockerStates = new Map<string, string>();
+
+await Promise.all(
+  blockerIds.map(async (id) => {
+    const viewed = await exec('gh', ['issue', 'view', id, '--json', 'state']);
+    blockerStates.set(id, (JSON.parse(viewed.stdout) as { state: string }).state);
+  }),
+);
+
+const issues = candidates
+  .filter((issue) =>
+    extractBlockers(issue.body).every(
+      (id) => blockerStates.get(id) === 'CLOSED',
+    ),
+  )
+  .slice(0, MAX_PARALLEL)
+  .map((issue) => ({
+    id: String(issue.number),
+    title: issue.title,
+    branch: `agent/issue-${issue.number}`,
+  }));
 
 if (issues.length === 0) {
   console.log('No hay issues ready-for-agent sin bloqueos.');
+  process.exit(0);
+}
+
+if (process.env.SANDCASTLE_DRY_RUN === '1') {
+  console.log('Dry run. Issues desbloqueados:');
+  for (const issue of issues) console.log(`  #${issue.id}: ${issue.title}`);
   process.exit(0);
 }
 
