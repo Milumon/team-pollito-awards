@@ -46,7 +46,6 @@ const hooks = {
 
 const plan = await sandcastle.run({
   agent: agent(),
-  hooks,
   sandbox: sandboxProvider(),
   name: 'planner',
   maxIterations: 1,
