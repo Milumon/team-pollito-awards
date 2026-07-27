@@ -34,7 +34,11 @@ const sandboxProvider = () =>
 const agent = () =>
   sandcastle.opencode(MODEL, {
     agent: 'build',
-    env: { GH_TOKEN: ghToken },
+    env: {
+      GH_TOKEN: ghToken,
+      PLAYWRIGHT_BROWSERS_PATH:
+        '/home/agent/workspace/node_modules/.cache/ms-playwright',
+    },
   });
 
 const hooks = {
@@ -155,7 +159,7 @@ const settled = await Promise.allSettled(
         agent: agent(),
         name: `review-${issue.id}`,
         maxIterations: 1,
-        idleTimeoutSeconds: 900,
+        idleTimeoutSeconds: 1_800,
         promptFile: './.sandcastle/review-prompt.md',
         promptArgs: {
           TASK_ID: issue.id,
