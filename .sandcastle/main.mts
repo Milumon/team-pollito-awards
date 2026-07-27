@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 const exec = promisify(execFile);
 const MODEL = 'openai/gpt-5.4';
 const MAX_PARALLEL = 2;
+const REVIEW_ONLY = process.env.SANDCASTLE_REVIEW_ONLY === '1';
 
 type GitHubIssue = {
   number: number;
@@ -39,6 +40,7 @@ const agent = () =>
 const hooks = {
   sandbox: {
     onSandboxReady: [
+      { command: 'git config core.autocrlf true' },
       {
         command:
           'pnpm install --frozen-lockfile --store-dir /home/agent/.pnpm-store',
@@ -126,21 +128,27 @@ const settled = await Promise.allSettled(
     });
 
     try {
-      const implementation = await sandbox.run({
-        agent: agent(),
-        name: `implement-${issue.id}`,
-        maxIterations: 1,
-        idleTimeoutSeconds: 1_800,
-        promptFile: './.sandcastle/implement-prompt.md',
-        promptArgs: {
-          TASK_ID: issue.id,
-          ISSUE_TITLE: issue.title,
-          BRANCH: issue.branch,
-        },
-      });
+      let implementationCommits: { sha: string }[] = [];
 
-      if (implementation.commits.length === 0) {
-        throw new Error(`El implementador de #${issue.id} no creó commits.`);
+      if (!REVIEW_ONLY) {
+        const implementation = await sandbox.run({
+          agent: agent(),
+          name: `implement-${issue.id}`,
+          maxIterations: 1,
+          idleTimeoutSeconds: 1_800,
+          promptFile: './.sandcastle/implement-prompt.md',
+          promptArgs: {
+            TASK_ID: issue.id,
+            ISSUE_TITLE: issue.title,
+            BRANCH: issue.branch,
+          },
+        });
+
+        if (implementation.commits.length === 0) {
+          throw new Error(`El implementador de #${issue.id} no creó commits.`);
+        }
+
+        implementationCommits = implementation.commits;
       }
 
       const review = await sandbox.run({
@@ -158,7 +166,7 @@ const settled = await Promise.allSettled(
 
       return {
         issue,
-        commits: [...implementation.commits, ...review.commits],
+        commits: [...implementationCommits, ...review.commits],
       };
     } finally {
       await sandbox.close();
