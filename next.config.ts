@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
         destination: '/',
         permanent: true,
       },
+      {
+        source: '/awards',
+        destination: '/premios',
+        permanent: true,
+      },
     ];
   },
 };

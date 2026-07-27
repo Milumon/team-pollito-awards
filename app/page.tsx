@@ -1698,7 +1698,7 @@ export default function ComunidadPage() {
             <span className="font-sans text-xs text-gray-400">© 2025</span>
           </div>
           <div className="flex items-center gap-6 font-sans text-sm text-gray-400">
-            <Link href="/awards" className="hover:text-[#2D3139] transition-colors">
+            <Link href="/premios" className="hover:text-[#2D3139] transition-colors">
               🏆 Pollito Awards
             </Link>
             <a href="https://discord.gg" target="_blank" rel="noopener noreferrer" className="hover:text-[#2D3139] transition-colors">Discord</a>
