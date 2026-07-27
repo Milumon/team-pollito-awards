@@ -39,7 +39,10 @@ const agent = () =>
 const hooks = {
   sandbox: {
     onSandboxReady: [
-      { command: 'pnpm install --frozen-lockfile' },
+      {
+        command:
+          'pnpm install --frozen-lockfile --store-dir /home/agent/.pnpm-store',
+      },
     ],
   },
 };
@@ -126,7 +129,8 @@ const settled = await Promise.allSettled(
       const implementation = await sandbox.run({
         agent: agent(),
         name: `implement-${issue.id}`,
-        maxIterations: 3,
+        maxIterations: 1,
+        idleTimeoutSeconds: 1_800,
         promptFile: './.sandcastle/implement-prompt.md',
         promptArgs: {
           TASK_ID: issue.id,
@@ -143,6 +147,7 @@ const settled = await Promise.allSettled(
         agent: agent(),
         name: `review-${issue.id}`,
         maxIterations: 1,
+        idleTimeoutSeconds: 900,
         promptFile: './.sandcastle/review-prompt.md',
         promptArgs: {
           TASK_ID: issue.id,
