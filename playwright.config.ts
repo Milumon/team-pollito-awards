@@ -24,10 +24,10 @@ export default defineConfig({
   ...(useWebServer
     ? {
         webServer: {
-          command: `NEXT_PUBLIC_SUPABASE_URL=${publicSupabaseUrl} NEXT_PUBLIC_SUPABASE_ANON_KEY=${publicSupabaseAnonKey} pnpm exec next dev --port ${port} --hostname 127.0.0.1`,
+          command: `NEXT_PUBLIC_SUPABASE_URL=${publicSupabaseUrl} NEXT_PUBLIC_SUPABASE_ANON_KEY=${publicSupabaseAnonKey} pnpm exec next dev --webpack --port ${port} --hostname 127.0.0.1`,
           url: `http://127.0.0.1:${port}`,
           reuseExistingServer: !process.env.CI,
-          timeout: 120_000,
+          timeout: 300_000,
         },
       }
     : {}),
