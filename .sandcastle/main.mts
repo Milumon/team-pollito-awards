@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
-const MODEL = 'openai/gpt-5.6-sol';
+const MODEL = 'openai/gpt-5.4';
 const MAX_PARALLEL = 2;
 
 type GitHubIssue = {
