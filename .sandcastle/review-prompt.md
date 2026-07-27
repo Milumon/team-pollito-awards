@@ -12,7 +12,7 @@ Revisa la implementación del issue #{{TASK_ID}} (`{{ISSUE_TITLE}}`) en `{{BRANC
 
 # Proceso
 
-1. Lee el issue, el PRD padre, ADR 0013, `CONTEXT.md`, `AGENTS.md` y `.sandcastle/CODING_STANDARDS.md`.
+1. Lee el issue con `gh issue view {{TASK_ID}} --repo Milumon/team-pollito-awards --comments`, su PRD padre, ADR 0013, `CONTEXT.md`, `AGENTS.md` y `.sandcastle/CODING_STANDARDS.md`.
 2. Busca primero regresiones, incumplimientos del issue, fallos de autorización, redirects inseguros, pérdida de estado navegable y pruebas ausentes.
 3. Verifica que no se hayan traducido contratos `/api/**` o `/overlay`, ni cambiado reglas de negocio fuera del slice.
 4. Corrige en la rama todos los hallazgos confirmados y añade o ajusta pruebas.
