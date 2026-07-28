@@ -6,6 +6,8 @@ Lee el issue completo con `gh issue view {{TASK_ID}} --repo Milumon/team-pollito
 
 El worktree puede contener cambios sin commit de un intento anterior de Sandcastle para este mismo issue. Inspecciónalos y continúa únicamente los que coincidan con sus criterios de aceptación; no los trates como trabajo ajeno ni reviertas cambios no relacionados.
 
+Si el issue migra autenticación de Supabase al servidor, usa exclusivamente el patrón oficial `@supabase/ssr`: clientes browser/server con cookies `getAll`/`setAll`, PKCE y `exchangeCodeForSession`, y `getClaims()` o `getUser()` para autorización verificada. Elimina cualquier cookie de sesión, codec, firma HMAC o secreto por defecto implementado manualmente por intentos previos.
+
 # Ejecución
 
 1. Explora el recorrido actual y construye una prueba que pueda detectar el comportamiento solicitado.

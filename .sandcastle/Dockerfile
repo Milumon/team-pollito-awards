@@ -39,6 +39,11 @@ RUN npm install -g opencode-ai@1.17.13 \
 
 RUN corepack enable && corepack prepare pnpm@10.17.1 --activate
 
+# Browser binaries stay in bind-mounted worktrees; system libraries belong in
+# the reusable sandbox image so every agent can run Playwright immediately.
+RUN npx --yes playwright@1.62.0 install-deps chromium \
+  && npm cache clean --force
+
 USER ${AGENT_UID}:${AGENT_GID}
 
 WORKDIR /home/agent
