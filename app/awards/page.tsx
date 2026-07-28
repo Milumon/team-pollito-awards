@@ -334,7 +334,9 @@ export default function LandingPage() {
       } else {
         setVotes({});
         const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
-        setScreen(isCurrentlyClosed ? 'results' : 'landing');
+        setScreen((current) =>
+          current === 'auth' ? current : isCurrentlyClosed ? 'results' : 'landing',
+        );
       }
     });
 
@@ -470,7 +472,7 @@ export default function LandingPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/awards`,
+        redirectTo: `${window.location.origin}/premios`,
       },
     });
 
