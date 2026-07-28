@@ -334,7 +334,9 @@ export default function LandingPage() {
       } else {
         setVotes({});
         const isCurrentlyClosed = new Date().getTime() >= VOTING_DEADLINE;
-        setScreen(isCurrentlyClosed ? 'results' : 'landing');
+        setScreen((current) =>
+          current === 'auth' ? current : isCurrentlyClosed ? 'results' : 'landing',
+        );
       }
     });
 

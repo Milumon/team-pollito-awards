@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/members', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/interviews/slots', (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route('**/api/testimonials', (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route('**/api/tiktok/rankings/current**', (route) =>
+    route.fulfill({ json: { batch_id: null, sets: [] } }),
+  );
   await page.route('**/api/results', (route) =>
     route.fulfill({ json: { results: [] } }),
   );
@@ -58,7 +68,7 @@ test('vuelve a /premios despues de iniciar la autenticacion', async ({ page }) =
   });
 
   await page.goto('/premios');
-  await page.getByRole('button', { name: /Inici.a sesi.n con Google/i }).click();
+  await page.getByRole('button', { name: /Inici. sesi.n con Google/i }).click();
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
   await expect.poll(() => requestedRedirectTo).toBe('http://127.0.0.1:3100/premios');

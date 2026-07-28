@@ -7,10 +7,11 @@ const publicSupabaseAnonKey = 'playwright-test-key';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: 'list',
+  timeout: 120_000,
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: 'on-first-retry',
@@ -24,7 +25,12 @@ export default defineConfig({
   ...(useWebServer
     ? {
         webServer: {
-          command: `NEXT_PUBLIC_SUPABASE_URL=${publicSupabaseUrl} NEXT_PUBLIC_SUPABASE_ANON_KEY=${publicSupabaseAnonKey} pnpm exec next dev --webpack --port ${port} --hostname 127.0.0.1`,
+          command: `pnpm exec next dev --webpack --port ${port} --hostname 127.0.0.1`,
+          env: {
+            NEXT_PUBLIC_SUPABASE_URL: publicSupabaseUrl,
+            NEXT_PUBLIC_SUPABASE_ANON_KEY: publicSupabaseAnonKey,
+            SUPABASE_SERVICE_ROLE_KEY: 'playwright-service-role-key',
+          },
           url: `http://127.0.0.1:${port}`,
           reuseExistingServer: !process.env.CI,
           timeout: 300_000,
