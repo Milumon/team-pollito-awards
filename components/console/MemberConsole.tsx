@@ -360,6 +360,7 @@ export default function MemberConsole({
 
   const warnedRealtimeRef = useRef(false);
   const loadedUserIdRef = useRef<string | null>(null);
+  const fetchSoundsRef = useRef<() => Promise<void>>(async () => {});
 
   // 1. Fetch Profile
   const fetchProfile = useCallback(async (currentSession: Session) => {
@@ -681,6 +682,8 @@ export default function MemberConsole({
     }
   };
 
+  useEffect(() => { fetchSoundsRef.current = fetchSounds; });
+
   const loadMySubmissions = useCallback(async (currentSession: Session) => {
     setLoadingMySubmissions(true);
     try {
@@ -925,7 +928,7 @@ export default function MemberConsole({
         await fetchProfile(nextSession);
         await fetchRecentEvents(nextSession);
         await fetchLeaderboards(nextSession);
-        await fetchSounds();
+        await fetchSoundsRef.current();
         await fetchStreamSettings();
         await fetchStats();
         await loadMySubmissions(nextSession);
@@ -938,7 +941,7 @@ export default function MemberConsole({
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds, fetchMedia, loadMediaSubmissions]);
+  }, [fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds, fetchMedia, loadMediaSubmissions]);
 
   // Load current audio for editing when audio editor is enabled
   useEffect(() => {
