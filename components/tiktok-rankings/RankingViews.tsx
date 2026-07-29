@@ -166,11 +166,11 @@ function RankingRows({
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
                 <p className={`truncate text-xs font-bold ${dark ? 'text-white' : publicStyle ? 'text-black' : 'text-[#2D3139]'}`}>{entry.nickname || `@${entry.display_id}`}</p>
-                {linked && <span className={publicStyle ? 'shrink-0 rounded-2xl border-3 border-black bg-[#FFD500] px-2 py-0.5 text-[8px] font-black uppercase text-black shadow-[2px_2px_0_0_#000]' : 'shrink-0 rounded-full bg-[#FFC200]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4A000]'}>Miembro</span>}
+                {linked && <span className={publicStyle ? 'shrink-0 rounded-2xl border-3 border-black bg-[#FFD500] px-2 py-0.5 text-[8px] font-black uppercase text-black shadow-[2px_2px_0_0_#000]' : 'shrink-0 rounded-full bg-[#FFC200]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4A000]'}>{publicStyle ? 'Miembro Oficial' : 'Miembro'}</span>}
               </div>
               {linked && <p className="truncate text-[10px] text-gray-500">Perfil vinculado: @{entry.profile?.roblox_user}</p>}
             </div>
-            <span className={`shrink-0 font-mono text-xs font-bold ${dark ? 'text-gray-300' : publicStyle ? 'text-black' : 'text-[#2D3139]'}`}>{formatValue(entry.value, metric)}</span>
+            <span className={`shrink-0 text-xs font-bold ${publicStyle ? "font-['Inter']" : 'font-mono'} ${dark ? 'text-gray-300' : publicStyle ? 'text-black' : 'text-[#2D3139]'}`}>{formatValue(entry.value, metric)}</span>
           </div>
         );
       })}

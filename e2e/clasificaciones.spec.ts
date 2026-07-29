@@ -143,7 +143,8 @@ test('aplica el Design DNA y la terminologia del dominio en la pagina publica', 
   await expect(firstRow).toHaveClass(/border-3/);
   await expect(firstRow).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
   await expect(firstRow.getByText('♪').locator('..')).toHaveClass(/rounded-2xl/);
-  await expect(firstRow.getByText('Miembro')).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(firstRow.getByText('Miembro Oficial')).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(firstRow.getByText('0 min', { exact: true })).toHaveCSS('font-family', /Inter/);
   await expect(secondRow).toHaveClass(/border-3/);
   await expect(secondRow).toHaveClass(/bg-white/);
   await expect(secondRow).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
@@ -208,6 +209,8 @@ test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial 
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'Top 10 de TikTok LIVE' })).toBeVisible();
+  await expect(page.getByText('Miembro', { exact: true })).toBeVisible();
+  await expect(page.getByText('Miembro Oficial', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /Ver clasificaciones completas/i })).toHaveAttribute(
     'href',
     '/clasificaciones',
