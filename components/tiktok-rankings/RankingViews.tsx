@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, Crown, Loader2, Medal, Trophy } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTikTokRankings } from './useTikTokRankings';
+import { buildPublicRankingHref, parsePublicRankingFilters } from '@/lib/publicRankingRoute';
 import {
   METRIC_LABELS,
   PERIOD_LABELS,
@@ -143,10 +145,10 @@ function RankingControls({
   const selectClass = dark ? 'border-neutral-700 bg-[#20232a] text-white' : 'border-gray-200 bg-white text-[#2D3139]';
   return (
     <div className="flex flex-wrap gap-2">
-      <select value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
+      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
         {RANKING_METRICS.map((item) => <option key={item} value={item}>{METRIC_LABELS[item]}</option>)}
       </select>
-      <select value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
+      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
         {RANKING_PERIODS.map((item) => <option key={item} value={item}>{PERIOD_LABELS[item]}</option>)}
       </select>
     </div>
@@ -173,8 +175,8 @@ export function TikTokRankingLanding() {
           </div>
           <p className="mt-1 text-sm font-semibold text-gray-500">Ranking completo; los Miembros Oficiales aparecen destacados.</p>
         </div>
-        <Link href="/console" className="inline-flex items-center gap-1 text-xs font-bold text-[#D4A000] hover:text-[#2D3139]">
-          Ver mi ranking <ArrowRight className="h-3.5 w-3.5" />
+        <Link href={buildPublicRankingHref({ metric, period })} className="inline-flex items-center gap-1 text-xs font-bold text-[#D4A000] hover:text-[#2D3139]">
+          Ver clasificaciones completas <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
@@ -252,5 +254,94 @@ export function TikTokRankingConsole({ accessToken }: { accessToken: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+export function TikTokRankingPublicPage({
+  initialMetric,
+  initialPeriod,
+}: {
+  initialMetric: RankingMetric;
+  initialPeriod: RankingPeriod;
+}) {
+  const state = useTikTokRankings(null, 500);
+  const router = useRouter();
+  const [metric, setMetric] = useState<RankingMetric>(initialMetric);
+  const [period, setPeriod] = useState<RankingPeriod>(initialPeriod);
+  const selected = findSet(state.data, metric, period);
+
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const normalized = parsePublicRankingFilters({
+        metrica: params.get('metrica'),
+        periodo: params.get('periodo'),
+      });
+
+      setMetric(normalized.metric);
+      setPeriod(normalized.period);
+    };
+
+    window.addEventListener('popstate', syncFromUrl);
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+    };
+  }, []);
+
+  const navigateToFilters = (nextMetric: RankingMetric, nextPeriod: RankingPeriod) => {
+    if (nextMetric === metric && nextPeriod === period) return;
+
+    setMetric(nextMetric);
+    setPeriod(nextPeriod);
+
+    startTransition(() => {
+      router.push(buildPublicRankingHref({ metric: nextMetric, period: nextPeriod }), {
+        scroll: false,
+      });
+    });
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f8f8f6] px-4 py-10 text-[#2D3139] sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <div className="space-y-2">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-[#D4A000]">Clasificaciones</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="font-display text-4xl font-bold tracking-tight">Clasificaciones de TikTok LIVE</h1>
+              <p className="mt-2 text-sm font-semibold text-gray-500">El ranking público completo del batch activo con filtros compartibles en español.</p>
+            </div>
+            <Link href="/" className="inline-flex items-center gap-1 text-xs font-bold text-[#D4A000] hover:text-[#2D3139]">
+              Volver a la comunidad <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-[0_4px_20px_rgba(0,0,0,.06)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <div>
+              <p className="font-display text-xs font-bold uppercase text-[#2D3139]">{METRIC_LABELS[metric]} · {PERIOD_LABELS[period]}</p>
+              <p className="mt-1 text-[10px] text-gray-400">
+                Actualizado {formatDate(state.data?.captured_at)} · Ventana: {formatWindow(selected)}
+              </p>
+            </div>
+            <RankingControls
+              metric={metric}
+              period={period}
+              onMetric={(nextMetric) => navigateToFilters(nextMetric, period)}
+              onPeriod={(nextPeriod) => navigateToFilters(metric, nextPeriod)}
+            />
+          </div>
+
+          {state.loading || state.error || !state.data?.batch_id ? (
+            <StatusState state={state} />
+          ) : !selected || selected.entries.length === 0 ? (
+            <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." />
+          ) : (
+            <RankingRows entries={selected.entries} metric={metric} />
+          )}
+        </section>
+      </div>
+    </main>
   );
 }
