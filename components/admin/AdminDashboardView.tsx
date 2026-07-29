@@ -106,7 +106,7 @@ export function AdminDashboardView() {
           </div>
         </section>
         <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
-          <h2 className="mb-4 font-display text-lg font-semibold text-white">Top usuarios</h2>
+          <h2 className="mb-4 font-display text-lg font-semibold text-white">Miembros más activos</h2>
           <div className="space-y-2">
             {(dashboard?.topUsers ?? []).map((user, index) => (
               <div key={user.userId} className="flex items-center gap-3 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
@@ -151,11 +151,11 @@ export function AdminDashboardView() {
         <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
           <h2 className="mb-4 font-display text-base font-semibold text-white">Acciones pendientes</h2>
           <div className="space-y-2">
-            <Link href="/admin/operaciones?seccion=applications" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+            <Link href="/admin/operaciones?seccion=postulaciones" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
               <span>Postulaciones por revisar</span>
               <span className="font-mono font-black text-[#FFC200]">{summary?.pendingApplications ?? 0}</span>
             </Link>
-            <Link href="/admin/operaciones?seccion=media-submissions" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+            <Link href="/admin/operaciones?seccion=multimedia" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
               <span>Envíos por moderar</span>
               <span className="font-mono font-black text-[#FFC200]">{summary?.pendingUploads ?? 0}</span>
             </Link>

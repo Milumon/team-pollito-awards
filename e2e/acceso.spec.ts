@@ -679,7 +679,7 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
   await expect(page.getByText('Uploads pendientes')).toHaveCount(0);
 
   await page.getByRole('link', { name: /Postulaciones por revisar/ }).click();
-  await expect(page).toHaveURL('/admin/operaciones?seccion=applications');
+  await expect(page).toHaveURL('/admin/operaciones?seccion=postulaciones');
   await expect(page.getByRole('heading', { name: 'Postulaciones Pendientes' })).toBeVisible();
 });
 

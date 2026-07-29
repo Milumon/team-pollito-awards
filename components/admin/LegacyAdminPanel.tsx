@@ -328,7 +328,9 @@ export default function LegacyAdminPanel() {
   // Tabs
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>(() => {
     const section = searchParams.get('seccion');
-    return section === 'applications' || section === 'media-submissions' ? section : 'dashboard';
+    if (section === 'postulaciones') return 'applications';
+    if (section === 'multimedia') return 'media-submissions';
+    return 'dashboard';
   });
 
   // Slots & Stats
