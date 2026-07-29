@@ -18,7 +18,7 @@ export default async function AdminLayout({
   const session = await getServerSession();
 
   if (!session) {
-    redirect(buildAccessPath('/admin'));
+    redirect(buildAccessPath('/admin/inicio'));
   }
 
   if (!session.isAdmin) {

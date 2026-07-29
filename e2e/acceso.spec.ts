@@ -362,6 +362,18 @@ async function mockAdminApis(page: Page) {
     votes: [],
   };
 
+  await page.route('**/api/stream/settings', async (route) => {
+    await route.fulfill({
+      json: {
+        id: 1,
+        is_muted: false,
+        global_cooldown_seconds: 30,
+        personal_cooldown_seconds: 300,
+        overlay_active_at: null,
+      },
+    });
+  });
+
   await page.route('**/api/admin/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -820,14 +832,48 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 });
 
-test('mantiene accesibles las operaciones Admin pendientes de migracion', async ({ page }) => {
-  await signInAsAdmin(page, '/admin/inicio');
-  await page.getByRole('link', { name: 'Otras operaciones' }).click();
+const streamAdminRoutes = [
+  { path: '/admin/transmision', link: 'Transmisión', heading: 'Cooldowns del Stream' },
+  { path: '/admin/overlay', link: 'Overlay', heading: 'Diseñador del Pop-up en Vivo' },
+  { path: '/admin/sonidos', link: 'Sonidos', heading: 'Banco' },
+  { path: '/admin/multimedia', link: 'Multimedia', heading: 'Media de Usuarios' },
+  {
+    path: '/admin/estado-transmision',
+    link: 'Estado de transmisión',
+    heading: 'Estado del Stream',
+  },
+] as const;
 
-  await expect(page).toHaveURL('/admin/operaciones');
-  await expect(page.getByRole('link', { name: /Postulaciones$/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
+test('recorre las operaciones de stream Admin mediante rutas canonicas', async ({ page }) => {
+  await signInAsAdmin(page, streamAdminRoutes[0].path);
+
+  for (const route of streamAdminRoutes) {
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: route.link, exact: true }).first()).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(page.getByRole('button', { name: route.link, exact: true })).toHaveCount(0);
+
+    await page.reload();
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading }).first()).toBeVisible();
+
+    const nextRoute = streamAdminRoutes[(streamAdminRoutes.indexOf(route) + 1) % streamAdminRoutes.length];
+    await page.getByRole('link', { name: nextRoute.link, exact: true }).first().click();
+  }
+
+  await page.goBack();
+  await expect(page).toHaveURL('/admin/multimedia');
+  await page.goForward();
+  await expect(page).toHaveURL('/admin/estado-transmision');
+});
+
+test('redirige la agrupacion Admin transitoria a Transmisión', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/operaciones');
+
+  await expect(page).toHaveURL('/admin/transmision');
 });
 
 const communityAdminRoutes = [

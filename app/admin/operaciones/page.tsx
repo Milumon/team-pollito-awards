@@ -1,5 +1,5 @@
-import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
+import { redirect } from 'next/navigation';
 
 export default function LegacyAdminOperationsPage() {
-  return <LegacyAdminPanel />;
+  redirect('/admin/transmision');
 }
