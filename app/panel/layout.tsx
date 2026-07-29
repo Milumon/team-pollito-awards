@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { forbidden, redirect } from 'next/navigation';
 
 import { buildAccessPath } from '@/lib/authRouting';
+import { getPrivateReturnPath } from '@/lib/serverAuthRouting';
 import { getServerSession } from '@/lib/serverSession';
 import MemberConsole from '@/components/console/MemberConsole';
 
@@ -15,10 +16,13 @@ export const metadata: Metadata = {
 export default async function MemberPanelLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await getServerSession();
+  const [session, returnPath] = await Promise.all([
+    getServerSession(),
+    getPrivateReturnPath('/panel'),
+  ]);
 
   if (!session) {
-    redirect(buildAccessPath('/panel'));
+    redirect(buildAccessPath(returnPath));
   }
 
   if (session.linkStatus !== 'approved') {

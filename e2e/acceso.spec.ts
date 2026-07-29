@@ -43,11 +43,28 @@ const authFixtures = {
       link_status: 'pending',
     },
   },
+  'refresh-code': {
+    accessToken: 'expired-access-token',
+    refreshToken: 'refreshable-refresh-token',
+    user: {
+      id: 'refresh-user-1',
+      email: 'refresh@test.dev',
+    },
+    profile: {
+      is_admin: false,
+      link_status: 'approved',
+    },
+  },
 } as const;
 
 const authByAccessToken = new Map<string, (typeof authFixtures)[keyof typeof authFixtures]>(
   Object.values(authFixtures).map((fixture) => [fixture.accessToken, fixture]),
 );
+const rejectedAccessTokens = new Set<string>();
+const refreshedAccessToken = 'refreshed-access-token';
+authByAccessToken.delete(authFixtures['refresh-code'].accessToken);
+authByAccessToken.set(refreshedAccessToken, authFixtures['refresh-code']);
+let refreshRequestCount = 0;
 
 let supabaseMockServer: Awaited<ReturnType<typeof startSupabaseMockServer>> | null = null;
 
@@ -68,11 +85,13 @@ async function startSupabaseMockServer() {
       const returnPath = new URL(redirectTo).searchParams.get('retorno') || '/';
       const code = returnPath.includes('estado=pendiente')
         ? 'pending-code'
-        : returnPath.includes('rol=miembro')
-          ? 'member-code'
-          : returnPath.startsWith('/admin')
-            ? 'admin-code'
-            : 'member-code';
+        : returnPath.includes('sesion=expirada')
+          ? 'refresh-code'
+          : returnPath.includes('rol=miembro')
+            ? 'member-code'
+            : returnPath.startsWith('/admin')
+              ? 'admin-code'
+              : 'member-code';
       const location = new URL(redirectTo);
       location.searchParams.set('code', code);
 
@@ -96,6 +115,7 @@ async function startSupabaseMockServer() {
         : Object.fromEntries(new URLSearchParams(body));
       const code = params.auth_code;
       const refreshToken = params.refresh_token;
+      const isRefresh = Boolean(refreshToken);
       const fixture =
         (code && authFixtures[code as keyof typeof authFixtures]) ||
         [...authByAccessToken.values()].find((candidate) => candidate.refreshToken === refreshToken);
@@ -106,13 +126,23 @@ async function startSupabaseMockServer() {
         return;
       }
 
+      if (isRefresh) {
+        refreshRequestCount += 1;
+      }
+
+      const expiresIn = code === 'refresh-code' ? -60 : 3600;
+      const accessToken =
+        isRefresh && fixture === authFixtures['refresh-code']
+          ? refreshedAccessToken
+          : fixture.accessToken;
+
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(
         JSON.stringify({
-          access_token: fixture.accessToken,
+          access_token: accessToken,
           refresh_token: fixture.refreshToken,
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          expires_in: expiresIn,
+          expires_at: Math.floor(Date.now() / 1000) + expiresIn,
           token_type: 'bearer',
           user: {
             id: fixture.user.id,
@@ -132,7 +162,9 @@ async function startSupabaseMockServer() {
       const token = authorization?.startsWith('Bearer ')
         ? authorization.slice('Bearer '.length)
         : null;
-      const fixture = token ? authByAccessToken.get(token) : null;
+      const fixture = token && !rejectedAccessTokens.has(token)
+        ? authByAccessToken.get(token)
+        : null;
 
       if (!fixture) {
         response.writeHead(401, { 'content-type': 'application/json' });
@@ -397,6 +429,54 @@ test('protege las rutas futuras de /panel preservando la ruta y sus parametros',
   );
 });
 
+test('el layout conserva el retorno exacto cuando una cookie optimista no verifica', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  await expect(page).toHaveURL('/panel/sonidos');
+
+  rejectedAccessTokens.add(authFixtures['member-code'].accessToken);
+  await context.setExtraHTTPHeaders({
+    'x-team-pollito-return-path': '/admin',
+  });
+
+  try {
+    await page.goto('/console?vista=sonidos&orden=recientes');
+
+    await expect(page).toHaveURL(
+      '/acceso?retorno=%2Fconsole%3Fvista%3Dsonidos%26orden%3Drecientes',
+    );
+  } finally {
+    rejectedAccessTokens.delete(authFixtures['member-code'].accessToken);
+  }
+});
+
+test('Proxy propaga al navegador y al layout las cookies de una sesion refrescada', async ({
+  page,
+}) => {
+  await mockConsoleApis(page);
+  refreshRequestCount = 0;
+
+  await page.goto('/acceso?retorno=%2Fconsole%3Fsesion%3Dexpirada');
+  const privateResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().resourceType() === 'document' &&
+      response.url().endsWith('/console?sesion=expirada')
+    );
+  });
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const privateResponse = await privateResponsePromise;
+
+  expect(refreshRequestCount).toBe(1);
+  expect((await privateResponse.headerValues('set-cookie')).join(';')).toContain(
+    'sb-127-auth-token',
+  );
+  await expect(page).toHaveURL('/console?sesion=expirada');
+  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+});
+
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
   let requestedRedirectTo: string | null = null;
 
@@ -545,6 +625,23 @@ test('ofrece navegación móvil con la URL como estado activo', async ({ page })
 
   await expect(page).toHaveURL('/panel/inicio');
   await expect(mobileNavigation.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('un Miembro Oficial conserva /panel con query al recargar y usar el historial', async ({
+  page,
+}) => {
+  const panelPath = '/panel/sonidos?categoria=memes';
+
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fcategoria%3Dmemes');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL(panelPath);
+  await page.reload();
+  await expect(page).toHaveURL(panelPath);
+
+  await page.goto('/ruta-publica-inexistente');
+  await page.goBack();
+  await expect(page).toHaveURL(panelPath);
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {
