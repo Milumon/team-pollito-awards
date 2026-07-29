@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { forbidden, redirect } from 'next/navigation';
 
 import { buildAccessPath } from '@/lib/authRouting';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { getServerSession } from '@/lib/serverSession';
 
 export const metadata: Metadata = {
@@ -24,5 +25,9 @@ export default async function AdminLayout({
     forbidden();
   }
 
-  return children;
+  return (
+    <AdminShell adminEmail={session.user.email || 'Administrador'}>
+      {children}
+    </AdminShell>
+  );
 }

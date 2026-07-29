@@ -329,6 +329,39 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
 }
 
 async function mockAdminApis(page: Page) {
+  const targetUser = {
+    id: 'user-1',
+    email: 'miembro@test.dev',
+    createdAt: new Date(0).toISOString(),
+    lastSignInAt: new Date(0).toISOString(),
+    hasVerifiedRoblox: true,
+    robloxUser: 'PollitoVIP',
+    robloxDisplayName: 'Pollito VIP',
+    robloxAvatarUrl: null,
+    robloxVerifiedAt: new Date(0).toISOString(),
+    tiktokUser: 'pollitovip',
+    linkStatus: 'approved',
+    rejectionReason: null,
+    votedCount: 0,
+    totalCategories: 0,
+    votedPercentage: 0,
+    isAdmin: false,
+    soundboardDisabled: false,
+    permUploadImages: true,
+    permUploadVideos: true,
+    permUploadAudio: true,
+    permTtsText: true,
+    permTtsRecord: true,
+    permEditNickname: true,
+    permTriggerSounds: true,
+    permTriggerMedia: true,
+    permTriggerAnimations: true,
+    permEditSounds: true,
+    testimonial: null,
+    testimonialApproved: false,
+    votes: [],
+  };
+
   await page.route('**/api/admin/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -356,7 +389,7 @@ async function mockAdminApis(page: Page) {
       await route.fulfill({
         json: {
           summary: { totalUsers: 1, verifiedUsers: 1, totalVotes: 0, completedVoters: 0 },
-          users: [],
+          users: [targetUser],
           categoryStats: [],
         },
       });
@@ -409,6 +442,12 @@ async function mockAdminApis(page: Page) {
 
     await route.fulfill({ json: {} });
   });
+}
+
+async function signInAsAdmin(page: Page, returnPath: string) {
+  await mockAdminApis(page);
+  await page.goto(`/acceso?retorno=${encodeURIComponent(returnPath)}`);
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
 }
 
 test('redirige al visitante desde una ruta privada hacia /acceso preservando el retorno', async ({
@@ -775,11 +814,193 @@ test('responde 403 a un usuario autenticado sin rol Admin en /admin', async ({ p
 });
 
 test('permite que un Administrador retome /admin tras pasar por /acceso', async ({ page }) => {
-  await mockAdminApis(page);
+  await signInAsAdmin(page, '/admin');
 
-  await page.goto('/acceso?retorno=%2Fadmin');
-  await page.getByRole('button', { name: /Continuar con Google/i }).click();
-
-  await expect(page).toHaveURL('/admin');
+  await expect(page).toHaveURL('/admin/inicio');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+});
+
+test('mantiene accesibles las operaciones Admin pendientes de migracion', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/inicio');
+  await page.getByRole('link', { name: 'Otras operaciones' }).click();
+
+  await expect(page).toHaveURL('/admin/operaciones');
+  await expect(page.getByRole('link', { name: /Postulaciones$/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
+});
+
+const communityAdminRoutes = [
+  {
+    path: '/admin/postulaciones',
+    link: 'Postulaciones',
+    heading: 'Postulaciones Pendientes',
+    nextPath: '/admin/testimonios',
+    nextLink: 'Testimonios',
+    nextHeading: 'Opiniones de la Comunidad',
+  },
+  {
+    path: '/admin/testimonios',
+    link: 'Testimonios',
+    heading: 'Opiniones de la Comunidad',
+    nextPath: '/admin/clasificaciones',
+    nextLink: 'Clasificaciones',
+    nextHeading: 'Rankings TikTok',
+  },
+  {
+    path: '/admin/clasificaciones',
+    link: 'Clasificaciones',
+    heading: 'Rankings TikTok',
+    nextPath: '/admin/agenda',
+    nextLink: 'Agenda',
+    nextHeading: 'Crear Horario',
+  },
+  {
+    path: '/admin/agenda',
+    link: 'Agenda',
+    heading: 'Crear Horario',
+    nextPath: '/admin/nominados',
+    nextLink: 'Nominados',
+    nextHeading: 'Nominados Registrados',
+  },
+  {
+    path: '/admin/nominados',
+    link: 'Nominados',
+    heading: 'Nominados Registrados',
+    nextPath: '/admin/votos',
+    nextLink: 'Votos',
+    nextHeading: 'Resultados Parciales',
+  },
+  {
+    path: '/admin/votos',
+    link: 'Votos',
+    heading: 'Resultados Parciales',
+    nextPath: '/admin/postulaciones',
+    nextLink: 'Postulaciones',
+    nextHeading: 'Postulaciones Pendientes',
+  },
+] as const;
+
+for (const route of communityAdminRoutes) {
+  test(`conserva deep link y transicion de ${route.link}`, async ({ page }) => {
+    await signInAsAdmin(page, route.path);
+
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+    await expect(page.getByRole('link', { name: route.link, exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await page.reload();
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+
+    await page.getByRole('link', { name: route.nextLink, exact: true }).click();
+    await expect(page).toHaveURL(route.nextPath);
+    await expect(page.getByRole('heading', { name: route.nextHeading })).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(route.nextPath);
+  });
+}
+
+test('expone las operaciones comunitarias en la navegacion movil', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/postulaciones');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Menu' }).click();
+  const mobileNavigation = page.getByRole('complementary', {
+    name: 'Navegación móvil del Panel de Control',
+  });
+
+  for (const route of communityAdminRoutes) {
+    await expect(
+      mobileNavigation.getByRole('link', { name: route.link, exact: true }),
+    ).toBeVisible();
+  }
+  await expect(
+    mobileNavigation.getByRole('link', { name: 'Postulaciones', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
+
+  await mobileNavigation.getByRole('link', { name: 'Agenda', exact: true }).click();
+  await expect(page).toHaveURL('/admin/agenda');
+  await expect(page.getByRole('heading', { name: 'Crear Horario' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Navegación móvil del Panel de Control' })
+      .getByRole('link', { name: 'Agenda', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
+});
+
+test('conserva la busqueda de Usuarios en la URL al recargar', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).fill('Pollito');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).press('Enter');
+
+  await expect(page).toHaveURL('/admin/usuarios?busqueda=Pollito');
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Buscar usuarios' })).toHaveValue('Pollito');
+  await expect(page.getByRole('link', { name: 'Editar Pollito VIP' })).toBeVisible();
+});
+
+test('abre el editor de usuario como pagina directa sin confundir identidades', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios/user-1');
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+  await expect(page.getByText('miembro@test.dev')).toBeVisible();
+  await expect(page.getByText('admin@test.dev')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.reload();
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('intercepta el editor desde Usuarios y respeta cierre e historial', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios');
+  await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Cerrar editor' }).click();
+  await expect(page).toHaveURL('/admin/usuarios');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.goForward();
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL('/admin/usuarios');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('responde 403 server-side a un Miembro Oficial en una ruta Admin anidada', async ({ page }) => {
+  await page.goto('/acceso?retorno=%2Fadmin%2Fusuarios%3Frol%3Dmiembro');
+  const responsePromise = page.waitForResponse((response) =>
+    response.request().resourceType() === 'document' &&
+    response.url().endsWith('/admin/usuarios?rol=miembro'),
+  );
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const response = await responsePromise;
+
+  expect(response.status()).toBe(403);
+  await expect(page.getByRole('heading', { name: /ACCESO RESTRINGIDO/i })).toBeVisible();
 });
