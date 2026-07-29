@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 
+import { requireMemberAccess } from '@/lib/memberPanelAuth';
+
 type SoundsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
@@ -7,7 +9,10 @@ type SoundsPageProps = {
 const SOUND_TYPES = new Set(['audios', 'multimedia', 'videos']);
 
 export default async function MemberPanelSoundsPage({ searchParams }: SoundsPageProps) {
-  const values = await searchParams;
+  const [, values] = await Promise.all([
+    requireMemberAccess('/panel/sonidos'),
+    searchParams,
+  ]);
   const requestedType = values.tipo;
 
   if (requestedType !== undefined && (typeof requestedType !== 'string' || !SOUND_TYPES.has(requestedType))) {

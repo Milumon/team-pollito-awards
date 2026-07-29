@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
+import { cache } from 'react';
 
 import { PRIVATE_RETURN_PATH_HEADER } from './serverAuthRouting';
 
@@ -52,7 +53,7 @@ async function buildServerSession(
   } satisfies ServerSession;
 }
 
-export async function getServerSession() {
+export const getServerSession = cache(async () => {
   const cookieStore = await cookies();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -78,7 +79,7 @@ export async function getServerSession() {
   }
 
   return buildServerSession(supabase, user);
-}
+});
 
 export function createRouteHandlerSupabaseClient(
   request: NextRequest,
