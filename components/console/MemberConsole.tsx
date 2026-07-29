@@ -184,9 +184,14 @@ type SoundType = 'audios' | 'multimedia' | 'videos';
 
 const PANEL_TABS = [
   { id: 'dashboard' as const, label: 'Inicio', icon: LayoutDashboard, href: '/panel/inicio' },
+  { id: 'rankings' as const, label: 'Clasificaciones', icon: Trophy, href: '/panel/clasificaciones' },
   { id: 'sounds' as const, label: 'Sonidos', icon: Volume2, href: '/panel/sonidos' },
   { id: 'tts' as const, label: 'Voz', icon: Send, href: '/panel/voz?modo=texto' },
   { id: 'animations' as const, label: 'Efectos', icon: Sparkles, href: '/panel/efectos' },
+  { id: 'feed' as const, label: 'Actividad', icon: Activity, href: '/panel/actividad' },
+  { id: 'nickname' as const, label: 'Perfil', icon: User, href: '/panel/perfil' },
+  { id: 'settings' as const, label: 'Ajustes', icon: Settings, href: '/panel/ajustes' },
+  { id: 'help' as const, label: 'Ayuda', icon: HelpCircle, href: '/panel/ayuda' },
 ];
 
 const CONSOLE_TABS = [
@@ -348,11 +353,21 @@ export default function MemberConsole({
   const routedTab: ConsoleTab =
     pathname === '/panel/inicio'
       ? 'dashboard'
+      : pathname === '/panel/clasificaciones'
+        ? 'rankings'
       : pathname === '/panel/voz'
         ? 'tts'
-        : pathname === '/panel/efectos'
-          ? 'animations'
-          : 'sounds';
+      : pathname === '/panel/efectos'
+        ? 'animations'
+      : pathname === '/panel/actividad'
+        ? 'feed'
+      : pathname === '/panel/perfil'
+        ? 'nickname'
+      : pathname === '/panel/ajustes'
+        ? 'settings'
+      : pathname === '/panel/ayuda'
+        ? 'help'
+      : 'sounds';
   const requestedSoundType = searchParams.get('tipo');
   const routedSoundType: SoundType =
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
@@ -2280,7 +2295,7 @@ export default function MemberConsole({
       </div>
 
       {/* ----------------- MOBILE BOTTOM NAV BAR ----------------- */}
-      <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-around z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
+      <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-start overflow-x-auto z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
         {(panelMode ? PANEL_TABS : [
           { id: 'sounds', label: 'Sonidos', icon: Volume2 },
           { id: 'rankings', label: 'Ranking', icon: Trophy },
@@ -2303,7 +2318,7 @@ export default function MemberConsole({
                   setActiveTab(tab.id);
                 }
               }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
+              className={`flex shrink-0 flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
                 isActive
                   ? 'text-[#FFC200] font-semibold'
                   : 'text-gray-500 font-bold'

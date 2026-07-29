@@ -296,6 +296,20 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
   await page.route('**/api/console/media/my-submissions', async (route) => {
     await route.fulfill({ json: { submissions: [] } });
   });
+
+  await page.route('**/api/tiktok/rankings/current**', async (route) => {
+    await route.fulfill({
+      json: {
+        batch_id: null,
+        captured_at: null,
+        sets: [],
+      },
+    });
+  });
+
+  await page.route('**/api/tiktok/rankings?**', async (route) => {
+    await route.fulfill({ json: { history: [] } });
+  });
 }
 
 async function mockAdminApis(page: Page) {
@@ -630,6 +644,69 @@ test('ofrece navegación móvil con la URL como estado activo', async ({ page })
   await mobileNavigation.getByRole('link', { name: 'Efectos' }).click();
   await expect(page).toHaveURL('/panel/efectos');
   await expect(mobileNavigation.getByRole('link', { name: 'Efectos' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('completa el Panel del Miembro con paridad, recarga e historial', async ({ page }) => {
+  await mockConsoleApis(page);
+  await page.goto('/acceso?retorno=%2Fpanel%2Fclasificaciones');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  const desktopNavigation = page.locator('aside').getByText('Navegación').locator('..');
+  await expect(page).toHaveURL('/panel/clasificaciones');
+  await expect(page.getByRole('heading', { name: 'Rankings de TikTok LIVE' })).toBeVisible();
+  await expect(desktopNavigation.getByRole('link', { name: 'Clasificaciones' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+
+  await desktopNavigation.getByRole('link', { name: 'Actividad' }).click();
+  await expect(page).toHaveURL('/panel/actividad');
+  await expect(page.getByRole('heading', { name: 'Top de la Semana' })).toBeVisible();
+
+  await desktopNavigation.getByRole('link', { name: 'Perfil' }).click();
+  await expect(page).toHaveURL('/panel/perfil');
+  await expect(page.getByRole('heading', { name: 'Cambiar mi Nickname' })).toBeVisible();
+  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
+  await expect(page.getByText('🐣 NuevoPollito 🐣')).toBeVisible();
+
+  await desktopNavigation.getByRole('link', { name: 'Ajustes' }).click();
+  await expect(page).toHaveURL('/panel/ajustes');
+  await expect(page.getByRole('heading', { name: 'Configuración de Cuenta' })).toBeVisible();
+  const spamGuard = page.getByRole('checkbox', { name: /Confirmar antes/i });
+  await spamGuard.uncheck();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('confirmSpamGuard'))).toBe('false');
+
+  await desktopNavigation.getByRole('link', { name: 'Ayuda' }).click();
+  await expect(page).toHaveURL('/panel/ayuda');
+  await expect(page.getByRole('heading', { name: 'Preguntas Frecuentes' })).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL('/panel/ayuda');
+  await expect(desktopNavigation.getByRole('link', { name: 'Ayuda' })).toHaveAttribute('aria-current', 'page');
+
+  await page.goBack();
+  await expect(page).toHaveURL('/panel/ajustes');
+  await expect(spamGuard).not.toBeChecked();
+  await page.goForward();
+  await expect(page).toHaveURL('/panel/ayuda');
+});
+
+test('expone todas las rutas del Panel del Miembro en navegación móvil', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockConsoleApis(page);
+  await page.goto('/acceso?retorno=%2Fpanel%2Fperfil');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  const mobileNavigation = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Inicio' }) });
+  await expect(mobileNavigation.getByRole('link', { name: 'Perfil' })).toHaveAttribute('aria-current', 'page');
+
+  for (const [name, path] of [
+    ['Clasificaciones', '/panel/clasificaciones'],
+    ['Actividad', '/panel/actividad'],
+    ['Ajustes', '/panel/ajustes'],
+    ['Ayuda', '/panel/ayuda'],
+  ] as const) {
+    await mobileNavigation.getByRole('link', { name }).click();
+    await expect(page).toHaveURL(path);
+    await expect(mobileNavigation.getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
+  }
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {
