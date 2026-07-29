@@ -54,10 +54,39 @@ export function buildPublicRankingHref(filters: {
   metric: RankingMetric;
   period: RankingPeriod;
 }) {
+  if (
+    filters.metric === DEFAULT_PUBLIC_RANKING_METRIC
+    && filters.period === DEFAULT_PUBLIC_RANKING_PERIOD
+  ) {
+    return '/clasificaciones';
+  }
+
   const params = new URLSearchParams({
     metrica: INTERNAL_TO_PUBLIC_METRIC[filters.metric],
     periodo: INTERNAL_TO_PUBLIC_PERIOD[filters.period],
   });
 
   return `/clasificaciones?${params.toString()}`;
+}
+
+export function resolvePublicRankingRoute(params: {
+  [key: string]: string | string[] | undefined;
+}) {
+  const metrica = firstSearchParam(params.metrica);
+  const periodo = firstSearchParam(params.periodo);
+  const filters = parsePublicRankingFilters({ metrica, periodo });
+  const expectedHref = buildPublicRankingHref(filters);
+  const keys = Object.keys(params);
+  const isBareCanonical = keys.length === 0;
+  const isNormalizedFilteredVariant = expectedHref !== '/clasificaciones'
+    && keys.length === 2
+    && !Array.isArray(params.metrica)
+    && !Array.isArray(params.periodo)
+    && metrica === filters.metrica
+    && periodo === filters.periodo;
+
+  return {
+    filters,
+    redirectHref: isBareCanonical || isNormalizedFilteredVariant ? null : expectedHref,
+  };
 }

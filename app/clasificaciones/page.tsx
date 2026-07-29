@@ -2,11 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { TikTokRankingPublicPage } from '@/components/tiktok-rankings/RankingViews';
-import {
-  buildPublicRankingHref,
-  firstSearchParam,
-  parsePublicRankingFilters,
-} from '@/lib/publicRankingRoute';
+import { resolvePublicRankingRoute } from '@/lib/publicRankingRoute';
 
 export const metadata: Metadata = {
   title: 'Clasificaciones de TikTok LIVE | Team Pollito',
@@ -34,28 +30,11 @@ type ClasificacionesPageProps = {
 
 export default async function ClasificacionesPage({ searchParams }: ClasificacionesPageProps) {
   const params = await searchParams;
-  const normalized = parsePublicRankingFilters({
-    metrica: firstSearchParam(params.metrica),
-    periodo: firstSearchParam(params.periodo),
-  });
-  const expectedHref = buildPublicRankingHref(normalized);
-  const hasUnexpectedParams = Object.keys(params).some((key) => key !== 'metrica' && key !== 'periodo');
-  const hasRepeatedParams = Array.isArray(params.metrica) || Array.isArray(params.periodo);
+  const { redirectHref } = resolvePublicRankingRoute(params);
 
-  if (
-    firstSearchParam(params.metrica) !== normalized.metrica
-    || firstSearchParam(params.periodo) !== normalized.periodo
-    || hasUnexpectedParams
-    || hasRepeatedParams
-  ) {
-    redirect(expectedHref);
+  if (redirectHref) {
+    redirect(redirectHref);
   }
 
-  return (
-    <TikTokRankingPublicPage
-      key={`${normalized.metric}-${normalized.period}`}
-      initialMetric={normalized.metric}
-      initialPeriod={normalized.period}
-    />
-  );
+  return <TikTokRankingPublicPage />;
 }

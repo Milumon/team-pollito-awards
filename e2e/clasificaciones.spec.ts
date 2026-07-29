@@ -4,7 +4,7 @@ const metricOrder = ['viewers', 'gifts'] as const;
 const periodOrder = ['last_live', '7_days', '28_days', '60_days'] as const;
 const canonicalHref = 'https://teampollito.milumon.dev/clasificaciones';
 const publicFilterUrls = [
-  '/clasificaciones?metrica=espectadores&periodo=ultimo-live',
+  '/clasificaciones',
   '/clasificaciones?metrica=espectadores&periodo=7-dias',
   '/clasificaciones?metrica=espectadores&periodo=28-dias',
   '/clasificaciones?metrica=espectadores&periodo=60-dias',
@@ -89,12 +89,26 @@ test('publica /clasificaciones con filtros URL compartibles y canonical fija', a
   await expect(page.getByText('Regalos · 7 días')).toBeVisible();
 });
 
-test('normaliza parametros ausentes o invalidos a una URL coherente y segura', async ({ page }) => {
+test('sirve la canonical con defaults seguros sin redirigir y conserva la URL al recargar', async ({ page, request }) => {
+  const response = await request.get('/clasificaciones', { maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  expect(response.headers().location).toBeUndefined();
+
   await page.goto('/clasificaciones');
-  await expect(page).toHaveURL('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
+  await expect(page).toHaveURL('/clasificaciones');
+  await expect(page.getByText('Espectadores · Último live')).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL('/clasificaciones');
+  await expect(page.getByText('Espectadores · Último live')).toBeVisible();
+});
+
+test('normaliza parametros invalidos o repetidos a una URL coherente y segura', async ({ page }) => {
+  await page.goto('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
+  await expect(page).toHaveURL('/clasificaciones');
 
   await page.goto('/clasificaciones?metrica=invalida&periodo=999-dias');
-  await expect(page).toHaveURL('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
+  await expect(page).toHaveURL('/clasificaciones');
   await expect(page.getByText('Espectadores · Último live')).toBeVisible();
 
   await page.goto('/clasificaciones?metrica=regalos&metrica=espectadores&periodo=7-dias');
@@ -112,19 +126,29 @@ test('declara canonical fija en todas las variantes filtradas', async ({ page })
   }
 });
 
+test('aplica el Design DNA y la terminologia del dominio en la pagina publica', async ({ page }) => {
+  await page.goto('/clasificaciones');
+
+  const card = page.locator('main section');
+  await expect(card).toHaveClass(/border-3/);
+  await expect(card).toHaveClass(/brutalist-shadow/);
+  await expect(page.getByText('Clasificaciones', { exact: true })).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(page.getByText('Snapshot de Ranking publicado', { exact: false })).toBeVisible();
+});
+
 test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial navegable', async ({ page }) => {
   await page.goto('/');
 
   await expect(page.getByRole('heading', { name: 'Top 10 de TikTok LIVE' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Ver clasificaciones completas/i })).toHaveAttribute(
     'href',
-    '/clasificaciones?metrica=espectadores&periodo=ultimo-live',
+    '/clasificaciones',
   );
   await expect(page.getByText('Usuario 10')).toBeVisible();
   await expect(page.getByText('Usuario 11')).toHaveCount(0);
 
   await page.getByRole('link', { name: /Ver clasificaciones completas/i }).click();
-  await expect(page).toHaveURL('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
+  await expect(page).toHaveURL('/clasificaciones');
   await expect(page.getByText('Usuario 11')).toBeVisible();
 
   await page.getByLabel('Métrica de clasificación').selectOption('gifts');
@@ -138,6 +162,14 @@ test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial 
   await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=ultimo-live');
   await expect(page.getByText('Regalos · Último live')).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', canonicalHref);
+
+  await page.goBack();
+  await expect(page).toHaveURL('/clasificaciones');
+  await expect(page.getByText('Espectadores · Último live')).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=ultimo-live');
+  await expect(page.getByText('Regalos · Último live')).toBeVisible();
 
   await page.goForward();
   await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=28-dias');
