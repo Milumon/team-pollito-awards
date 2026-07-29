@@ -29,6 +29,7 @@ export async function proxy(request: NextRequest) {
   const loginUrl = new URL(buildAccessPath(returnPath), request.url);
   const redirectResponse = NextResponse.redirect(loginUrl);
   response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  redirectResponse.headers.set('Cache-Control', 'private, no-store');
   return redirectResponse;
 }
 

@@ -441,6 +441,43 @@ test('bloquea retornos externos al iniciar autenticación', async ({ page }) => 
   );
 });
 
+test('bloquea retornos malformados al iniciar autenticación', async ({ page }) => {
+  let requestedRedirectTo: string | null = null;
+
+  await page.route(`${supabaseUrl}/auth/v1/authorize**`, async (route) => {
+    requestedRedirectTo = new URL(route.request().url()).searchParams.get('redirect_to');
+
+    await route.fulfill({
+      status: 302,
+      headers: {
+        location: requestedRedirectTo ?? `${baseUrl}/api/auth/callback?retorno=%2F`,
+      },
+    });
+  });
+
+  await page.goto('/acceso?retorno=%2F%2Fevil.example%2Fphishing');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect.poll(() => requestedRedirectTo).toBe(
+    `${baseUrl}/api/auth/callback?retorno=%2F`,
+  );
+});
+
+test('ignora hosts reenviados al resolver el callback', async ({ request }) => {
+  const response = await request.get('/api/auth/callback?retorno=%2Fadmin', {
+    headers: {
+      'x-forwarded-host': 'evil.example',
+      'x-forwarded-proto': 'https',
+    },
+    maxRedirects: 0,
+  });
+
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toBe(
+    `${baseUrl}/acceso?retorno=%2Fadmin`,
+  );
+});
+
 test('permite que un Miembro Oficial retome exactamente /console tras pasar por /acceso', async ({
   page,
 }) => {

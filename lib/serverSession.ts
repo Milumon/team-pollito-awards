@@ -122,6 +122,7 @@ export async function updateServerAuth(request: NextRequest) {
     data: { user },
     error,
   } = await supabase.auth.getUser();
+  response.headers.set('Cache-Control', 'private, no-store');
 
   return { user: error ? null : user, response };
 }
