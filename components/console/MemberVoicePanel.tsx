@@ -9,7 +9,6 @@ type VoiceMode = 'text' | 'voice';
 
 type MemberVoicePanelProps = {
   mode: VoiceMode;
-  panelMode: boolean;
   text: string;
   cooldown: number;
   sendingText: boolean;
@@ -19,7 +18,6 @@ type MemberVoicePanelProps = {
   recordDuration: number;
   sendingVoice: boolean;
   audioPreview: ReactNode;
-  onModeChange: (mode: VoiceMode) => void;
   onTextChange: (text: string) => void;
   onTextSubmit: (event: FormEvent) => void;
   onStartRecording: () => void;
@@ -30,7 +28,6 @@ type MemberVoicePanelProps = {
 
 export default function MemberVoicePanel({
   mode,
-  panelMode,
   text,
   cooldown,
   sendingText,
@@ -40,7 +37,6 @@ export default function MemberVoicePanel({
   recordDuration,
   sendingVoice,
   audioPreview,
-  onModeChange,
   onTextChange,
   onTextSubmit,
   onStartRecording,
@@ -70,12 +66,8 @@ export default function MemberVoicePanel({
             ]).map((item) => (
               <Link
                 key={item.mode}
-                href={panelMode ? item.href : '/console'}
+                href={item.href}
                 aria-current={mode === item.mode ? 'page' : undefined}
-                onClick={(event) => {
-                  if (!panelMode) event.preventDefault();
-                  onModeChange(item.mode);
-                }}
                 className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${mode === item.mode ? 'bg-[#FFC200] text-black' : 'text-gray-500 hover:text-white'}`}
               >
                 {item.label}

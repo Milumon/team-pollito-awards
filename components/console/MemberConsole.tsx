@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
-import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
 import RobloxOnboarding from '@/components/RobloxOnboarding';
 import { Card } from '@/components/ui/Card';
@@ -23,7 +22,6 @@ import {
   LayoutDashboard,
   Settings,
   HelpCircle,
-  Menu,
   X,
   Users,
   Crown,
@@ -194,21 +192,9 @@ const PANEL_TABS = [
   { id: 'help' as const, label: 'Ayuda', icon: HelpCircle, href: '/panel/ayuda' },
 ];
 
-const CONSOLE_TABS = [
-  { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'rankings' as const, label: 'Rankings', icon: Trophy },
-  { id: 'sounds' as const, label: 'Banco', icon: Volume2 },
-  { id: 'tts' as const, label: 'TTS Mensajes', icon: Send },
-  { id: 'animations' as const, label: 'Efectos Visuales', icon: Sparkles },
-  { id: 'feed' as const, label: 'Feed de Actividad', icon: List },
-  { id: 'nickname' as const, label: 'Cambiar mi Nickname', icon: User },
-];
-
 export default function MemberConsole({
-  children,
   initialSession,
-  panelMode = false,
-}: Readonly<{ children?: React.ReactNode; initialSession?: Session; panelMode?: boolean }>) {
+}: Readonly<{ initialSession: Session }>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [session, setSession] = useState<Session | null>(initialSession ?? null);
@@ -219,10 +205,6 @@ export default function MemberConsole({
   const [allTimeLeaderboards, setAllTimeLeaderboards] = useState<WeeklyLeaderboards>({ usage: [], sounds: [], images: [] });
   const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
 
-  // Navigation state (app feel)
-  const [activeTab, setActiveTab] = useState<ConsoleTab>('sounds');
-  const [soundboardSubTab, setSoundboardSubTab] = useState<SoundType>('audios');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
 
   // TTS State
@@ -230,7 +212,6 @@ export default function MemberConsole({
   const [sendingTts, setSendingTts] = useState(false);
 
   // Voice Recording State
-  const [ttsMode, setTtsMode] = useState<'text' | 'voice'>('text');
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedFile, setRecordedFile] = useState<File | null>(null);
@@ -373,10 +354,10 @@ export default function MemberConsole({
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
       ? requestedSoundType
       : 'audios';
-  const displayedTab = panelMode ? routedTab : activeTab;
-  const displayedSoundType = panelMode ? routedSoundType : soundboardSubTab;
+  const displayedTab = routedTab;
+  const displayedSoundType = routedSoundType;
   const routedTtsMode = searchParams.get('modo') === 'grabacion' ? 'voice' : 'text';
-  const displayedTtsMode = panelMode ? routedTtsMode : ttsMode;
+  const displayedTtsMode = routedTtsMode;
 
   // Load confirmSpamGuard from localStorage
   useEffect(() => {
@@ -1263,8 +1244,8 @@ export default function MemberConsole({
         session={session}
         isAdmin={isAdmin}
         onLogout={handleBackToLanding}
-        panelName={panelMode ? 'Panel del Miembro' : 'Consola'}
-        panelHref={panelMode ? '/panel/inicio' : '/console'}
+        panelName="Panel del Miembro"
+        panelHref="/panel/inicio"
         showMobileToggle={false}
         theme="dark"
       />
@@ -1277,22 +1258,15 @@ export default function MemberConsole({
           <div className="space-y-1">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-3">Navegación</p>
 
-            {(panelMode ? PANEL_TABS : CONSOLE_TABS).map((tab) => {
+            {PANEL_TABS.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = displayedTab === tab.id;
-              const href = 'href' in tab && typeof tab.href === 'string' ? tab.href : '/console';
               return (
                 <Link
                   key={tab.id}
-                  href={href}
+                  href={tab.href}
                   aria-current={isActive ? 'page' : undefined}
-                  onClick={(event) => {
-                    soundManager.playPop();
-                    if (!panelMode) {
-                      event.preventDefault();
-                      setActiveTab(tab.id);
-                    }
-                  }}
+                  onClick={() => soundManager.playPop()}
                   className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#FFC200]/10 text-[#FFC200]'
@@ -1305,31 +1279,6 @@ export default function MemberConsole({
               );
             })}
 
-            {!panelMode && <div className="h-px bg-white/5 my-3" />}
-
-            {!panelMode && <button
-              onClick={() => { soundManager.playPop(); setActiveTab('settings'); }}
-              className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
-                displayedTab === 'settings'
-                  ? 'bg-[#FFC200]/10 text-[#FFC200]'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-              }`}
-            >
-              <Settings className={`w-4 h-4 shrink-0 ${displayedTab === 'settings' ? 'text-[#FFC200]' : 'text-gray-500'}`} />
-              <span>Configuración</span>
-            </button>}
-
-            {!panelMode && <button
-              onClick={() => { soundManager.playPop(); setActiveTab('help'); }}
-              className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
-                displayedTab === 'help'
-                  ? 'bg-[#FFC200]/10 text-[#FFC200]'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-              }`}
-            >
-              <HelpCircle className={`w-4 h-4 shrink-0 ${displayedTab === 'help' ? 'text-[#FFC200]' : 'text-gray-500'}`} />
-              <span>Ayuda</span>
-            </button>}
           </div>
 
           {/* ESTADO Y POLLITO */}
@@ -1368,7 +1317,7 @@ export default function MemberConsole({
                 >
                   <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-4">
                     <h2 className="font-display font-bold text-2xl text-white leading-none">
-                      🐣 {panelMode ? 'Bienvenido al Panel del Miembro' : 'Bienvenido a la Consola'}
+                      🐣 Bienvenido al Panel del Miembro
                     </h2>
                     <p className="text-xs text-gray-400 font-semibold leading-relaxed max-w-2xl">
                       Hola, <strong className="text-white">@{profile.roblox_user}</strong>. Tienes acceso completo al panel de interacción en tiempo real de la transmisión de Milumon. Todo lo que dispares aquí se emitirá de forma instantánea en la transmisión en vivo.
@@ -1463,15 +1412,9 @@ export default function MemberConsole({
                         ]).map((tab) => (
                           <Link
                             key={tab.id}
-                            href={panelMode ? `/panel/sonidos?tipo=${tab.id}` : '/console'}
+                            href={`/panel/sonidos?tipo=${tab.id}`}
                             aria-current={displayedSoundType === tab.id ? 'page' : undefined}
-                            onClick={(event) => {
-                              soundManager.playPop();
-                              if (!panelMode) {
-                                event.preventDefault();
-                                setSoundboardSubTab(tab.id);
-                              }
-                            }}
+                            onClick={() => soundManager.playPop()}
                             className={`px-3 py-1.5 rounded-full text-[11px] font-display font-semibold border transition-all cursor-pointer ${
                               displayedSoundType === tab.id
                                 ? 'bg-[#FFC200] text-black border-[#FFC200] shadow-[2px_2px_0_0_#000]'
@@ -1906,7 +1849,6 @@ export default function MemberConsole({
               {displayedTab === 'tts' && (
                 <MemberVoicePanel
                   mode={displayedTtsMode}
-                  panelMode={panelMode}
                   text={ttsText}
                   cooldown={ttsCooldown}
                   sendingText={sendingTts}
@@ -1916,7 +1858,6 @@ export default function MemberConsole({
                   recordDuration={recordDuration}
                   sendingVoice={sendingVoice}
                   audioPreview={recordedFile ? <AudioPreview file={recordedFile} onTrimChange={(start, end) => setAudioTrim({ start, end })} /> : null}
-                  onModeChange={setTtsMode}
                   onTextChange={setTtsText}
                   onTextSubmit={handleTtsSubmit}
                   onStartRecording={() => void startRecording()}
@@ -2296,28 +2237,15 @@ export default function MemberConsole({
 
       {/* ----------------- MOBILE BOTTOM NAV BAR ----------------- */}
       <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-start overflow-x-auto z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
-        {(panelMode ? PANEL_TABS : [
-          { id: 'sounds', label: 'Sonidos', icon: Volume2 },
-          { id: 'rankings', label: 'Ranking', icon: Trophy },
-          { id: 'tts', label: 'Voz', icon: Send },
-          { id: 'animations', label: 'Efectos', icon: Sparkles },
-          { id: 'feed', label: 'Feed', icon: List },
-        ] as const).map((tab) => {
+        {PANEL_TABS.map((tab) => {
           const IconComponent = tab.icon;
           const isActive = displayedTab === tab.id;
-          const href = 'href' in tab && typeof tab.href === 'string' ? tab.href : '/console';
           return (
             <Link
               key={tab.id}
-              href={href}
+              href={tab.href}
               aria-current={isActive ? 'page' : undefined}
-              onClick={(event) => {
-                soundManager.playPop();
-                if (!panelMode) {
-                  event.preventDefault();
-                  setActiveTab(tab.id);
-                }
-              }}
+              onClick={() => soundManager.playPop()}
               className={`flex shrink-0 flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
                 isActive
                   ? 'text-[#FFC200] font-semibold'
@@ -2330,16 +2258,6 @@ export default function MemberConsole({
           );
         })}
 
-        {!panelMode && <button
-          onClick={() => {
-            soundManager.playPop();
-            setIsMobileMenuOpen(true);
-          }}
-          className="flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl text-gray-500 font-bold cursor-pointer border border-transparent"
-        >
-          <Menu className="w-4.5 h-4.5" />
-          <span className="text-[8px] uppercase tracking-wide">Más</span>
-        </button>}
       </nav>
 
       {/* ----------------- NICKNAME ONBOARDING MODAL (Solo primer ingreso) ----------------- */}
@@ -2445,22 +2363,6 @@ export default function MemberConsole({
           </div>
         )}
       </AnimatePresence>
-
-      {/* Mobile Bottom Tab Bar */}
-      {!panelMode && <NavBar
-        variant="tabbar"
-        tabs={[
-          { id: 'dashboard', name: 'Dash', icon: <LayoutDashboard className="w-4 h-4" />, onClick: () => setActiveTab('dashboard') },
-          { id: 'rankings', name: 'Ranking', icon: <Trophy className="w-4 h-4" />, onClick: () => setActiveTab('rankings') },
-          { id: 'sounds', name: 'Banco', icon: <Volume2 className="w-4 h-4" />, onClick: () => setActiveTab('sounds') },
-          { id: 'tts', name: 'TTS', icon: <Send className="w-4 h-4" />, onClick: () => setActiveTab('tts') },
-          { id: 'animations', name: 'Efectos', icon: <Sparkles className="w-4 h-4" />, onClick: () => setActiveTab('animations') },
-          { id: 'feed', name: 'Feed', icon: <List className="w-4 h-4" />, onClick: () => setActiveTab('feed') },
-        ]}
-        activeTab={activeTab}
-      />}
-
-      {children}
 
       {/* ----------------- MODAL DE PROTECCIÓN ANTI-SPAM ----------------- */}
       <AnimatePresence>

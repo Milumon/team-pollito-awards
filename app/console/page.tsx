@@ -1,5 +1,5 @@
-import MemberConsole from '@/components/console/MemberConsole';
+import { redirect } from 'next/navigation';
 
 export default function MemberConsolePage() {
-  return <MemberConsole />;
+  redirect('/panel/sonidos');
 }
