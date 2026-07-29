@@ -763,11 +763,11 @@ test('abre el editor de usuario como pagina y respeta navegacion', async ({ page
   await page.getByRole('link', { name: '← Volver a Usuarios' }).click();
   await expect(page).toHaveURL('/admin/usuarios');
 
-  await page.goForward();
+  await page.goBack();
   await expect(page).toHaveURL('/admin/usuarios/user-1');
   await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
 
-  await page.goBack();
+  await page.goForward();
   await expect(page).toHaveURL('/admin/usuarios');
 
   await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
