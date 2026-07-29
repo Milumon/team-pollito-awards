@@ -237,7 +237,7 @@ test.afterAll(async () => {
   });
 });
 
-async function mockConsoleApis(page: Page) {
+async function mockConsoleApis(page: Page, profileOverrides: Record<string, unknown> = {}) {
   await page.route('**/api/profile/verify-roblox', async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fallback();
@@ -267,6 +267,7 @@ async function mockConsoleApis(page: Page) {
           perm_trigger_media: true,
           perm_trigger_animations: true,
           perm_edit_sounds: true,
+          ...profileOverrides,
         },
         isComplete: true,
         isBotAccount: false,
@@ -697,6 +698,81 @@ test('normaliza un tipo de Sonidos inválido a la URL de audios', async ({ page 
   await expect(page.getByText('No hay audios disponibles en este momento.')).toBeVisible();
 });
 
+test('abre Voz por deep link y conserva el modo navegable en recarga e historial', async ({ page }) => {
+  await mockConsoleApis(page);
+  await page.goto('/panel/voz?modo=grabacion');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Fvoz%3Fmodo%3Dgrabacion');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/voz?modo=grabacion');
+  await expect(page.getByRole('heading', { name: 'Mensaje de Voz' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Grabar/i })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: /Empezar a Grabar/i })).toBeVisible();
+
+  await page.getByRole('link', { name: /Texto/i }).click();
+  await expect(page).toHaveURL('/panel/voz?modo=texto');
+  await page.getByRole('textbox').fill('Borrador privado');
+  await expect(page).toHaveURL('/panel/voz?modo=texto');
+
+  await page.reload();
+  await expect(page).toHaveURL('/panel/voz?modo=texto');
+  await expect(page.getByRole('textbox')).toHaveValue('');
+
+  await page.goBack();
+  await expect(page).toHaveURL('/panel/voz?modo=grabacion');
+  await expect(page.getByRole('button', { name: /Empezar a Grabar/i })).toBeVisible();
+});
+
+test('abre Efectos por deep link y conserva confirmación, cooldown, stream e historial', async ({ page }) => {
+  let submittedEvent: Record<string, unknown> | null = null;
+  await mockConsoleApis(page);
+  await page.route('**/api/stream/events', async (route) => {
+    if (route.request().method() === 'POST') {
+      submittedEvent = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ json: { event: { id: 'event-1' } } });
+      return;
+    }
+
+    await route.fulfill({ json: { events: [] } });
+  });
+
+  await page.goto('/panel/efectos');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Fefectos');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  const desktopNavigation = page.locator('aside').getByText('Navegación').locator('..');
+  await expect(page).toHaveURL('/panel/efectos');
+  await expect(desktopNavigation.getByRole('link', { name: 'Efectos' })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('button', { name: /Lluvia de Huevos/i }).click();
+  await expect(page.getByText('¿Quieres mostrar esta animación en pantalla?')).toBeVisible();
+  await expect(page).toHaveURL('/panel/efectos');
+  await page.getByRole('button', { name: /Enviar/i }).click();
+
+  await expect.poll(() => submittedEvent).toMatchObject({ type: 'animation', content: 'eggs' });
+  await expect(page.getByRole('button', { name: /Lluvia de Huevos/i })).toBeDisabled();
+  await expect(page.getByText(/Cooldown \(60s\)/).first()).toBeVisible();
+
+  await desktopNavigation.getByRole('link', { name: 'Voz' }).click();
+  await expect(page).toHaveURL('/panel/voz?modo=texto');
+  await page.goBack();
+  await expect(page).toHaveURL('/panel/efectos');
+  await expect(page.getByText('¿Quieres mostrar esta animación en pantalla?')).toHaveCount(0);
+  await page.reload();
+  await expect(page).toHaveURL('/panel/efectos');
+  await expect(page.getByRole('heading', { name: 'Efectos Visuales' })).toBeVisible();
+});
+
+test('conserva el permiso de Efectos sin serializar el rechazo', async ({ page }) => {
+  await mockConsoleApis(page, { perm_trigger_animations: false });
+  await page.goto('/acceso?retorno=%2Fpanel%2Fefectos');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await page.getByRole('button', { name: /Lluvia de Huevos/i }).click();
+  await expect(page.getByText('No tenés permiso para activar animaciones.')).toBeVisible();
+  await expect(page.getByText('¿Quieres mostrar esta animación en pantalla?')).toHaveCount(0);
+  await expect(page).toHaveURL('/panel/efectos');
+});
+
 test('ofrece navegación móvil con la URL como estado activo', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockConsoleApis(page);
@@ -706,10 +782,19 @@ test('ofrece navegación móvil con la URL como estado activo', async ({ page })
 
   const mobileNavigation = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Inicio' }) });
   await expect(mobileNavigation.getByRole('link', { name: 'Sonidos' })).toHaveAttribute('aria-current', 'page');
-  await mobileNavigation.getByRole('link', { name: 'Inicio' }).click();
 
+  await mobileNavigation.getByRole('link', { name: 'Inicio' }).focus();
+  await page.keyboard.press('Enter');
   await expect(page).toHaveURL('/panel/inicio');
   await expect(mobileNavigation.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
+
+  await mobileNavigation.getByRole('link', { name: 'Voz' }).click();
+  await expect(page).toHaveURL('/panel/voz?modo=texto');
+  await expect(mobileNavigation.getByRole('link', { name: 'Voz' })).toHaveAttribute('aria-current', 'page');
+
+  await mobileNavigation.getByRole('link', { name: 'Efectos' }).click();
+  await expect(page).toHaveURL('/panel/efectos');
+  await expect(mobileNavigation.getByRole('link', { name: 'Efectos' })).toHaveAttribute('aria-current', 'page');
 });
 
 test('un Miembro Oficial conserva /panel con query al recargar y usar el historial', async ({

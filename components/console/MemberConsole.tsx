@@ -14,9 +14,7 @@ import { Badge } from '@/components/ui/Badge';
 import {
   Volume2,
   Send,
-  Clock,
   Sparkles,
-  Mic,
   ShieldAlert,
   ArrowLeft,
   Loader2,
@@ -37,6 +35,10 @@ import {
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
+import MediaUploadForm from '@/components/console/MediaUploadForm';
+import MediaSubmissionsHistory from '@/components/console/MediaSubmissionsHistory';
+import MemberEffectsPanel from '@/components/console/MemberEffectsPanel';
+import MemberVoicePanel from '@/components/console/MemberVoicePanel';
 import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'motion/react';
 import { TikTokRankingConsole } from '@/components/tiktok-rankings/RankingViews';
@@ -185,6 +187,8 @@ type SoundType = 'audios' | 'multimedia' | 'videos';
 const PANEL_TABS = [
   { id: 'dashboard' as const, label: 'Inicio', icon: LayoutDashboard, href: '/panel/inicio' },
   { id: 'sounds' as const, label: 'Sonidos', icon: Volume2, href: '/panel/sonidos' },
+  { id: 'tts' as const, label: 'Voz', icon: Send, href: '/panel/voz?modo=texto' },
+  { id: 'animations' as const, label: 'Efectos', icon: Sparkles, href: '/panel/efectos' },
 ];
 
 const CONSOLE_TABS = [
@@ -348,7 +352,14 @@ export default function MemberConsole({
     return true;
   });
 
-  const routedTab: ConsoleTab = pathname === '/panel/inicio' ? 'dashboard' : 'sounds';
+  const routedTab: ConsoleTab =
+    pathname === '/panel/inicio'
+      ? 'dashboard'
+      : pathname === '/panel/voz'
+        ? 'tts'
+        : pathname === '/panel/efectos'
+          ? 'animations'
+          : 'sounds';
   const requestedSoundType = searchParams.get('tipo');
   const routedSoundType: SoundType =
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
@@ -356,6 +367,8 @@ export default function MemberConsole({
       : 'audios';
   const displayedTab = panelMode ? routedTab : activeTab;
   const displayedSoundType = panelMode ? routedSoundType : soundboardSubTab;
+  const routedTtsMode = searchParams.get('modo') === 'grabacion' ? 'voice' : 'text';
+  const displayedTtsMode = panelMode ? routedTtsMode : ttsMode;
 
 
   const warnedRealtimeRef = useRef(false);
@@ -1397,167 +1410,37 @@ export default function MemberConsole({
 
               {/* TAB: TTS */}
               {displayedTab === 'tts' && (
-                <motion.div
-                  key="tts-tab"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute inset-0 flex flex-col justify-center overflow-y-auto max-w-2xl mx-auto w-full text-left"
-                >
-                  <div className="h-fit max-h-full bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <Send className="w-5 h-5 text-gray-400" />
-                        <h2 className="font-display font-bold text-base md:text-lg text-white">Mensaje de Voz</h2>
-                      </div>
-                      <div className="flex bg-[#1e1f22] rounded-lg p-0.5 border border-neutral-700/60">
-                        <button onClick={() => setTtsMode('text')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${ttsMode === 'text' ? 'bg-[#FFC200] text-black' : 'text-gray-500 hover:text-white'}`}>
-                          ✏️ Texto
-                        </button>
-                        <button onClick={() => setTtsMode('voice')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${ttsMode === 'voice' ? 'bg-[#FFC200] text-black' : 'text-gray-500 hover:text-white'}`}>
-                          🎤 Grabar
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin">
-                      {ttsMode === 'text' ? (
-                        <>
-                          <p className="text-[11px] font-semibold text-gray-400 mb-4 shrink-0 leading-relaxed">
-                            Escribí tu mensaje para que la voz del directo lo lea con entonación neural en vivo.
-                          </p>
-                          <form onSubmit={handleTtsSubmit} className="space-y-4 p-1">
-                            <div className="relative">
-                              <textarea
-                                value={ttsText}
-                                onChange={(e) => setTtsText(e.target.value.slice(0, 120))}
-                                disabled={ttsCooldown > 0 || sendingTts || isMuted}
-                                placeholder={isMuted ? "Consola silenciada..." : ttsCooldown > 0 ? `Bloqueado. Esperá ${ttsCooldown}s...` : "Escribí un mensaje corto..."}
-                                className="w-full bg-[#35373d] border border-neutral-700/60 rounded-xl p-4 font-sans text-sm outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200]/50 min-h-[140px] resize-none disabled:opacity-50 disabled:cursor-not-allowed text-white placeholder-gray-500"
-                              />
-                              <span className={`absolute bottom-4 right-4 text-[9px] font-mono ${ttsText.length >= 100 ? 'text-red-500' : 'text-gray-500'}`}>
-                                {ttsText.length}/120
-                              </span>
-                            </div>
-                            <button type="submit" disabled={ttsCooldown > 0 || !ttsText.trim() || sendingTts || isMuted}
-                              className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                              {sendingTts ? <><Loader2 className="w-4 h-4 animate-spin text-black" /> Generando...</> : ttsCooldown > 0 ? <><Clock className="w-4 h-4 text-black" /> Cooldown ({ttsCooldown}s)</> : <><Send className="w-4 h-4 text-black" /> Enviar Mensaje</>}
-                            </button>
-                          </form>
-                        </>
-                      ) : (
-                        <div className="p-1 space-y-4">
-                          <p className="text-[11px] font-semibold text-gray-400 leading-relaxed">
-                            Grabá tu voz directamente desde el micrófono. Podés pre-escuchar y recortar antes de enviar.
-                          </p>
-
-                          {/* Recording Controls */}
-                          {!recordedBlob ? (
-                            <div className="flex flex-col items-center gap-4 py-6">
-                              {isRecording ? (
-                                <>
-                                  <div className="w-20 h-20 rounded-full bg-red-500/20 border-4 border-red-500 flex items-center justify-center animate-pulse">
-                                    <div className="w-6 h-6 rounded-full bg-red-500" />
-                                  </div>
-                                  <span className="text-xs font-mono text-red-400 font-bold">{recordDuration}s</span>
-                                  <button onClick={stopRecording} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]">
-                                    Detener Grabación
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="w-20 h-20 rounded-full bg-[#FFC200]/10 border-4 border-[#FFC200]/40 flex items-center justify-center">
-                                    <Mic className="w-8 h-8 text-[#FFC200]" />
-                                  </div>
-                                  <button onClick={startRecording} disabled={ttsCooldown > 0 || isMuted}
-                                    className="px-6 py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <Mic className="w-4 h-4" /> Empezar a Grabar
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          ) : (
-                            <>
-                              {/* Preview recorded audio */}
-                              <div className="bg-[#35373d] border border-neutral-700/60 rounded-xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-white">🎧 Tu grabación ({recordDuration}s)</span>
-                                  <button onClick={discardRecording} className="text-[10px] text-red-400 hover:text-red-300 font-bold cursor-pointer">Descartar</button>
-                                </div>
-                                {recordedFile && (
-                                  <AudioPreview
-                                    file={recordedFile}
-                                    onTrimChange={(start, end) => setAudioTrim({ start, end })}
-                                  />
-                                )}
-                              </div>
-                              <button onClick={handleSendVoice} disabled={sendingVoice || ttsCooldown > 0 || isMuted}
-                                className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
-                                {sendingVoice ? <><Loader2 className="w-4 h-4 animate-spin text-black" /> Enviando...</> : ttsCooldown > 0 ? <><Clock className="w-4 h-4 text-black" /> Cooldown ({ttsCooldown}s)</> : <><Send className="w-4 h-4 text-black" /> Enviar Mensaje de Voz</>}
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
+                <MemberVoicePanel
+                  mode={displayedTtsMode}
+                  panelMode={panelMode}
+                  text={ttsText}
+                  cooldown={ttsCooldown}
+                  sendingText={sendingTts}
+                  isMuted={isMuted}
+                  isRecording={isRecording}
+                  hasRecording={recordedBlob !== null}
+                  recordDuration={recordDuration}
+                  sendingVoice={sendingVoice}
+                  audioPreview={recordedFile ? <AudioPreview file={recordedFile} onTrimChange={(start, end) => setAudioTrim({ start, end })} /> : null}
+                  onModeChange={setTtsMode}
+                  onTextChange={setTtsText}
+                  onTextSubmit={handleTtsSubmit}
+                  onStartRecording={() => void startRecording()}
+                  onStopRecording={stopRecording}
+                  onDiscardRecording={discardRecording}
+                  onSendVoice={() => void handleSendVoice()}
+                />
               )}
 
               {/* TAB: ANIMATIONS */}
               {displayedTab === 'animations' && (
-                <motion.div
-                  key="animations-tab"
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute inset-0 flex flex-col overflow-hidden text-left"
-                >
-                  <div className="flex-1 bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-gray-400" />
-                        <h2 className="font-display font-bold text-base md:text-lg text-white">Efectos Visuales</h2>
-                      </div>
-                      <span className="text-[10px] bg-neutral-800 rounded-lg px-2.5 py-0.5 font-medium text-gray-500">
-                        Animaciones
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] font-semibold text-gray-400 mb-4 shrink-0 leading-relaxed">
-                      Elige un efecto visual para proyectarlo temporalmente sobre la pantalla del directo.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {ANIMATIONS.map((anim) => {
-                        const isCooldown = animationCooldown > 0;
-                        return (
-                          <button
-                            key={anim.id}
-                            disabled={isCooldown || triggeringId !== null || isMuted}
-                            onClick={() => void triggerEvent('animation', anim.id)}
-                            className="bg-[#2b2d31] hover:bg-neutral-900 border border-neutral-700/60 rounded-2xl p-5 text-center flex flex-col items-center justify-center gap-3 relative overflow-hidden select-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[140px] shadow-[0_2px_8px_rgba(0,0,0,.25)] active:scale-[0.97] disabled:shadow-none disabled:translate-y-0"
-                          >
-                            <span className="text-4xl block">{anim.id === 'eggs' ? '🥚' : anim.id === 'sparkles' ? '✨' : '🎉'}</span>
-                            <span className="font-display font-medium text-xs text-white">
-                              {anim.name.split(' ').slice(1).join(' ')}
-                            </span>
-
-                            {isCooldown ? (
-                              <span className="text-[10px] font-mono font-bold text-red-500">
-                                Cooldown ({animationCooldown}s)
-                              </span>
-                            ) : (
-                              <span className="text-[8px] text-gray-500 font-bold uppercase">Disparar</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
+                <MemberEffectsPanel
+                  animations={ANIMATIONS}
+                  cooldown={animationCooldown}
+                  triggeringId={triggeringId}
+                  isMuted={isMuted}
+                  onTrigger={(animationId) => void triggerEvent('animation', animationId)}
+                />
               )}
 
               {/* TAB: FEED */}
