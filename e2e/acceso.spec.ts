@@ -865,13 +865,107 @@ test('mantiene accesibles las operaciones Admin pendientes de migracion', async 
   await page.getByRole('link', { name: 'Otras operaciones' }).click();
 
   await expect(page).toHaveURL('/admin/operaciones');
-  await expect(page.getByRole('button', { name: /Postulaciones$/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Agenda Viernes/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Postulaciones$/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
 });
 
-test('conserva busqueda en URL directa, recarga y Atras/Adelante', async ({ page }) => {
-  await signInAsAdmin(page, '/admin/usuarios?busqueda=Pollito');
+const communityAdminRoutes = [
+  {
+    path: '/admin/postulaciones',
+    link: 'Postulaciones',
+    heading: 'Postulaciones Pendientes',
+    nextPath: '/admin/testimonios',
+    nextLink: 'Testimonios',
+    nextHeading: 'Opiniones de la Comunidad',
+  },
+  {
+    path: '/admin/testimonios',
+    link: 'Testimonios',
+    heading: 'Opiniones de la Comunidad',
+    nextPath: '/admin/clasificaciones',
+    nextLink: 'Clasificaciones',
+    nextHeading: 'Rankings TikTok',
+  },
+  {
+    path: '/admin/clasificaciones',
+    link: 'Clasificaciones',
+    heading: 'Rankings TikTok',
+    nextPath: '/admin/agenda',
+    nextLink: 'Agenda',
+    nextHeading: 'Crear Horario',
+  },
+  {
+    path: '/admin/agenda',
+    link: 'Agenda',
+    heading: 'Crear Horario',
+    nextPath: '/admin/nominados',
+    nextLink: 'Nominados',
+    nextHeading: 'Nominados Registrados',
+  },
+  {
+    path: '/admin/nominados',
+    link: 'Nominados',
+    heading: 'Nominados Registrados',
+    nextPath: '/admin/votos',
+    nextLink: 'Votos',
+    nextHeading: 'Resultados Parciales',
+  },
+  {
+    path: '/admin/votos',
+    link: 'Votos',
+    heading: 'Resultados Parciales',
+    nextPath: '/admin/postulaciones',
+    nextLink: 'Postulaciones',
+    nextHeading: 'Postulaciones Pendientes',
+  },
+] as const;
+
+for (const route of communityAdminRoutes) {
+  test(`conserva deep link y transicion de ${route.link}`, async ({ page }) => {
+    await signInAsAdmin(page, route.path);
+
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+    await expect(page.getByRole('link', { name: route.link, exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    await page.reload();
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+
+    await page.getByRole('link', { name: route.nextLink, exact: true }).click();
+    await expect(page).toHaveURL(route.nextPath);
+    await expect(page.getByRole('heading', { name: route.nextHeading })).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(route.path);
+    await expect(page.getByRole('heading', { name: route.heading })).toBeVisible();
+    await page.goForward();
+    await expect(page).toHaveURL(route.nextPath);
+  });
+}
+
+test('expone las operaciones comunitarias en la navegacion movil', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/postulaciones');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Menu' }).click();
+
+  for (const route of communityAdminRoutes) {
+    await expect(page.getByRole('link', { name: route.link, exact: true })).toBeVisible();
+  }
+
+  await page.getByRole('link', { name: 'Agenda', exact: true }).click();
+  await expect(page).toHaveURL('/admin/agenda');
+  await expect(page.getByRole('heading', { name: 'Crear Horario' })).toBeVisible();
+});
+
+test('conserva la busqueda de Usuarios en la URL al recargar', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).fill('Pollito');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).press('Enter');
 
   await expect(page).toHaveURL('/admin/usuarios?busqueda=Pollito');
   await expect(page.getByRole('textbox', { name: 'Buscar usuarios' })).toHaveValue('Pollito');
