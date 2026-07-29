@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { buildAccessPath } from '@/lib/authRouting';
-import { PRIVATE_RETURN_PATH_HEADER } from '@/lib/serverAuthRouting';
+import { refreshServerAuth } from '@/lib/serverSession';
 import { hasSupabaseAuthCookie } from '@/lib/supabaseAuthCookie';
 
 const PRIVATE_PREFIXES = ['/console', '/admin', '/panel'];
@@ -13,7 +13,7 @@ function isPrivatePath(pathname: string) {
   );
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (!isPrivatePath(pathname)) {
@@ -32,9 +32,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(PRIVATE_RETURN_PATH_HEADER, returnPath);
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return refreshServerAuth(request, returnPath);
 }
 
 export const config = {

@@ -43,12 +43,28 @@ const authFixtures = {
       link_status: 'pending',
     },
   },
+  'refresh-code': {
+    accessToken: 'expired-access-token',
+    refreshToken: 'refreshable-refresh-token',
+    user: {
+      id: 'refresh-user-1',
+      email: 'refresh@test.dev',
+    },
+    profile: {
+      is_admin: false,
+      link_status: 'approved',
+    },
+  },
 } as const;
 
 const authByAccessToken = new Map<string, (typeof authFixtures)[keyof typeof authFixtures]>(
   Object.values(authFixtures).map((fixture) => [fixture.accessToken, fixture]),
 );
 const rejectedAccessTokens = new Set<string>();
+const refreshedAccessToken = 'refreshed-access-token';
+authByAccessToken.delete(authFixtures['refresh-code'].accessToken);
+authByAccessToken.set(refreshedAccessToken, authFixtures['refresh-code']);
+let refreshRequestCount = 0;
 
 let supabaseMockServer: Awaited<ReturnType<typeof startSupabaseMockServer>> | null = null;
 
@@ -69,11 +85,13 @@ async function startSupabaseMockServer() {
       const returnPath = new URL(redirectTo).searchParams.get('retorno') || '/';
       const code = returnPath.includes('estado=pendiente')
         ? 'pending-code'
-        : returnPath.includes('rol=miembro')
-          ? 'member-code'
-          : returnPath.startsWith('/admin')
-            ? 'admin-code'
-            : 'member-code';
+        : returnPath.includes('sesion=expirada')
+          ? 'refresh-code'
+          : returnPath.includes('rol=miembro')
+            ? 'member-code'
+            : returnPath.startsWith('/admin')
+              ? 'admin-code'
+              : 'member-code';
       const location = new URL(redirectTo);
       location.searchParams.set('code', code);
 
@@ -97,6 +115,7 @@ async function startSupabaseMockServer() {
         : Object.fromEntries(new URLSearchParams(body));
       const code = params.auth_code;
       const refreshToken = params.refresh_token;
+      const isRefresh = Boolean(refreshToken);
       const fixture =
         (code && authFixtures[code as keyof typeof authFixtures]) ||
         [...authByAccessToken.values()].find((candidate) => candidate.refreshToken === refreshToken);
@@ -107,13 +126,23 @@ async function startSupabaseMockServer() {
         return;
       }
 
+      if (isRefresh) {
+        refreshRequestCount += 1;
+      }
+
+      const expiresIn = code === 'refresh-code' ? -60 : 3600;
+      const accessToken =
+        isRefresh && fixture === authFixtures['refresh-code']
+          ? refreshedAccessToken
+          : fixture.accessToken;
+
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(
         JSON.stringify({
-          access_token: fixture.accessToken,
+          access_token: accessToken,
           refresh_token: fixture.refreshToken,
-          expires_in: 3600,
-          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          expires_in: expiresIn,
+          expires_at: Math.floor(Date.now() / 1000) + expiresIn,
           token_type: 'bearer',
           user: {
             id: fixture.user.id,
@@ -422,6 +451,30 @@ test('el layout conserva el retorno exacto cuando una cookie optimista no verifi
   } finally {
     rejectedAccessTokens.delete(authFixtures['member-code'].accessToken);
   }
+});
+
+test('Proxy propaga al navegador y al layout las cookies de una sesion refrescada', async ({
+  page,
+}) => {
+  await mockConsoleApis(page);
+  refreshRequestCount = 0;
+
+  await page.goto('/acceso?retorno=%2Fconsole%3Fsesion%3Dexpirada');
+  const privateResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().resourceType() === 'document' &&
+      response.url().endsWith('/console?sesion=expirada')
+    );
+  });
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const privateResponse = await privateResponsePromise;
+
+  expect(refreshRequestCount).toBe(1);
+  expect((await privateResponse.headerValues('set-cookie')).join(';')).toContain(
+    'sb-127-auth-token',
+  );
+  await expect(page).toHaveURL('/console?sesion=expirada');
+  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
 });
 
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {

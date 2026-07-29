@@ -3,6 +3,8 @@ import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { PRIVATE_RETURN_PATH_HEADER } from './serverAuthRouting';
+
 type LinkStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 type ProfileFlags = {
@@ -99,4 +101,32 @@ export function createRouteHandlerSupabaseClient(
       },
     },
   });
+}
+
+export async function refreshServerAuth(request: NextRequest, returnPath: string) {
+  const createResponse = () => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(PRIVATE_RETURN_PATH_HEADER, returnPath);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  };
+  let response = createResponse();
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = createResponse();
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+        Object.entries(headers || {}).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+      },
+    },
+  });
+
+  await supabase.auth.getClaims();
+  response.headers.set('Cache-Control', 'private, no-store');
+  return response;
 }
