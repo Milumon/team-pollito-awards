@@ -1,6 +1,7 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminFetch, readApiPayload } from './adminApi';
@@ -17,10 +18,10 @@ export function AdminDashboardView() {
     try {
       const response = await adminFetch('/api/admin/dashboard');
       const payload = await readApiPayload(response);
-      if (!response.ok) throw new Error(String(payload.error || 'Error al cargar el dashboard'));
+      if (!response.ok) throw new Error(String(payload.error || 'Error al cargar el Panel de Control'));
       setDashboard(payload as unknown as AdminDashboard);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Error al cargar el dashboard');
+      setError(loadError instanceof Error ? loadError.message : 'Error al cargar el Panel de Control');
     } finally {
       setLoading(false);
     }
@@ -32,11 +33,11 @@ export function AdminDashboardView() {
     void adminFetch('/api/admin/dashboard')
       .then(async (response) => {
         const payload = await readApiPayload(response);
-        if (!response.ok) throw new Error(String(payload.error || 'Error al cargar el dashboard'));
+        if (!response.ok) throw new Error(String(payload.error || 'Error al cargar el Panel de Control'));
         if (active) setDashboard(payload as unknown as AdminDashboard);
       })
       .catch((loadError: unknown) => {
-        if (active) setError(loadError instanceof Error ? loadError.message : 'Error al cargar el dashboard');
+        if (active) setError(loadError instanceof Error ? loadError.message : 'Error al cargar el Panel de Control');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -50,11 +51,11 @@ export function AdminDashboardView() {
   const summary = dashboard?.summary;
   const metrics = [
     ['Usuarios totales', summary?.totalUsers ?? 0, '👥'],
-    ['Miembros aprobados', summary?.approvedUsers ?? 0, '✅'],
+    ['Miembros Oficiales aprobados', summary?.approvedUsers ?? 0, '✅'],
     ['Nuevos esta semana', summary?.newUsers ?? 0, '🌱'],
     ['Interacciones esta semana', summary?.interactions ?? 0, '⚡'],
     ['Postulaciones pendientes', summary?.pendingApplications ?? 0, '📝'],
-    ['Uploads pendientes', summary?.pendingUploads ?? 0, '📦'],
+    ['Envíos pendientes', summary?.pendingUploads ?? 0, '📦'],
   ] as const;
 
   return (
@@ -62,8 +63,8 @@ export function AdminDashboardView() {
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">Centro de control</span>
-          <h1 className="mt-1 font-display text-2xl font-bold text-white">Dashboard</h1>
-          <p className="mt-2 text-xs font-semibold text-gray-400">Actividad real de la comunidad y del stream.</p>
+          <h1 className="mt-1 font-display text-2xl font-bold text-white">Panel de Control</h1>
+          <p className="mt-2 text-xs font-semibold text-gray-400">Actividad real de la comunidad y de la transmisión.</p>
         </div>
         <button
           type="button"
@@ -114,6 +115,50 @@ export function AdminDashboardView() {
                 <span className="font-mono text-[10px] font-bold text-[#FFC200]">{user.count}</span>
               </div>
             ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+          <h2 className="mb-4 font-display text-base font-semibold text-white">Sonidos más utilizados</h2>
+          <div className="space-y-2">
+            {(dashboard?.topSounds ?? []).map((sound, index) => (
+              <div key={sound.soundId} className="flex items-center gap-2 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
+                <span className="w-4 text-xs font-black text-gray-500">{index + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{sound.name}</span>
+                <span className="font-mono text-[10px] text-[#FFC200]">{sound.count} veces</span>
+              </div>
+            ))}
+            {!loading && (dashboard?.topSounds.length ?? 0) === 0 && <p className="py-4 text-center text-xs text-gray-500">No hay sonidos utilizados esta semana.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+          <h2 className="mb-4 font-display text-base font-semibold text-white">Miembros con más envíos</h2>
+          <div className="space-y-2">
+            {(dashboard?.topUploads ?? []).map((user, index) => (
+              <div key={user.userId} className="flex items-center gap-2 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
+                <span className="w-4 text-xs font-black text-gray-500">{index + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">@{user.name}</span>
+                <span className="font-mono text-[10px] text-[#FFC200]">{user.count}</span>
+              </div>
+            ))}
+            {!loading && (dashboard?.topUploads.length ?? 0) === 0 && <p className="py-4 text-center text-xs text-gray-500">No hay envíos registrados.</p>}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+          <h2 className="mb-4 font-display text-base font-semibold text-white">Acciones pendientes</h2>
+          <div className="space-y-2">
+            <Link href="/admin/operaciones?seccion=applications" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+              <span>Postulaciones por revisar</span>
+              <span className="font-mono font-black text-[#FFC200]">{summary?.pendingApplications ?? 0}</span>
+            </Link>
+            <Link href="/admin/operaciones?seccion=media-submissions" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+              <span>Envíos por moderar</span>
+              <span className="font-mono font-black text-[#FFC200]">{summary?.pendingUploads ?? 0}</span>
+            </Link>
           </div>
         </section>
       </div>

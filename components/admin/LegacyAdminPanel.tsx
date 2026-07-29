@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { CATEGORIES } from '@/src/data/categories';
 import { Category } from '@/src/types';
@@ -274,6 +275,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function LegacyAdminPanel() {
+  const searchParams = useSearchParams();
   // Auth states
   const [session, setSession] = useState<Session | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -324,7 +326,10 @@ export default function LegacyAdminPanel() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>(() => {
+    const section = searchParams.get('seccion');
+    return section === 'applications' || section === 'media-submissions' ? section : 'dashboard';
+  });
 
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -1560,7 +1565,7 @@ export default function LegacyAdminPanel() {
       { label: 'Nuevos esta semana', value: summary?.newUsers ?? 0, icon: '🌱' },
       { label: 'Interacciones esta semana', value: summary?.interactions ?? 0, icon: '⚡' },
       { label: 'Postulaciones pendientes', value: summary?.pendingApplications ?? 0, icon: '📝' },
-      { label: 'Uploads pendientes', value: summary?.pendingUploads ?? 0, icon: '📦' },
+      { label: 'Envíos pendientes', value: summary?.pendingUploads ?? 0, icon: '📦' },
     ];
 
     return (
@@ -1568,7 +1573,7 @@ export default function LegacyAdminPanel() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Centro de control</span>
-            <h1 className="font-display font-bold text-2xl text-white mt-1">Dashboard</h1>
+            <h1 className="font-display font-bold text-2xl text-white mt-1">Panel de Control</h1>
             <p className="text-xs text-gray-400 mt-2 font-semibold">Actividad real de la comunidad y del stream.</p>
           </div>
           <button
@@ -1677,7 +1682,7 @@ export default function LegacyAdminPanel() {
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingApplications ?? 0}</span>
               </button>
               <button type="button" onClick={() => setActiveTab('media-submissions')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
-                <span className="text-xs text-gray-300 font-semibold">Uploads por moderar</span>
+                <span className="text-xs text-gray-300 font-semibold">Envíos por moderar</span>
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingUploads ?? 0}</span>
               </button>
             </div>
@@ -3883,7 +3888,7 @@ export default function LegacyAdminPanel() {
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Comunidad</p>
             <button type="button" onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }} className={navBtnClass('dashboard')}>
-              <span>📊</span> Dashboard
+              <span>📊</span> Panel de Control
             </button>
             <button type="button" onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={navBtnClass('users')}>
               <span>👑</span> Usuarios
