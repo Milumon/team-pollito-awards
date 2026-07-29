@@ -29,5 +29,5 @@ export default async function MemberPanelLayout({
     forbidden();
   }
 
-  return <MemberConsole initialSession={session.authSession} panelMode>{children}</MemberConsole>;
+  return <MemberConsole panelMode>{children}</MemberConsole>;
 }

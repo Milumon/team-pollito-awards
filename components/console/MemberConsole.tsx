@@ -199,12 +199,11 @@ const CONSOLE_TABS = [
 
 export default function MemberConsole({
   children,
-  initialSession,
   panelMode = false,
-}: Readonly<{ children?: React.ReactNode; initialSession?: Session; panelMode?: boolean }>) {
+}: Readonly<{ children?: React.ReactNode; panelMode?: boolean }>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [session, setSession] = useState<Session | null>(initialSession ?? null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StoredRobloxProfile | null>(null);
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
@@ -363,6 +362,7 @@ export default function MemberConsole({
   }, []);
 
   const warnedRealtimeRef = useRef(false);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   // 1. Fetch Profile
   const fetchProfile = useCallback(async (currentSession: Session) => {
@@ -465,11 +465,10 @@ export default function MemberConsole({
   };
 
   // 2. Fetch Recent Events
-  const fetchRecentEvents = useCallback(async () => {
-    if (!session?.access_token) return;
+  const fetchRecentEvents = useCallback(async (currentSession: Session) => {
     try {
       const response = await fetch('/api/stream/events', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${currentSession.access_token}` },
       });
       const data = await response.json();
       if (data.events) {
@@ -478,7 +477,7 @@ export default function MemberConsole({
     } catch (err) {
       console.error('Error fetching recent events:', err);
     }
-  }, [session?.access_token]);
+  }, []);
 
   const fetchLeaderboards = useCallback(async (currentSession: Session) => {
     try {
@@ -628,7 +627,7 @@ export default function MemberConsole({
         setTtsCooldown(cd);
       }
 
-      void fetchRecentEvents();
+      void fetchRecentEvents(session);
       void fetchLeaderboards(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al enviar');
@@ -911,45 +910,38 @@ export default function MemberConsole({
     }
   }, []);
 
-  // Auth initialization
+  // INITIAL_SESSION is the single owner of client auth initialization. The
+  // server layout independently enforces authorization without serializing tokens.
   useEffect(() => {
-    const initAuth = async () => {
-      const currentSession = initialSession ?? (await supabase.auth.getSession()).data.session;
-      setSession(currentSession);
-      if (currentSession) {
-        await fetchProfile(currentSession);
-        await fetchRecentEvents();
-        await fetchLeaderboards(currentSession);
-        await fetchSounds();
-        await fetchStreamSettings();
-        await fetchStats();
-        await loadMySubmissions(currentSession);
-        await loadMyPrivateSounds(currentSession);
-        await fetchMedia();
-        await loadMediaSubmissions(currentSession);
-      }
-      setLoading(false);
-    };
-
-    void initAuth();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
-      if (nextSession) {
+
+      if (!nextSession) {
+        loadedUserIdRef.current = null;
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (loadedUserIdRef.current !== nextSession.user.id) {
+        loadedUserIdRef.current = nextSession.user.id;
         await fetchProfile(nextSession);
-        await fetchRecentEvents();
+        await fetchRecentEvents(nextSession);
         await fetchLeaderboards(nextSession);
         await fetchSounds();
         await fetchStreamSettings();
         await fetchStats();
-      } else {
-        setProfile(null);
+        await loadMySubmissions(nextSession);
+        await loadMyPrivateSounds(nextSession);
+        await fetchMedia();
+        await loadMediaSubmissions(nextSession);
       }
+
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [initialSession, fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
+  }, [fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds, fetchMedia, loadMediaSubmissions]);
 
   // Load current audio for editing when audio editor is enabled
   useEffect(() => {

@@ -580,6 +580,29 @@ test('redirige /panel al Inicio del Panel del Miembro', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible();
 });
 
+test('abre /panel/inicio directamente sin serializar credenciales ni duplicar su carga inicial', async ({ page }) => {
+  let profileRequestCount = 0;
+  await mockConsoleApis(page);
+  await page.route('**/api/profile/verify-roblox', async (route) => {
+    profileRequestCount += 1;
+    await route.fallback();
+  });
+
+  await page.goto('/panel/inicio');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Finicio');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/inicio');
+  await expect(page.getByRole('heading', { name: /Panel del Miembro/i })).toBeVisible();
+  await expect.poll(() => profileRequestCount).toBe(1);
+
+  const reloadResponse = await page.reload();
+  const responseBody = await reloadResponse?.text();
+  expect(responseBody).not.toContain(authFixtures['member-code'].accessToken);
+  expect(responseBody).not.toContain(authFixtures['member-code'].refreshToken);
+  await expect(page).toHaveURL('/panel/inicio');
+});
+
 test('navega entre Inicio y Sonidos preservando el filtro, recarga e historial', async ({ page }) => {
   await mockConsoleApis(page);
   await page.goto('/acceso?retorno=%2Fpanel%2Finicio');
@@ -610,6 +633,18 @@ test('navega entre Inicio y Sonidos preservando el filtro, recarga e historial',
   await page.goBack();
   await expect(page).toHaveURL('/panel/sonidos?tipo=videos');
   await expect(page.getByText('No hay videos disponibles en este momento.')).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL('/panel/inicio');
+});
+
+test('normaliza un tipo de Sonidos inválido a la URL de audios', async ({ page }) => {
+  await mockConsoleApis(page);
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Ftipo%3Dinvalido');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/sonidos?tipo=audios');
+  await expect(page.getByRole('link', { name: /Audios/i })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('No hay audios disponibles en este momento.')).toBeVisible();
 });
 
 test('ofrece navegación móvil con la URL como estado activo', async ({ page }) => {
