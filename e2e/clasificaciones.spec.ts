@@ -130,12 +130,42 @@ test('aplica el Design DNA y la terminologia del dominio en la pagina publica', 
   await page.goto('/clasificaciones');
 
   const card = page.locator('main section');
+  const heading = page.getByRole('heading', { name: 'Clasificaciones de TikTok LIVE' });
+  const firstRow = page.getByText('Usuario 1', { exact: true }).locator('xpath=ancestor::div[contains(@class,"border-3")][1]');
   await expect(card).toHaveClass(/border-3/);
   await expect(card).toHaveClass(/brutalist-shadow/);
+  await expect(page.locator('main')).toHaveCSS('font-family', /Inter/);
   await expect(page.getByText('Clasificaciones', { exact: true })).toHaveClass(/bg-\[#FFD500\]/);
-  await expect(page.getByRole('heading', { name: 'Clasificaciones de TikTok LIVE' })).toHaveClass(/uppercase/);
+  await expect(heading).toHaveClass(/uppercase/);
+  await expect(heading).toHaveCSS('font-family', /Anton/);
   await expect(page.getByRole('link', { name: /Volver a la comunidad/i })).toHaveClass(/rounded-2xl/);
+  await expect(firstRow).toHaveClass(/border-3/);
+  await expect(firstRow).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
+  await expect(firstRow.getByText('Miembro')).toHaveClass(/bg-\[#FFD500\]/);
   await expect(page.getByText('Snapshot de Ranking publicado', { exact: false })).toBeVisible();
+});
+
+test('aplica el Design DNA a los estados de carga y vacio publicos', async ({ page }) => {
+  let releaseResponse = () => {};
+  const responseGate = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  await page.route('**/api/tiktok/rankings/current**', async (route) => {
+    await responseGate;
+    await route.fulfill({ json: { batch_id: null, captured_at: null, sets: [] } });
+  });
+
+  await page.goto('/clasificaciones');
+  const loading = page.getByText('Cargando Snapshot de Ranking...');
+  await expect(loading).toBeVisible();
+  await expect(loading).toHaveClass(/border-3/);
+  await expect(loading).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
+
+  releaseResponse();
+  const emptyTitle = page.getByText('Aún no hay Snapshot de Ranking publicado');
+  await expect(emptyTitle).toBeVisible();
+  await expect(emptyTitle).toHaveCSS('font-family', /Anton/);
+  await expect(emptyTitle.locator('..')).toHaveClass(/border-3/);
 });
 
 test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial navegable', async ({ page }) => {
