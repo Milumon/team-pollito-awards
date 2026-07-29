@@ -3,6 +3,7 @@ import { forbidden, redirect } from 'next/navigation';
 
 import { buildAccessPath } from '@/lib/authRouting';
 import { getServerSession } from '@/lib/serverSession';
+import MemberConsole from '@/components/console/MemberConsole';
 
 export const metadata: Metadata = {
   robots: {
@@ -24,5 +25,5 @@ export default async function MemberPanelLayout({
     forbidden();
   }
 
-  return children;
+  return <MemberConsole panelMode>{children}</MemberConsole>;
 }
