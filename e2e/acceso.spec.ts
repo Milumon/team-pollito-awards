@@ -753,32 +753,28 @@ test('abre el editor de usuario como pagina directa sin confundir identidades', 
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('abre el editor de usuario como overlay y respeta cierre e historial', async ({ page }) => {
+test('abre el editor de usuario como pagina y respeta navegacion', async ({ page }) => {
   await signInAsAdmin(page, '/admin/usuarios');
   await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
 
   await expect(page).toHaveURL('/admin/usuarios/user-1');
-  await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Cerrar editor' }).click();
+  await page.getByRole('link', { name: '← Volver a Usuarios' }).click();
   await expect(page).toHaveURL('/admin/usuarios');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.goForward();
   await expect(page).toHaveURL('/admin/usuarios/user-1');
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
 
   await page.goBack();
   await expect(page).toHaveURL('/admin/usuarios');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
   await page.reload();
   await expect(page).toHaveURL('/admin/usuarios/user-1');
   await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
-  await expect(page.getByRole('dialog')).toBeVisible();
 });
 
 test('responde 403 server-side a un Miembro Oficial en una ruta Admin anidada', async ({ page }) => {
