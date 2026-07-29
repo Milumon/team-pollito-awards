@@ -567,6 +567,16 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 });
 
+test('mantiene accesibles las operaciones Admin pendientes de migracion', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/inicio');
+  await page.getByRole('link', { name: 'Otras operaciones' }).click();
+
+  await expect(page).toHaveURL('/admin/operaciones');
+  await expect(page.getByRole('button', { name: /Postulaciones$/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Agenda Viernes/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
+});
+
 test('abre el editor de usuario como pagina directa sin confundir identidades', async ({ page }) => {
   await signInAsAdmin(page, '/admin/usuarios/user-1');
 
@@ -601,6 +611,13 @@ test('intercepta el editor desde Usuarios y respeta cierre e historial', async (
 
   await page.goBack();
   await expect(page).toHaveURL('/admin/usuarios');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 

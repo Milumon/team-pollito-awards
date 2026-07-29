@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 const navigation = [
   { href: '/admin/inicio', label: 'Inicio', icon: '📊' },
   { href: '/admin/usuarios', label: 'Usuarios', icon: '👑' },
+  { href: '/admin/operaciones', label: 'Otras operaciones', icon: '🛠️' },
 ];
 
 export function AdminShell({
@@ -18,6 +19,10 @@ export function AdminShell({
 }: Readonly<{ adminEmail: string; children: React.ReactNode }>) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  if (pathname === '/admin/operaciones') {
+    return children;
+  }
 
   const logout = async () => {
     await supabase.auth.signOut();
