@@ -99,8 +99,8 @@ export const NavBar: React.FC<NavBarProps> = ({
       {!scrollToSection && (
         <>
           <Link href="/" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Ir a Inicio</Link>
-          <Link href="/console" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Consola</Link>
-          <Link href="/admin" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel Admin</Link>
+          <Link href="/panel/inicio" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel del Miembro</Link>
+          <Link href="/admin/inicio" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel Admin</Link>
         </>
       )}
 
@@ -111,7 +111,7 @@ export const NavBar: React.FC<NavBarProps> = ({
           <div className="flex flex-col gap-2">
             {statusInfo?.is_admin && (
               <Link
-                href="/admin"
+                href="/admin/inicio"
                 onClick={() => { if (onClose) onClose(); }}
                 className="flex items-center gap-1.5 font-display font-semibold text-xs bg-[#FFC200]/10 text-[#D4A000] border border-[#FFC200]/20 px-3 py-2 rounded-lg decoration-transparent"
               >

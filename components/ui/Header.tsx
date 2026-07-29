@@ -93,9 +93,9 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Admin panel access badge for desktop admins */}
-          {isAdmin && panelHref !== '/admin' && (
+          {isAdmin && panelHref !== '/admin/inicio' && (
             <Link
-              href="/admin"
+              href="/admin/inicio"
               className={`hidden sm:flex items-center gap-1.5 font-display font-semibold text-[11px] px-2.5 py-1 rounded-lg transition-all decoration-transparent ${
                 isDark
                   ? 'bg-[#FFC200]/10 text-[#FFC200] hover:bg-[#FFC200]/15 border border-[#FFC200]/15'

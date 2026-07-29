@@ -18,7 +18,7 @@ export default async function MemberPanelLayout({
   const session = await getServerSession();
 
   if (!session) {
-    redirect(buildAccessPath('/panel'));
+    redirect(buildAccessPath('/panel/inicio'));
   }
 
   if (session.linkStatus !== 'approved') {

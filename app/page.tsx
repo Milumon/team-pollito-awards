@@ -544,7 +544,7 @@ export default function ComunidadPage() {
                     Tu vinculación está activa. Ya eres parte del Team Pollito 🐣. Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
                   </p>
                   <div className="flex flex-wrap gap-4">
-                    <Link href="/console" className="decoration-transparent">
+                    <Link href="/panel/sonidos" className="decoration-transparent">
                       <Button variant="primary" size="lg">
                         ✓ Ir a la Consola
                       </Button>
