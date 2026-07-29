@@ -250,7 +250,7 @@ async function mockConsoleApis(page: Page) {
           id: 'user-1',
           roblox_user_id: 123,
           roblox_user: 'PollitoVIP',
-          roblox_display_name: 'PollitoVIP',
+          roblox_display_name: '🐣 PollitoVIP 🐣',
           roblox_avatar_url: null,
           roblox_verified_at: new Date().toISOString(),
           tiktok_user: 'pollitovip',
@@ -568,6 +568,98 @@ test('permite que un Miembro Oficial retome exactamente /console tras pasar por 
 
   await expect(page).toHaveURL('/console');
   await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+});
+
+test('redirige /panel al Inicio del Panel del Miembro', async ({ page }) => {
+  await mockConsoleApis(page);
+
+  await page.goto('/acceso?retorno=%2Fpanel');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/inicio');
+  await expect(page.getByRole('heading', { name: /Bienvenido/i })).toBeVisible();
+});
+
+test('abre /panel/inicio directamente sin serializar credenciales ni duplicar su carga inicial', async ({ page }) => {
+  let profileRequestCount = 0;
+  await mockConsoleApis(page);
+  await page.route('**/api/profile/verify-roblox', async (route) => {
+    profileRequestCount += 1;
+    await route.fallback();
+  });
+
+  await page.goto('/panel/inicio');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Finicio');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/inicio');
+  await expect(page.getByRole('heading', { name: /Panel del Miembro/i })).toBeVisible();
+  await expect.poll(() => profileRequestCount).toBe(1);
+
+  const reloadResponse = await page.reload();
+  const responseBody = await reloadResponse?.text();
+  expect(responseBody).not.toContain(authFixtures['member-code'].accessToken);
+  expect(responseBody).not.toContain(authFixtures['member-code'].refreshToken);
+  await expect(page).toHaveURL('/panel/inicio');
+});
+
+test('navega entre Inicio y Sonidos preservando el filtro, recarga e historial', async ({ page }) => {
+  await mockConsoleApis(page);
+  await page.goto('/acceso?retorno=%2Fpanel%2Finicio');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await page.locator('aside').getByRole('link', { name: 'Sonidos' }).click();
+  await expect(page).toHaveURL('/panel/sonidos');
+  await expect(page.getByRole('heading', { name: 'Banco' })).toBeVisible();
+
+  await page.getByRole('link', { name: /Imágenes/i }).click();
+  await expect(page).toHaveURL('/panel/sonidos?tipo=multimedia');
+  await expect(page.getByText('No hay imágenes disponibles en este momento.')).toBeVisible();
+
+  await page.getByRole('link', { name: /Audios/i }).click();
+  await expect(page).toHaveURL('/panel/sonidos?tipo=audios');
+  await expect(page.getByText('No hay audios disponibles en este momento.')).toBeVisible();
+
+  await page.getByRole('link', { name: /Videos/i }).click();
+  await expect(page).toHaveURL('/panel/sonidos?tipo=videos');
+  await expect(page.getByText('No hay videos disponibles en este momento.')).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL('/panel/sonidos?tipo=videos');
+  await expect(page.getByRole('link', { name: /Videos/i })).toHaveAttribute('aria-current', 'page');
+
+  await page.locator('aside').getByRole('link', { name: 'Inicio' }).click();
+  await expect(page).toHaveURL('/panel/inicio');
+  await page.goBack();
+  await expect(page).toHaveURL('/panel/sonidos?tipo=videos');
+  await expect(page.getByText('No hay videos disponibles en este momento.')).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL('/panel/inicio');
+});
+
+test('normaliza un tipo de Sonidos inválido a la URL de audios', async ({ page }) => {
+  await mockConsoleApis(page);
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Ftipo%3Dinvalido');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/panel/sonidos?tipo=audios');
+  await expect(page.getByRole('link', { name: /Audios/i })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('No hay audios disponibles en este momento.')).toBeVisible();
+});
+
+test('ofrece navegación móvil con la URL como estado activo', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockConsoleApis(page);
+  await page.goto('/panel/sonidos?tipo=multimedia');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Fsonidos%3Ftipo%3Dmultimedia');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  const mobileNavigation = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Inicio' }) });
+  await expect(mobileNavigation.getByRole('link', { name: 'Sonidos' })).toHaveAttribute('aria-current', 'page');
+  await mobileNavigation.getByRole('link', { name: 'Inicio' }).click();
+
+  await expect(page).toHaveURL('/panel/inicio');
+  await expect(mobileNavigation.getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page');
 });
 
 test('un Miembro Oficial conserva /panel con query al recargar y usar el historial', async ({
