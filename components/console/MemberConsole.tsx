@@ -340,7 +340,13 @@ export default function MemberConsole({
   const [audioSubmitStatus, setAudioSubmitStatus] = useState<string | null>(null);
 
   // Anti-spam confirmation toggle (for kids safety)
-  const [confirmSpamGuard, setConfirmSpamGuard] = useState<boolean>(true);
+  const [confirmSpamGuard, setConfirmSpamGuard] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('confirmSpamGuard');
+      if (saved !== null) return saved === 'true';
+    }
+    return true;
+  });
 
   const routedTab: ConsoleTab = pathname === '/panel/inicio' ? 'dashboard' : 'sounds';
   const requestedSoundType = searchParams.get('tipo');
@@ -351,15 +357,6 @@ export default function MemberConsole({
   const displayedTab = panelMode ? routedTab : activeTab;
   const displayedSoundType = panelMode ? routedSoundType : soundboardSubTab;
 
-  // Load confirmSpamGuard from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('confirmSpamGuard');
-      if (saved !== null) {
-        setConfirmSpamGuard(saved === 'true');
-      }
-    }
-  }, []);
 
   const warnedRealtimeRef = useRef(false);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -651,7 +648,7 @@ export default function MemberConsole({
     await triggerEvent(type, content, true, mediaUrls, extraFields);
   }, [pendingTrigger, triggerEvent, customImageMessage, sendRepeatEnabled]);
 
-  const fetchSounds = useCallback(async () => {
+  const fetchSounds = async () => {
     try {
       const headers: Record<string, string> = {};
       if (session?.access_token) {
@@ -682,7 +679,7 @@ export default function MemberConsole({
     } finally {
       setLoadingSounds(false);
     }
-  }, [session?.access_token]);
+  };
 
   const loadMySubmissions = useCallback(async (currentSession: Session) => {
     setLoadingMySubmissions(true);
@@ -2140,7 +2137,7 @@ export default function MemberConsole({
                   <div className="bg-neutral-800 rounded-xl p-3 border border-neutral-700/40 max-h-24 overflow-y-auto scrollbar-thin">
                     <span className="text-[10px] font-medium text-gray-500 tracking-wider uppercase block">Mensaje de voz</span>
                     <span className="font-sans text-xs text-white italic">
-                      "{pendingTrigger.content}"
+                      &quot;{pendingTrigger.content}&quot;
                     </span>
                   </div>
                 )}
@@ -2408,7 +2405,7 @@ export default function MemberConsole({
                           embedded
                         />
                         <p className="text-[10px] text-gray-500 text-center font-semibold mt-3">
-                          Recortá el audio y presioná "Guardar todo" para aplicar los cambios.
+                          Recortá el audio y presioná &quot;Guardar todo&quot; para aplicar los cambios.
                         </p>
                       </>
                     ) : (
