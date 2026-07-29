@@ -87,6 +87,9 @@ export function validateTikTokRankingBatch(input: unknown): TikTokRankingBatch {
       if (typeof position !== 'number' || !Number.isSafeInteger(position) || position < 1 || position <= previousPosition) {
         throw new Error(`Entries must have strictly ascending positions at ${setIndex}:${entryIndex}`);
       }
+      if (position > MAX_RANKING_ENTRIES_PER_SNAPSHOT) {
+        throw new Error(`Ranking position must not exceed ${MAX_RANKING_ENTRIES_PER_SNAPSHOT}`);
+      }
       previousPosition = position;
       if (typeof tiktok_id !== 'string' || !DECIMAL_STRING.test(tiktok_id)) throw new Error('TikTok IDs must be decimal strings');
       if (ids.has(tiktok_id)) throw new Error(`Duplicate TikTok ID at ${setIndex}:${entryIndex}`);

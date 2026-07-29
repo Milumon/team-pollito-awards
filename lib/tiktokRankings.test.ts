@@ -79,4 +79,14 @@ test('defines a complete ranking snapshot as at most 500 entries', () => {
     }),
     /Invalid entries/,
   );
+
+  assert.throws(
+    () => validateTikTokRankingBatch({
+      ...fixture(),
+      sets: sets.map((set, index) => index === 0
+        ? { ...set, entries: [{ ...set.entries[0], position: 501 }] }
+        : set),
+    }),
+    /position.*500/i,
+  );
 });

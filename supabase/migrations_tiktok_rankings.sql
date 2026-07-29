@@ -35,7 +35,7 @@ alter table public.tiktok_ranking_sets add constraint tiktok_ranking_sets_window
 create table if not exists public.tiktok_ranking_entries (
   id uuid primary key default gen_random_uuid(),
   set_id uuid not null references public.tiktok_ranking_sets(id),
-  position integer not null check (position > 0),
+  position integer not null constraint tiktok_ranking_entries_position_check check (position between 1 and 500),
   tiktok_id text not null,
   display_id text not null,
   nickname text not null,

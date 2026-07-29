@@ -133,6 +133,8 @@ test('aplica el Design DNA y la terminologia del dominio en la pagina publica', 
   await expect(card).toHaveClass(/border-3/);
   await expect(card).toHaveClass(/brutalist-shadow/);
   await expect(page.getByText('Clasificaciones', { exact: true })).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(page.getByRole('heading', { name: 'Clasificaciones de TikTok LIVE' })).toHaveClass(/uppercase/);
+  await expect(page.getByRole('link', { name: /Volver a la comunidad/i })).toHaveClass(/rounded-2xl/);
   await expect(page.getByText('Snapshot de Ranking publicado', { exact: false })).toBeVisible();
 });
 

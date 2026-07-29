@@ -124,7 +124,7 @@ function RankingRows({
           : linked ? 'border-[#FFC200]/35 bg-[#FFF9E6]' : 'border-gray-100 bg-white';
 
         return (
-          <div key={`${entry.display_id}-${entry.position}`} className={`flex items-center gap-3 rounded-xl px-3 py-2 ${brutal ? 'border-3' : 'border'} ${rowClass}`}>
+          <div key={`${entry.display_id}-${entry.position}`} className={`flex items-center gap-3 px-3 py-2 ${brutal ? 'rounded-2xl border-3' : 'rounded-xl border'} ${rowClass}`}>
             <span className={`w-6 text-center font-black ${winner ? 'text-lg text-[#D4A000]' : 'text-xs text-gray-400'}`}>
               {winner ? <Crown className="mx-auto h-4 w-4" /> : entry.position}
             </span>
@@ -164,10 +164,10 @@ function RankingControls({
     : dark ? 'border border-neutral-700 bg-[#20232a] text-white' : 'border border-gray-200 bg-white text-[#2D3139]';
   return (
     <div className="flex flex-wrap gap-2">
-      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
+      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`${brutal ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
         {RANKING_METRICS.map((item) => <option key={item} value={item}>{METRIC_LABELS[item]}</option>)}
       </select>
-      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
+      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`${brutal ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
         {RANKING_PERIODS.map((item) => <option key={item} value={item}>{PERIOD_LABELS[item]}</option>)}
       </select>
     </div>
@@ -301,10 +301,10 @@ export function TikTokRankingPublicPage() {
           <p className="inline-flex border-3 border-black bg-[#FFD500] px-3 py-1 text-xs font-black uppercase tracking-[0.2em] shadow-[3px_3px_0_0_#000]">Clasificaciones</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-display text-4xl font-bold tracking-tight">Clasificaciones de TikTok LIVE</h1>
+              <h1 className="font-display text-4xl font-bold uppercase tracking-tight">Clasificaciones de TikTok LIVE</h1>
               <p className="mt-2 text-sm font-semibold text-gray-700">El Snapshot de Ranking publicado se muestra completo y admite filtros compartibles en español.</p>
             </div>
-            <Link href="/" className="inline-flex items-center gap-1 rounded-xl border-3 border-black bg-[#FFD500] px-3 py-2 text-xs font-black text-black shadow-[3px_3px_0_0_#000] transition-transform hover:translate-x-0.5 hover:translate-y-0.5">
+            <Link href="/" className="inline-flex items-center gap-1 rounded-2xl border-3 border-black bg-[#FFD500] px-3 py-2 text-xs font-black text-black shadow-[3px_3px_0_0_#000] transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-none">
               Volver a la comunidad <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
