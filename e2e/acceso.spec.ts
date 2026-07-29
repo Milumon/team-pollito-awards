@@ -263,7 +263,11 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
     await route.fulfill({
       json: {
         weekStart: new Date().toISOString(),
-        weekly: { usage: [], sounds: [], images: [] },
+        weekly: {
+          usage: [{ userId: 'user-1', name: 'PollitoActivo', avatarUrl: null, count: 7 }],
+          sounds: [],
+          images: [],
+        },
         allTime: { usage: [], sounds: [], images: [] },
       },
     });
@@ -300,9 +304,21 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
   await page.route('**/api/tiktok/rankings/current**', async (route) => {
     await route.fulfill({
       json: {
-        batch_id: null,
-        captured_at: null,
-        sets: [],
+        batch_id: 'batch-1',
+        captured_at: '2026-07-29T00:00:00.000Z',
+        sets: [{
+          metric: 'viewers',
+          period: 'last_live',
+          window: { begin: null, end: null },
+          entries: [{
+            position: 1,
+            display_id: 'pollito-ranking',
+            nickname: 'Pollito Ranking',
+            value: '1234',
+            profile: null,
+          }],
+          me: null,
+        }],
       },
     });
   });
@@ -658,12 +674,14 @@ test('completa el Panel del Miembro con paridad, recarga e historial', async ({ 
   const desktopNavigation = page.locator('aside').getByText('Navegación').locator('..');
   await expect(page).toHaveURL('/panel/clasificaciones');
   await expect(page.getByRole('heading', { name: 'Rankings de TikTok LIVE' })).toBeVisible();
+  await expect(page.getByText('Pollito Ranking')).toBeVisible();
   await expect(desktopNavigation.getByRole('link', { name: 'Clasificaciones' })).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
 
   await desktopNavigation.getByRole('link', { name: 'Actividad' }).click();
   await expect(page).toHaveURL('/panel/actividad');
   await expect(page.getByRole('heading', { name: 'Top de la Semana' })).toBeVisible();
+  await expect(page.getByText('@PollitoActivo')).toBeVisible();
 
   await desktopNavigation.getByRole('link', { name: 'Perfil' }).click();
   await expect(page).toHaveURL('/panel/perfil');
@@ -711,6 +729,18 @@ test('expone todas las rutas del Panel del Miembro en navegación móvil', async
     await expect(page).toHaveURL(path);
     await expect(mobileNavigation.getByRole('link', { name })).toHaveAttribute('aria-current', 'page');
   }
+});
+
+test('conserva el permiso y la acción de edición en Perfil', async ({ page }) => {
+  await mockConsoleApis(page, { perm_edit_nickname: false });
+  await page.goto('/acceso?retorno=%2Fpanel%2Fperfil');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
+  await page.getByRole('button', { name: /Confirmar Nickname/i }).click();
+
+  await expect(page.getByText('No tenés permiso para cambiar tu apodo.')).toBeVisible();
+  await expect(page).toHaveURL('/panel/perfil');
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {
