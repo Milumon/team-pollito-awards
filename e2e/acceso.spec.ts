@@ -295,7 +295,11 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
     await route.fulfill({
       json: {
         weekStart: new Date().toISOString(),
-        weekly: { usage: [], sounds: [], images: [] },
+        weekly: {
+          usage: [{ userId: 'user-1', name: 'PollitoActivo', avatarUrl: null, count: 7 }],
+          sounds: [],
+          images: [],
+        },
         allTime: { usage: [], sounds: [], images: [] },
       },
     });
@@ -327,6 +331,32 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
 
   await page.route('**/api/console/media/my-submissions', async (route) => {
     await route.fulfill({ json: { submissions: [] } });
+  });
+
+  await page.route('**/api/tiktok/rankings/current**', async (route) => {
+    await route.fulfill({
+      json: {
+        batch_id: 'batch-1',
+        captured_at: '2026-07-29T00:00:00.000Z',
+        sets: [{
+          metric: 'viewers',
+          period: 'last_live',
+          window: { begin: null, end: null },
+          entries: [{
+            position: 1,
+            display_id: 'pollito-ranking',
+            nickname: 'Pollito Ranking',
+            value: '1234',
+            profile: null,
+          }],
+          me: null,
+        }],
+      },
+    });
+  });
+
+  await page.route('**/api/tiktok/rankings?**', async (route) => {
+    await route.fulfill({ json: { history: [] } });
   });
 }
 
@@ -809,13 +839,52 @@ test('un Miembro Oficial conserva /panel con query al recargar y usar el histori
   await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fcategoria%3Dmemes');
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
-  await expect(page).toHaveURL(panelPath);
+  const desktopNavigation = page.locator('aside').getByText('Navegación').locator('..');
+  await expect(page).toHaveURL('/panel/clasificaciones');
+  await expect(page.getByRole('heading', { name: 'Rankings de TikTok LIVE' })).toBeVisible();
+  await expect(page.getByText('Pollito Ranking')).toBeVisible();
+  await expect(desktopNavigation.getByRole('link', { name: 'Clasificaciones' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+
+  await desktopNavigation.getByRole('link', { name: 'Actividad' }).click();
+  await expect(page).toHaveURL('/panel/actividad');
+  await expect(page.getByRole('heading', { name: 'Top de la Semana' })).toBeVisible();
+  await expect(page.getByText('@PollitoActivo')).toBeVisible();
+
+  await desktopNavigation.getByRole('link', { name: 'Perfil' }).click();
+  await expect(page).toHaveURL('/panel/perfil');
+  await expect(page.getByRole('heading', { name: 'Cambiar mi Nickname' })).toBeVisible();
+  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
+  await expect(page.getByText('🐣 NuevoPollito 🐣')).toBeVisible();
+
+  await desktopNavigation.getByRole('link', { name: 'Ajustes' }).click();
+  await expect(page).toHaveURL('/panel/ajustes');
+  await expect(page.getByRole('heading', { name: 'Configuración de Cuenta' })).toBeVisible();
+  const spamGuard = page.getByRole('checkbox', { name: /Confirmar antes/i });
+  await spamGuard.uncheck();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('confirmSpamGuard'))).toBe('false');
+
+  await desktopNavigation.getByRole('link', { name: 'Ayuda' }).click();
+  await expect(page).toHaveURL('/panel/ayuda');
+  await expect(page.getByRole('heading', { name: 'Preguntas Frecuentes' })).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(panelPath);
 
   await page.goto('/ruta-publica-inexistente');
   await page.goBack();
   await expect(page).toHaveURL(panelPath);
+});
+
+test('conserva el permiso y la acción de edición en Perfil', async ({ page }) => {
+  await mockConsoleApis(page, { perm_edit_nickname: false });
+  await page.goto('/acceso?retorno=%2Fpanel%2Fperfil');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
+  await page.getByRole('button', { name: /Confirmar Nickname/i }).click();
+
+  await expect(page.getByText('No tenés permiso para cambiar tu apodo.')).toBeVisible();
+  await expect(page).toHaveURL('/panel/perfil');
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {

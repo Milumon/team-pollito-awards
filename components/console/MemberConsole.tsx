@@ -114,7 +114,7 @@ const ANIMATIONS = [
 ];
 
 const LEADERBOARD_SECTIONS = [
-  { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
+  { key: 'usage' as const, title: 'Más uso del panel', icon: '⚡', suffix: 'interacciones' },
   { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
   { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
 ];
@@ -1136,7 +1136,7 @@ export default function MemberConsole({
     return (
       <div className="h-screen w-screen bg-[#1e1f22] text-white flex flex-col items-center justify-center font-sans">
         <Loader2 className="w-10 h-10 animate-spin text-[#FFC200]" />
-        <p className="mt-3 font-sans text-sm text-gray-500">Cargando consola VIP...</p>
+        <p className="mt-3 font-sans text-sm text-gray-500">Cargando Panel del Miembro...</p>
       </div>
     );
   }
@@ -1151,7 +1151,7 @@ export default function MemberConsole({
           </div>
           <h1 className="font-display font-bold text-2xl leading-none text-red-500">Acceso Restringido</h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            Iniciá sesión en el portal de comunidad con tu cuenta autorizada para acceder a la Consola en Vivo de Miembros Oficiales.
+            Iniciá sesión en el portal de comunidad con tu cuenta autorizada para acceder al Panel del Miembro.
           </p>
           <button
             onClick={handleBackToLanding}
@@ -1183,10 +1183,10 @@ export default function MemberConsole({
           </h1>
           <p className="text-xs text-gray-400 leading-relaxed">
             {isPending
-              ? 'Tu solicitud de vinculación está siendo evaluada por Milumon. Cuando seas aprobado como Miembro Oficial, se habilitará la consola interactiva.'
+              ? 'Tu solicitud de vinculación está siendo evaluada por Milumon. Cuando seas aprobado como Miembro Oficial, se habilitará el Panel del Miembro.'
               : isRejected
               ? `Tu vinculación fue rechazada. Motivo: "${profile?.rejection_reason || 'Sin motivo especificado'}"`
-              : 'Para acceder a la Consola en Vivo debés completar tu onboarding y ser aprobado como Miembro Oficial.'}
+              : 'Para acceder al Panel del Miembro debés completar tu onboarding y ser aprobado como Miembro Oficial.'}
           </p>
           <button
             onClick={handleBackToLanding}
@@ -1423,11 +1423,7 @@ export default function MemberConsole({
                         <div className="py-12 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">Cargando ranking...</div>
                       ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          {([
-                            { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
-                            { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
-                            { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
-                          ]).map((section) => {
+                          {LEADERBOARD_SECTIONS.map((section) => {
                             const entries = weeklyLeaderboards[section.key];
                             return (
                               <section key={section.key} className="bg-[#24262b] border border-neutral-700/60 rounded-2xl p-3.5">
@@ -1681,7 +1677,7 @@ export default function MemberConsole({
                       <div className="space-y-1">
                         <h4 className="text-xs font-semibold text-white">¿Por qué mis botones de sonido están deshabilitados?</h4>
                         <p className="text-[11px] text-gray-400 leading-relaxed font-semibold">
-                          Si disparaste un sonido recientemente, tendrás que esperar tu cooldown personal. También puede suceder que la consola esté bajo un **Mute Global** activado por el moderador del stream.
+                          Si disparaste un sonido recientemente, tendrás que esperar tu cooldown personal. También puede suceder que el panel esté bajo un **Mute Global** activado por el moderador del stream.
                         </p>
                       </div>
 
