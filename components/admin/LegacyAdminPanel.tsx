@@ -325,7 +325,7 @@ export default function LegacyAdminPanel() {
 
   // Tabs
   const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>('dashboard');
-  
+
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -410,11 +410,11 @@ export default function LegacyAdminPanel() {
       repeat_enabled: testRepeatEnabled || undefined,
       ...extra
     });
-    
+
     if (type === 'animation') {
       const animationType = content as 'confetti' | 'eggs' | 'sparkles';
       setSimulatedAnimation(animationType);
-      
+
       const newParticles = Array.from({ length: 45 }).map((_, i) => {
         const isConf = animationType === 'confetti';
         const char = animationType === 'eggs' ? '🐣' : animationType === 'sparkles' ? '✨' : '';
@@ -430,7 +430,7 @@ export default function LegacyAdminPanel() {
         };
       });
       setSimulatedParticles(newParticles);
-      
+
       setTimeout(() => {
         setSimulatedAnimation(null);
         setSimulatedParticles([]);
@@ -1156,7 +1156,7 @@ export default function LegacyAdminPanel() {
       });
       const data = await readApiPayload(response);
       if (!response.ok) throw new Error(data.error || 'No se pudo actualizar el usuario');
-      
+
       setStatus('Usuario actualizado correctamente.');
       setEditingUser(null);
       await loadStats();
@@ -1385,9 +1385,9 @@ export default function LegacyAdminPanel() {
 
       const fileExt = 'mp3';
       const fileName = `${soundId}-${Date.now()}.${fileExt}`;
-      
+
       setStatus('Subiendo archivo...');
-      
+
       const formData = new FormData();
       formData.append('file', processedFile, fileName);
       formData.append('name', soundName.trim());
@@ -1750,7 +1750,7 @@ export default function LegacyAdminPanel() {
 
         <div className="border border-neutral-700/60 rounded-2xl p-4 bg-[#2b2d31] space-y-3 ">
           <h3 className="font-display font-semibold text-xs text-gray-300">Alta Manual</h3>
-          
+
           <label className="block space-y-1">
             <span className="text-xs text-gray-500">Roblox User ID</span>
             <input
@@ -1842,7 +1842,7 @@ export default function LegacyAdminPanel() {
                       {nominee.nickname || nominee.display_name || nominee.roblox_user}
                     </h3>
                     <p className="text-[10px] text-gray-400 font-medium truncate">@{nominee.roblox_user}</p>
-                    
+
                     <div className="flex items-center gap-1.5 mt-1">
                       <span className={`h-1.5 w-1.5 rounded-full ${nominee.is_visible ? 'bg-emerald-400' : 'bg-red-400'}`} />
                       <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
@@ -2188,7 +2188,7 @@ export default function LegacyAdminPanel() {
                       other.robloxUser.toLowerCase().trim() === u.robloxUser.toLowerCase().trim()
                   );
                   const isClaim = u.rejectionReason?.startsWith('RECLAMO:');
-                  
+
                   if (!conflictedUser && !isClaim) return null;
 
                   return (
@@ -2268,7 +2268,7 @@ export default function LegacyAdminPanel() {
 
   const renderTestimonials = () => {
     const usersWithTestimonials = stats?.users?.filter(u => u.testimonial) || [];
-    
+
     return (
       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in text-white">
         <div>
@@ -3980,7 +3980,7 @@ export default function LegacyAdminPanel() {
 
       {/* 2. BODY CONTAINER */}
       <div className="flex flex-1 overflow-hidden min-h-0 relative">
-        
+
         {/* DESKTOP SIDEBAR */}
         <aside className="w-[260px] bg-[#24262b] hidden lg:flex flex-col justify-between shrink-0 p-4 select-none">
           {renderSidebarContent()}
@@ -4052,7 +4052,7 @@ export default function LegacyAdminPanel() {
           <div className="space-y-6">
             <div className="space-y-3">
               <h3 className="text-[11px] font-display font-medium text-gray-400 uppercase tracking-wider">Estado del Stream</h3>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
                   <span className="text-xs text-gray-300 font-bold">Supabase Database</span>
@@ -4300,7 +4300,7 @@ export default function LegacyAdminPanel() {
                           {cat.title}
                         </span>
                       </div>
-                      
+
                       {vote ? (
                         <span className="font-bold text-[#FFC200] shrink-0 bg-[#FFC200]/10 border border-[#FFC200]/20 px-2.5 py-0.5 rounded-lg truncate max-w-[120px]" title={vote.nomineeName}>
                           {vote.nomineeName}
@@ -4561,7 +4561,7 @@ export default function LegacyAdminPanel() {
                               {cat.title}
                             </span>
                           </div>
-                          
+
                           {vote ? (
                             <span className="font-bold text-[#FFC200] shrink-0 bg-[#FFC200]/10 border border-[#FFC200]/20 px-2.5 py-0.5 rounded-lg truncate max-w-[120px]" title={vote.nomineeName}>
                               {vote.nomineeName}
