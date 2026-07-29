@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { buildAccessPath } from '@/lib/authRouting';
-import { getServerSessionFromRequest } from '@/lib/serverSession';
+import { updateServerAuth } from '@/lib/serverSession';
 
 const PRIVATE_PREFIXES = ['/console', '/admin', '/panel'];
 
@@ -19,15 +19,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const response = NextResponse.next();
+  const { user, response } = await updateServerAuth(request);
 
-  if (await getServerSessionFromRequest(request, response)) {
+  if (user) {
     return response;
   }
 
   const returnPath = `${pathname}${search}`;
   const loginUrl = new URL(buildAccessPath(returnPath), request.url);
-  return NextResponse.redirect(loginUrl);
+  const redirectResponse = NextResponse.redirect(loginUrl);
+  response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  return redirectResponse;
 }
 
 export const config = {

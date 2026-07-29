@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = 3100;
+const port = Number(process.env.PLAYWRIGHT_PORT || 3100);
 const useWebServer = process.env.PLAYWRIGHT_NO_WEBSERVER !== '1';
-const publicSupabaseUrl = 'http://127.0.0.1:54321';
+const supabasePort = Number(process.env.PLAYWRIGHT_SUPABASE_PORT || 54321);
+const publicSupabaseUrl = `http://127.0.0.1:${supabasePort}`;
 const publicSupabaseAnonKey = 'playwright-test-key';
 
 export default defineConfig({

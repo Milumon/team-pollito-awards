@@ -21,10 +21,10 @@ export default function AccessPageClient() {
     const sync = async () => {
       try {
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+        } = await supabase.auth.getUser();
 
-        if (session) {
+        if (user) {
           if (!cancelled) {
             router.replace(retorno);
           }

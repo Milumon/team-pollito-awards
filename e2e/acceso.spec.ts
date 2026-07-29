@@ -2,8 +2,9 @@ import { createServer } from 'node:http';
 
 import { expect, test, type Page } from '@playwright/test';
 
-const baseUrl = 'http://127.0.0.1:3100';
-const supabaseUrl = 'http://127.0.0.1:54321';
+const baseUrl = `http://127.0.0.1:${process.env.PLAYWRIGHT_PORT || 3100}`;
+const supabasePort = Number(process.env.PLAYWRIGHT_SUPABASE_PORT || 54321);
+const supabaseUrl = `http://127.0.0.1:${supabasePort}`;
 
 const authFixtures = {
   'member-code': {
@@ -30,6 +31,18 @@ const authFixtures = {
       link_status: 'approved',
     },
   },
+  'pending-code': {
+    accessToken: 'pending-access-token',
+    refreshToken: 'pending-refresh-token',
+    user: {
+      id: 'pending-1',
+      email: 'pendiente@test.dev',
+    },
+    profile: {
+      is_admin: false,
+      link_status: 'pending',
+    },
+  },
 } as const;
 
 const authByAccessToken = new Map<string, (typeof authFixtures)[keyof typeof authFixtures]>(
@@ -41,10 +54,25 @@ let supabaseMockServer: Awaited<ReturnType<typeof startSupabaseMockServer>> | nu
 async function startSupabaseMockServer() {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', supabaseUrl);
+    response.setHeader('access-control-allow-origin', baseUrl);
+    response.setHeader('access-control-allow-headers', 'authorization, apikey, content-type, x-client-info');
+
+    if (request.method === 'OPTIONS') {
+      response.writeHead(204);
+      response.end();
+      return;
+    }
 
     if (request.method === 'GET' && url.pathname === '/auth/v1/authorize') {
       const redirectTo = url.searchParams.get('redirect_to') || `${baseUrl}/acceso?retorno=%2F`;
-      const code = redirectTo.includes('/admin') ? 'admin-code' : 'member-code';
+      const returnPath = new URL(redirectTo).searchParams.get('retorno') || '/';
+      const code = returnPath.includes('estado=pendiente')
+        ? 'pending-code'
+        : returnPath.includes('rol=miembro')
+          ? 'member-code'
+          : returnPath.startsWith('/admin')
+            ? 'admin-code'
+            : 'member-code';
       const location = new URL(redirectTo);
       location.searchParams.set('code', code);
 
@@ -62,9 +90,12 @@ async function startSupabaseMockServer() {
         request.on('end', () => resolve(payload));
       });
 
-      const params = new URLSearchParams(body);
-      const code = params.get('auth_code');
-      const refreshToken = params.get('refresh_token');
+      const contentType = request.headers['content-type'] || '';
+      const params = contentType.includes('application/json')
+        ? (JSON.parse(body) as { auth_code?: string; refresh_token?: string })
+        : Object.fromEntries(new URLSearchParams(body));
+      const code = params.auth_code;
+      const refreshToken = params.refresh_token;
       const fixture =
         (code && authFixtures[code as keyof typeof authFixtures]) ||
         [...authByAccessToken.values()].find((candidate) => candidate.refreshToken === refreshToken);
@@ -146,7 +177,7 @@ async function startSupabaseMockServer() {
   });
 
   await new Promise<void>((resolve) => {
-    server.listen(54321, '127.0.0.1', () => resolve());
+    server.listen(supabasePort, '127.0.0.1', () => resolve());
   });
 
   return server;
@@ -358,6 +389,14 @@ test('redirige al visitante desde una ruta privada hacia /acceso preservando el 
   await expect(page.getByRole('heading', { name: /Entrar a la comunidad/i })).toBeVisible();
 });
 
+test('protege las rutas futuras de /panel preservando la ruta y sus parametros', async ({ page }) => {
+  await page.goto('/panel/sonidos?categoria=memes');
+
+  await expect(page).toHaveURL(
+    '/acceso?retorno=%2Fpanel%2Fsonidos%3Fcategoria%3Dmemes',
+  );
+});
+
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
   let requestedRedirectTo: string | null = null;
 
@@ -376,7 +415,7 @@ test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
   await expect.poll(() => requestedRedirectTo).toBe(
-    'http://127.0.0.1:3100/api/auth/callback?retorno=%2Fconsole%3Fvista%3Dsonidos',
+    `${baseUrl}/api/auth/callback?retorno=%2Fconsole%3Fvista%3Dsonidos`,
   );
 });
 
@@ -398,7 +437,7 @@ test('bloquea retornos externos al iniciar autenticación', async ({ page }) => 
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
   await expect.poll(() => requestedRedirectTo).toBe(
-    'http://127.0.0.1:3100/api/auth/callback?retorno=%2F',
+    `${baseUrl}/api/auth/callback?retorno=%2F`,
   );
 });
 
@@ -414,16 +453,34 @@ test('permite que un Miembro Oficial retome exactamente /console tras pasar por 
   await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
 });
 
-test('responde 403 a un usuario autenticado sin rol Admin en /admin', async ({ page }) => {
-  await page.goto('/acceso?retorno=%2Fadmin');
+test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {
+  await page.goto('/acceso?retorno=%2Fconsole%3Festado%3Dpendiente');
   const responsePromise = page.waitForResponse((response) => {
-    return response.request().resourceType() === 'document' && response.url().endsWith('/admin');
+    return (
+      response.request().resourceType() === 'document' &&
+      response.url().endsWith('/console?estado=pendiente')
+    );
   });
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
   const response = await responsePromise;
 
   expect(response.status()).toBe(403);
-  await expect(page).toHaveURL('/admin');
+  await expect(page.getByRole('heading', { name: /ACCESO RESTRINGIDO/i })).toBeVisible();
+});
+
+test('responde 403 a un usuario autenticado sin rol Admin en /admin', async ({ page }) => {
+  await page.goto('/acceso?retorno=%2Fadmin%3Frol%3Dmiembro');
+  const responsePromise = page.waitForResponse((response) => {
+    return (
+      response.request().resourceType() === 'document' &&
+      response.url().endsWith('/admin?rol=miembro')
+    );
+  });
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const response = await responsePromise;
+
+  expect(response.status()).toBe(403);
+  await expect(page).toHaveURL('/admin?rol=miembro');
   await expect(page.getByRole('heading', { name: /ACCESO RESTRINGIDO/i })).toBeVisible();
 });
 
@@ -434,5 +491,5 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
   await expect(page).toHaveURL('/admin');
-  await expect(page.getByText(/MILUMON ADMIN/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 });

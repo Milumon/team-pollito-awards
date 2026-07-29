@@ -7,7 +7,7 @@ export default function ForbiddenPage() {
         <div className="absolute top-0 left-0 w-full h-1.5 bg-red-500"></div>
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center font-bold text-xl border border-neutral-700/60">
-            🛡️
+            403
           </div>
           <div>
             <h1 className="font-display font-bold text-lg text-white leading-none">ACCESO RESTRINGIDO</h1>
@@ -16,7 +16,7 @@ export default function ForbiddenPage() {
         </div>
 
         <p className="text-sm font-semibold text-gray-400 mb-6 leading-relaxed">
-          Tu cuenta no posee permisos para entrar a este espacio del Panel de Control.
+          Tu cuenta no posee los permisos necesarios para entrar a este espacio.
         </p>
 
         <Link

@@ -11,13 +11,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function ConsoleLayout({
+export default async function MemberPanelLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await getServerSession();
 
   if (!session) {
-    redirect(buildAccessPath('/console'));
+    redirect(buildAccessPath('/panel'));
   }
 
   if (session.linkStatus !== 'approved') {

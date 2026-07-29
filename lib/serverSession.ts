@@ -1,9 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import type { NextRequest, NextResponse } from 'next/server';
-
-import { supabaseAdmin } from './supabaseAdmin';
+import { NextResponse, type NextRequest } from 'next/server';
 
 type LinkStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
@@ -11,19 +9,6 @@ type ProfileFlags = {
   is_admin?: boolean | null;
   link_status?: LinkStatus | null;
 };
-
-type CookieSnapshot = {
-  name: string;
-  value: string;
-};
-
-type CookieOptions = Parameters<NextResponse['cookies']['set']>[2];
-
-type CookiesToSet = Array<{
-  name: string;
-  value: string;
-  options?: CookieOptions;
-}>;
 
 export type ServerSession = {
   user: User;
@@ -35,8 +20,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const ownerEmail = 'kpopxfull@gmail.com';
 
-async function readProfile(userId: string) {
-  const { data } = await supabaseAdmin
+async function readProfile(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+) {
+  const { data } = await supabase
     .from('profiles')
     .select('is_admin, link_status')
     .eq('id', userId)
@@ -45,12 +33,15 @@ async function readProfile(userId: string) {
   return data as ProfileFlags | null;
 }
 
-async function buildServerSession(user: User | null) {
+async function buildServerSession(
+  supabase: ReturnType<typeof createServerClient>,
+  user: User | null,
+) {
   if (!user) {
     return null;
   }
 
-  const profile = await readProfile(user.id);
+  const profile = await readProfile(supabase, user.id);
 
   return {
     user,
@@ -59,45 +50,28 @@ async function buildServerSession(user: User | null) {
   } satisfies ServerSession;
 }
 
-async function getVerifiedUser(
-  getAll: () => CookieSnapshot[],
-  setAll: (cookiesToSet: CookiesToSet, headers?: Record<string, string>) => void,
-) {
+export async function getServerSession() {
+  const cookieStore = await cookies();
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      getAll,
-      setAll,
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookiesToSet) => {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Server Components cannot always write cookies; Proxy handles refreshes.
+        }
+      },
     },
   });
-
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
 
-  if (error) {
-    return null;
-  }
-
-  return user;
-}
-
-export async function getServerSession() {
-  const cookieStore = await cookies();
-  const user = await getVerifiedUser(
-    () => cookieStore.getAll(),
-    (cookiesToSet) => {
-      try {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
-      } catch {
-        // Server Components cannot always write cookies; Proxy handles refreshes.
-      }
-    },
-  );
-
-  return buildServerSession(user);
+  return error ? null : buildServerSession(supabase, user);
 }
 
 export function createRouteHandlerSupabaseClient(
@@ -127,19 +101,27 @@ export function createRouteHandlerSupabaseClient(
   });
 }
 
-export async function getServerSessionFromRequest(
-  request: NextRequest,
-  response: NextResponse,
-) {
-  const supabase = createRouteHandlerSupabaseClient(request, response);
+export async function updateServerAuth(request: NextRequest) {
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(cookiesToSet, headers) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+        Object.entries(headers || {}).forEach(([key, value]) => {
+          response.headers.set(key, value);
+        });
+      },
+    },
+  });
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser();
 
-  if (error) {
-    return null;
-  }
-
-  return buildServerSession(user);
+  return { user: error ? null : user, response };
 }
