@@ -67,7 +67,7 @@ function Avatar({
   const imgSrc = robloxUrl || tiktokUrl;
 
   return (
-    <div className={`${large ? 'h-11 w-11' : 'h-8 w-8'} flex shrink-0 items-center justify-center overflow-hidden rounded-full ${publicStyle ? 'border-3 border-black bg-[#FFD500]' : `border ${entry.profile ? 'border-[#FFC200]' : 'border-neutral-700'} bg-[#35373d]`}`}>
+    <div className={`${large ? 'h-11 w-11' : 'h-8 w-8'} flex shrink-0 items-center justify-center overflow-hidden ${publicStyle ? 'rounded-2xl border-3 border-black bg-[#FFD500]' : `rounded-full border ${entry.profile ? 'border-[#FFC200]' : 'border-neutral-700'} bg-[#35373d]`}`}>
       {imgSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -93,10 +93,10 @@ function EmptyState({
 }) {
   return (
     <div className={publicStyle
-      ? "rounded-2xl border-3 border-black bg-[#FDFBF7] px-4 py-8 text-center font-['Inter'] shadow-[6px_6px_0_0_#000]"
+      ? "rounded-2xl border-3 border-black bg-[#FFD500] px-4 py-8 text-center font-['Inter'] shadow-[6px_6px_0_0_#000]"
       : 'rounded-xl border border-dashed border-neutral-700 bg-[#24262b] px-4 py-8 text-center'}>
       <p className={publicStyle ? "font-['Anton'] text-sm uppercase text-black" : 'font-display text-sm text-white'}>{title}</p>
-      <p className={`mt-1 text-xs ${publicStyle ? 'text-gray-700' : 'text-gray-500'}`}>{detail}</p>
+      <p className={`mt-1 text-xs ${publicStyle ? 'text-black' : 'text-gray-500'}`}>{detail}</p>
     </div>
   );
 }
@@ -152,7 +152,7 @@ function RankingRows({
         const winner = entry.position === 1;
         const linked = Boolean(entry.profile);
         const rowClass = publicStyle
-          ? linked ? 'border-black bg-[#FFF8CC] shadow-[6px_6px_0_0_#000]' : 'border-black bg-white shadow-[6px_6px_0_0_#000]'
+          ? 'border-black bg-white shadow-[6px_6px_0_0_#000]'
           : dark
           ? linked ? 'border-[#FFC200]/35 bg-[#FFC200]/5' : 'border-neutral-700/40 bg-[#2b2d31]'
           : linked ? 'border-[#FFC200]/35 bg-[#FFF9E6]' : 'border-gray-100 bg-white';
@@ -196,12 +196,13 @@ function RankingControls({
   const selectClass = publicStyle
     ? 'border-3 border-black bg-white text-black shadow-[3px_3px_0_0_#000]'
     : dark ? 'border border-neutral-700 bg-[#20232a] text-white' : 'border border-gray-200 bg-white text-[#2D3139]';
+  const focusClass = publicStyle ? 'focus:border-[#FFD500]' : 'focus:border-[#FFC200]';
   return (
     <div className="flex flex-wrap gap-2">
-      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
+      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
         {RANKING_METRICS.map((item) => <option key={item} value={item}>{METRIC_LABELS[item]}</option>)}
       </select>
-      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none focus:border-[#FFD500] ${selectClass}`}>
+      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
         {RANKING_PERIODS.map((item) => <option key={item} value={item}>{PERIOD_LABELS[item]}</option>)}
       </select>
     </div>
@@ -364,7 +365,7 @@ export function TikTokRankingPublicPage() {
           {state.loading || state.error || !state.data?.batch_id ? (
             <StatusState state={state} publicStyle />
           ) : !selected || selected.entries.length === 0 ? (
-            <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." publicStyle />
+            <EmptyState title="Snapshot de Ranking sin actividad en este período" detail="TikTok no devolvió participantes para esta combinación." publicStyle />
           ) : (
             <RankingRows entries={selected.entries} metric={metric} publicStyle />
           )}

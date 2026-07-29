@@ -132,6 +132,7 @@ test('aplica el Design DNA y la terminologia del dominio en la pagina publica', 
   const card = page.locator('main section');
   const heading = page.getByRole('heading', { name: 'Clasificaciones de TikTok LIVE' });
   const firstRow = page.getByText('Usuario 1', { exact: true }).locator('xpath=ancestor::div[contains(@class,"border-3")][1]');
+  const secondRow = page.getByText('Usuario 2', { exact: true }).locator('xpath=ancestor::div[contains(@class,"border-3")][1]');
   await expect(card).toHaveClass(/border-3/);
   await expect(card).toHaveClass(/brutalist-shadow/);
   await expect(page.locator('main')).toHaveCSS('font-family', /Inter/);
@@ -141,7 +142,11 @@ test('aplica el Design DNA y la terminologia del dominio en la pagina publica', 
   await expect(page.getByRole('link', { name: /Volver a la comunidad/i })).toHaveClass(/rounded-2xl/);
   await expect(firstRow).toHaveClass(/border-3/);
   await expect(firstRow).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
+  await expect(firstRow.getByText('♪').locator('..')).toHaveClass(/rounded-2xl/);
   await expect(firstRow.getByText('Miembro')).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(secondRow).toHaveClass(/border-3/);
+  await expect(secondRow).toHaveClass(/bg-white/);
+  await expect(secondRow).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
   await expect(page.getByText('Snapshot de Ranking publicado', { exact: false })).toBeVisible();
 });
 
@@ -166,6 +171,37 @@ test('aplica el Design DNA a los estados de carga y vacio publicos', async ({ pa
   await expect(emptyTitle).toBeVisible();
   await expect(emptyTitle).toHaveCSS('font-family', /Anton/);
   await expect(emptyTitle.locator('..')).toHaveClass(/border-3/);
+  await expect(emptyTitle.locator('..')).toHaveClass(/bg-\[#FFD500\]/);
+});
+
+test('aplica el Design DNA al estado de error publico', async ({ page }) => {
+  await page.route('**/api/tiktok/rankings/current**', (route) => route.fulfill({
+    status: 500,
+    json: { error: 'No disponible' },
+  }));
+
+  await page.goto('/clasificaciones');
+  const errorTitle = page.getByText('No se pudo cargar el Snapshot de Ranking');
+  await expect(errorTitle).toBeVisible();
+  await expect(errorTitle).toHaveCSS('font-family', /Anton/);
+  await expect(errorTitle.locator('..')).toHaveClass(/rounded-2xl/);
+  await expect(errorTitle.locator('..')).toHaveClass(/border-3/);
+  await expect(errorTitle.locator('..')).toHaveClass(/bg-\[#FFD500\]/);
+  await expect(errorTitle.locator('..')).toHaveClass(/shadow-\[6px_6px_0_0_#000\]/);
+});
+
+test('usa el termino de dominio en un periodo sin actividad', async ({ page }) => {
+  await page.route('**/api/tiktok/rankings/current**', (route) => route.fulfill({
+    json: {
+      ...rankingFixture,
+      sets: rankingFixture.sets.map((set) => set.metric === 'viewers' && set.period === 'last_live'
+        ? { ...set, entries: [] }
+        : set),
+    },
+  }));
+
+  await page.goto('/clasificaciones');
+  await expect(page.getByText('Snapshot de Ranking sin actividad en este período')).toBeVisible();
 });
 
 test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial navegable', async ({ page }) => {
