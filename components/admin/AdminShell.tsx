@@ -68,7 +68,7 @@ export function AdminShell({
           onClick={logout}
           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-500/10 py-2 font-display text-sm font-semibold text-red-400 hover:bg-red-500/15"
         >
-          <LogOut className="h-4 w-4" /> Cerrar sesion
+          <LogOut className="h-4 w-4" /> Cerrar sesión
         </button>
       </div>
     </>
@@ -81,7 +81,7 @@ export function AdminShell({
           <Link href="/" className="flex min-w-0 items-center gap-2.5">
             <span className="text-2xl" aria-hidden>🐣</span>
             <span className="truncate font-display text-base font-bold text-[#FFC200]">
-              Milumon Community
+              Team Pollito Comunidad
             </span>
           </Link>
           <div className="ml-auto hidden items-center gap-2 md:flex">
@@ -94,7 +94,7 @@ export function AdminShell({
           </div>
           <button
             type="button"
-            aria-label="Abrir navegacion"
+            aria-label="Abrir navegación"
             onClick={() => setMobileMenuOpen(true)}
             className="ml-auto rounded-lg p-1.5 text-gray-400 lg:hidden"
           >
@@ -111,16 +111,16 @@ export function AdminShell({
           <div className="fixed inset-0 z-50 lg:hidden">
             <button
               type="button"
-              aria-label="Cerrar navegacion"
+              aria-label="Cerrar navegación"
               className="absolute inset-0 bg-black/60"
               onClick={() => setMobileMenuOpen(false)}
             />
             <aside className="relative flex h-full w-[260px] flex-col bg-[#24262b] p-4 shadow-xl">
               <div className="mb-4 flex items-center justify-between border-b border-white/5 pb-4">
-                <span className="text-xs font-semibold text-gray-400">Navegacion</span>
+                <span className="text-xs font-semibold text-gray-400">Navegación</span>
                 <button
                   type="button"
-                  aria-label="Cerrar navegacion"
+                  aria-label="Cerrar navegación"
                   onClick={() => setMobileMenuOpen(false)}
                   className="rounded-lg bg-white/5 p-1.5 text-gray-400"
                 >

@@ -19,11 +19,11 @@ type ProfileForm = {
 };
 
 const permissions = [
-  ['permUploadImages', 'perm_upload_images', 'Subir imagenes'],
+  ['permUploadImages', 'perm_upload_images', 'Subir imágenes'],
   ['permUploadVideos', 'perm_upload_videos', 'Subir videos'],
   ['permUploadAudio', 'perm_upload_audio', 'Subir audio'],
   ['permTtsText', 'perm_tts_text', 'TTS por texto'],
-  ['permTtsRecord', 'perm_tts_record', 'TTS por grabacion'],
+  ['permTtsRecord', 'perm_tts_record', 'TTS por grabación'],
   ['permEditNickname', 'perm_edit_nickname', 'Cambiar apodo'],
   ['permTriggerSounds', 'perm_trigger_sounds', 'Activar sonidos'],
   ['permTriggerMedia', 'perm_trigger_media', 'Activar multimedia'],
@@ -183,7 +183,7 @@ function LoadedAdminUserEditor({
       <header className="mb-4 flex shrink-0 items-center gap-3 border-b border-neutral-700/60 pb-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-neutral-700/60 bg-[#171A20]">🐣</span>
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wide text-gray-500">Gestion de perfil</p>
+          <p className="text-[10px] uppercase tracking-wide text-gray-500">Gestión de perfil</p>
           <h1 className="truncate font-display text-xl font-semibold text-white">Editar usuario</h1>
           <p className="truncate text-xs text-gray-400">{user.email}</p>
           <p className="text-[10px] text-gray-500">ID: {user.id}</p>
@@ -232,10 +232,10 @@ function LoadedAdminUserEditor({
           </label>
           {conflictedEmail && (
             <label className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-semibold normal-case tracking-normal text-amber-300">
-              La cuenta ya esta vinculada a {conflictedEmail}.
+              La cuenta ya está vinculada a {conflictedEmail}.
               <span className="mt-2 flex items-center gap-2">
                 <input type="checkbox" checked={forceClaim} onChange={(event) => setForceClaim(event.target.checked)} />
-                Confirmar reasignacion forzada
+                Confirmar reasignación forzada
               </span>
             </label>
           )}
@@ -244,12 +244,12 @@ function LoadedAdminUserEditor({
             <input value={form.tiktokUsername} onChange={(event) => setForm({ ...form, tiktokUsername: event.target.value })} className="w-full rounded-xl border border-neutral-700/60 bg-[#171A20] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white outline-none focus:border-[#FFC200]" />
           </label>
           <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Estado de vinculacion
+            Estado de vinculación
             <select value={form.linkStatus} onChange={(event) => setForm({ ...form, linkStatus: event.target.value as AdminUser['linkStatus'] })} className="w-full rounded-xl border border-neutral-700/60 bg-[#171A20] px-3.5 py-2.5 text-xs text-white outline-none">
-              <option value="none">NONE (Sin verificar)</option>
-              <option value="pending">PENDING (Pendiente)</option>
-              <option value="approved">APPROVED (Aprobado)</option>
-              <option value="rejected">REJECTED (Rechazado)</option>
+              <option value="none">Sin verificar</option>
+              <option value="pending">Pendiente</option>
+              <option value="approved">Aprobado</option>
+              <option value="rejected">Rechazado</option>
             </select>
           </label>
           {form.linkStatus === 'rejected' && (
@@ -266,7 +266,7 @@ function LoadedAdminUserEditor({
 
       {tab === 'votes' && (
         <div className="flex-1 space-y-2 overflow-y-auto">
-          <p className="rounded-xl border border-neutral-700/60 bg-[#171A20] p-3 text-xs font-semibold text-gray-300">Progreso: {user.votedCount}/{user.totalCategories} categorias</p>
+          <p className="rounded-xl border border-neutral-700/60 bg-[#171A20] p-3 text-xs font-semibold text-gray-300">Progreso: {user.votedCount}/{user.totalCategories} categorías</p>
           {CATEGORIES.map((category) => {
             const vote = user.votes.find((candidate) => candidate.categoryId === category.id);
             return <div key={category.id} className="flex items-center justify-between gap-3 rounded-xl border border-neutral-700/60 bg-[#171A20] p-3 text-xs"><span className="truncate text-gray-300">{category.title}</span><span className={vote ? 'text-[#FFC200]' : 'text-red-400'}>{vote?.nomineeName || 'Sin votar'}</span></div>;

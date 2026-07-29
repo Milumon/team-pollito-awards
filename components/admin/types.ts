@@ -41,6 +41,15 @@ export type AdminStats = {
   users: AdminUser[];
 };
 
+export function getAdminUserStatusLabel(status: AdminUser['linkStatus']) {
+  return {
+    none: 'Sin verificar',
+    pending: 'Pendiente',
+    approved: 'Aprobado',
+    rejected: 'Rechazado',
+  }[status];
+}
+
 export type AdminDashboard = {
   summary: {
     totalUsers: number;

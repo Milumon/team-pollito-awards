@@ -91,7 +91,7 @@ export function AdminDashboardView() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
-          <h2 className="mb-4 font-display text-lg font-semibold text-white">Ultimos accesos</h2>
+          <h2 className="mb-4 font-display text-lg font-semibold text-white">Últimos accesos</h2>
           <div className="space-y-2">
             {(dashboard?.recentAccesses ?? []).map((access) => (
               <div key={access.userId} className="flex items-center gap-3 rounded-xl border border-neutral-700/40 bg-[#35373d] p-3">

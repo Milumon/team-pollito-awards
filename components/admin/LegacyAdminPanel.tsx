@@ -16,6 +16,7 @@ import { Header } from '@/components/ui/Header';
 import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 import MediaSubmissionsPanel from '@/components/admin/MediaSubmissionsPanel';
 import MediaUploadForm from '@/components/console/MediaUploadForm';
+import { getAdminUserStatusLabel } from '@/components/admin/types';
 
 function maskEmail(email: string): string {
   if (!email) return '';
@@ -1630,7 +1631,7 @@ export default function LegacyAdminPanel() {
             <div className="flex items-center justify-between border-b border-neutral-700/60 pb-3 mb-4">
               <div>
                 <span className="text-[10px] uppercase tracking-wider font-medium text-gray-500">Comunidad activa</span>
-                <h2 className="font-display font-semibold text-lg text-white mt-1">Top usuarios</h2>
+                <h2 className="font-display font-semibold text-lg text-white mt-1">Miembros más activos</h2>
               </div>
               <span className="text-[10px] text-gray-500">Esta semana</span>
             </div>
@@ -2066,7 +2067,7 @@ export default function LegacyAdminPanel() {
                           ? 'bg-red-500/10 text-red-400 border-red-500/20'
                           : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
                       }`}>
-                        {u.linkStatus.toUpperCase()}
+                        {getAdminUserStatusLabel(u.linkStatus)}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right">
@@ -4503,10 +4504,10 @@ export default function LegacyAdminPanel() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, linkStatus: e.target.value as any }))}
                       className="w-full px-3.5 py-2.5 bg-[#171A20] border border-neutral-700/60 rounded-xl text-xs focus:border-[#FFC200] outline-none text-white transition-colors font-semibold"
                     >
-                      <option value="none">NONE (Sin verificar)</option>
-                      <option value="pending">PENDING (Pendiente)</option>
-                      <option value="approved">APPROVED (Aprobado)</option>
-                      <option value="rejected">REJECTED (Rechazado)</option>
+                      <option value="none">Sin verificar</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="approved">Aprobado</option>
+                      <option value="rejected">Rechazado</option>
                     </select>
                   </div>
 

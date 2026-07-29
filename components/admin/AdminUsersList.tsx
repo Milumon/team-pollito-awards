@@ -7,6 +7,7 @@ import { useDeferredValue, useMemo, useState } from 'react';
 
 import { adminFetch, readApiPayload } from './adminApi';
 import { useAdminUsers } from './AdminUsersProvider';
+import { getAdminUserStatusLabel } from './types';
 
 const USERS_PER_PAGE = 12;
 
@@ -62,7 +63,7 @@ export function AdminUsersList() {
     <section className="space-y-5 rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)] animate-fade-in">
       <div className="flex flex-col gap-4 border-b border-neutral-700/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">Padron electoral</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">Padrón electoral</span>
           <h1 className="mt-0.5 font-display text-lg font-semibold leading-none text-white">Usuarios de la Comunidad</h1>
           <p className="mt-1 text-xs font-semibold text-gray-400">Administra accesos y perfiles de Miembros Oficiales.</p>
         </div>
@@ -114,7 +115,7 @@ export function AdminUsersList() {
                     </td>
                     <td className="px-2 py-3">
                       <span className="rounded-xl border border-neutral-700/60 bg-white/5 px-2 py-1 text-[9px] font-semibold text-gray-300">
-                        {user.linkStatus.toUpperCase()}
+                        {getAdminUserStatusLabel(user.linkStatus)}
                       </span>
                     </td>
                     <td className="px-2 py-3 text-right">
@@ -153,9 +154,9 @@ export function AdminUsersList() {
             <div className="flex items-center justify-between border-t border-neutral-700/60 pt-4 text-xs font-semibold">
               <span className="text-gray-400">{filteredUsers.length} usuarios</span>
               <div className="inline-flex items-center gap-2 rounded-xl border border-neutral-700/60 bg-[#202226] p-1">
-                <button type="button" aria-label="Pagina anterior" disabled={page === 1} onClick={() => navigateToPage(page - 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-                <span className="px-2 font-mono text-[10px] font-bold">PAG {page} / {totalPages}</span>
-                <button type="button" aria-label="Pagina siguiente" disabled={page === totalPages} onClick={() => navigateToPage(page + 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+                <button type="button" aria-label="Página anterior" disabled={page === 1} onClick={() => navigateToPage(page - 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+                <span className="px-2 font-mono text-[10px] font-bold">PÁG. {page} / {totalPages}</span>
+                <button type="button" aria-label="Página siguiente" disabled={page === totalPages} onClick={() => navigateToPage(page + 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
           )}

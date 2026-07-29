@@ -715,11 +715,11 @@ test('conserva pagina en URL directa, recarga y Atras/Adelante', async ({ page }
   await signInAsAdmin(page, '/admin/usuarios?pagina=2');
 
   await expect(page).toHaveURL('/admin/usuarios?pagina=2');
-  await expect(page.getByText('PAG 2 / 2')).toBeVisible();
+  await expect(page.getByText('PÁG. 2 / 2')).toBeVisible();
   await page.reload();
-  await expect(page.getByText('PAG 2 / 2')).toBeVisible();
+  await expect(page.getByText('PÁG. 2 / 2')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Pagina anterior' }).click();
+  await page.getByRole('button', { name: 'Página anterior' }).click();
   await expect(page).toHaveURL('/admin/usuarios');
   await page.goBack();
   await expect(page).toHaveURL('/admin/usuarios?pagina=2');
@@ -742,6 +742,8 @@ test('abre el editor de usuario como pagina directa sin confundir identidades', 
   await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
   await expect(page.getByText('miembro@test.dev')).toBeVisible();
   await expect(page.getByText('admin@test.dev')).toBeVisible();
+  await expect(page.getByLabel('Estado de vinculación')).toHaveValue('approved');
+  await expect(page.getByText('APPROVED')).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.reload();
