@@ -61,7 +61,7 @@ export async function getServerSession() {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // Server Components cannot always write cookies; Proxy handles refreshes.
+          // Server Components can read request cookies but cannot always write responses.
         }
       },
     },
@@ -99,30 +99,4 @@ export function createRouteHandlerSupabaseClient(
       },
     },
   });
-}
-
-export async function updateServerAuth(request: NextRequest) {
-  let response = NextResponse.next({ request });
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll: () => request.cookies.getAll(),
-      setAll(cookiesToSet, headers) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-        Object.entries(headers || {}).forEach(([key, value]) => {
-          response.headers.set(key, value);
-        });
-      },
-    },
-  });
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  response.headers.set('Cache-Control', 'private, no-store');
-
-  return { user: error ? null : user, response };
 }

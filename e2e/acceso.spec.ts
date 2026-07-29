@@ -48,6 +48,7 @@ const authFixtures = {
 const authByAccessToken = new Map<string, (typeof authFixtures)[keyof typeof authFixtures]>(
   Object.values(authFixtures).map((fixture) => [fixture.accessToken, fixture]),
 );
+const rejectedAccessTokens = new Set<string>();
 
 let supabaseMockServer: Awaited<ReturnType<typeof startSupabaseMockServer>> | null = null;
 
@@ -132,7 +133,9 @@ async function startSupabaseMockServer() {
       const token = authorization?.startsWith('Bearer ')
         ? authorization.slice('Bearer '.length)
         : null;
-      const fixture = token ? authByAccessToken.get(token) : null;
+      const fixture = token && !rejectedAccessTokens.has(token)
+        ? authByAccessToken.get(token)
+        : null;
 
       if (!fixture) {
         response.writeHead(401, { 'content-type': 'application/json' });
@@ -397,6 +400,30 @@ test('protege las rutas futuras de /panel preservando la ruta y sus parametros',
   );
 });
 
+test('el layout conserva el retorno exacto cuando una cookie optimista no verifica', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  await expect(page).toHaveURL('/panel/sonidos');
+
+  rejectedAccessTokens.add(authFixtures['member-code'].accessToken);
+  await context.setExtraHTTPHeaders({
+    'x-team-pollito-return-path': '/admin',
+  });
+
+  try {
+    await page.goto('/console?vista=sonidos&orden=recientes');
+
+    await expect(page).toHaveURL(
+      '/acceso?retorno=%2Fconsole%3Fvista%3Dsonidos%26orden%3Drecientes',
+    );
+  } finally {
+    rejectedAccessTokens.delete(authFixtures['member-code'].accessToken);
+  }
+});
+
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
   let requestedRedirectTo: string | null = null;
 
@@ -488,6 +515,23 @@ test('permite que un Miembro Oficial retome exactamente /console tras pasar por 
 
   await expect(page).toHaveURL('/console');
   await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+});
+
+test('un Miembro Oficial conserva /panel con query al recargar y usar el historial', async ({
+  page,
+}) => {
+  const panelPath = '/panel/sonidos?categoria=memes';
+
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fcategoria%3Dmemes');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL(panelPath);
+  await page.reload();
+  await expect(page).toHaveURL(panelPath);
+
+  await page.goto('/ruta-publica-inexistente');
+  await page.goBack();
+  await expect(page).toHaveURL(panelPath);
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {

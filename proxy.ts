@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { buildAccessPath } from '@/lib/authRouting';
-import { updateServerAuth } from '@/lib/serverSession';
+import { PRIVATE_RETURN_PATH_HEADER } from '@/lib/serverAuthRouting';
+import { hasSupabaseAuthCookie } from '@/lib/supabaseAuthCookie';
 
 const PRIVATE_PREFIXES = ['/console', '/admin', '/panel'];
 
@@ -12,25 +13,28 @@ function isPrivatePath(pathname: string) {
   );
 }
 
-export async function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (!isPrivatePath(pathname)) {
     return NextResponse.next();
   }
 
-  const { user, response } = await updateServerAuth(request);
+  const returnPath = `${pathname}${search}`;
 
-  if (user) {
-    return response;
+  if (
+    !hasSupabaseAuthCookie(
+      request.cookies.getAll(),
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    )
+  ) {
+    const loginUrl = new URL(buildAccessPath(returnPath), request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
-  const returnPath = `${pathname}${search}`;
-  const loginUrl = new URL(buildAccessPath(returnPath), request.url);
-  const redirectResponse = NextResponse.redirect(loginUrl);
-  response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
-  redirectResponse.headers.set('Cache-Control', 'private, no-store');
-  return redirectResponse;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(PRIVATE_RETURN_PATH_HEADER, returnPath);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
