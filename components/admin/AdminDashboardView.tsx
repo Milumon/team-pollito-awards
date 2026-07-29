@@ -7,6 +7,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminFetch, readApiPayload } from './adminApi';
 import type { AdminDashboard } from './types';
 
+const panelClassName = 'rounded-2xl border-3 border-black bg-[#2b2d31] p-5 shadow-[4px_4px_0_0_#FFD500]';
+const rowClassName = 'rounded-xl border-3 border-black bg-[#35373d] shadow-[2px_2px_0_0_#FFD500]';
+const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD500] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1e1f22]';
+
 export function AdminDashboardView() {
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,18 +74,18 @@ export function AdminDashboardView() {
           type="button"
           onClick={() => void loadDashboard()}
           disabled={loading}
-          className="cursor-pointer rounded-xl border border-neutral-700/60 bg-[#2b2d31] px-3 py-2 text-xs font-bold text-gray-300 disabled:opacity-50"
+          className={`cursor-pointer rounded-xl border-3 border-black bg-[#2b2d31] px-3 py-2 text-xs font-bold text-gray-200 shadow-[3px_3px_0_0_#FFD500] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#FFD500] disabled:opacity-50 ${focusClassName}`}
         >
           <RefreshCw className={`mr-1.5 inline h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           Actualizar
         </button>
       </div>
 
-      {error && <p className="rounded-xl border border-red-500/20 bg-red-950/40 p-3 text-xs font-bold text-red-400">{error}</p>}
+      {error && <p className="rounded-xl border-3 border-black bg-red-950/40 p-3 text-xs font-bold text-red-300 shadow-[3px_3px_0_0_#FFD500]">{error}</p>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {metrics.map(([label, value, icon]) => (
-          <article key={label} className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
+          <article key={label} className="rounded-2xl border-3 border-black bg-[#2b2d31] p-4 shadow-[4px_4px_0_0_#FFD500]">
             <span className="text-lg" aria-hidden>{icon}</span>
             <p className="mt-3 text-[10px] font-semibold leading-tight text-gray-500">{label}</p>
             <p className="mt-1 font-mono text-2xl font-black text-white">{loading ? '—' : value}</p>
@@ -90,11 +94,11 @@ export function AdminDashboardView() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+        <section className={panelClassName}>
           <h2 className="mb-4 font-display text-lg font-semibold text-white">Últimos accesos</h2>
           <div className="space-y-2">
             {(dashboard?.recentAccesses ?? []).map((access) => (
-              <div key={access.userId} className="flex items-center gap-3 rounded-xl border border-neutral-700/40 bg-[#35373d] p-3">
+              <div key={access.userId} className={`flex items-center gap-3 p-3 ${rowClassName}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2b2d31]">🐣</span>
                 <div className="min-w-0">
                   <p className="truncate text-xs font-bold text-white">{access.name}</p>
@@ -105,14 +109,14 @@ export function AdminDashboardView() {
             {!loading && (dashboard?.recentAccesses.length ?? 0) === 0 && <p className="py-5 text-center text-xs text-gray-500">No hay accesos registrados.</p>}
           </div>
         </section>
-        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+        <section className={panelClassName}>
           <h2 className="mb-4 font-display text-lg font-semibold text-white">Miembros más activos</h2>
           <div className="space-y-2">
             {(dashboard?.topUsers ?? []).map((user, index) => (
-              <div key={user.userId} className="flex items-center gap-3 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
+              <div key={user.userId} className={`flex items-center gap-3 px-3 py-2 ${rowClassName}`}>
                 <span className="w-5 text-center text-sm font-black">{index === 0 ? '👑' : `${index + 1}.`}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-bold text-white">@{user.name}</span>
-                <span className="font-mono text-[10px] font-bold text-[#FFC200]">{user.count}</span>
+                <span className="font-mono text-[10px] font-bold text-[#FFD500]">{user.count}</span>
               </div>
             ))}
           </div>
@@ -120,44 +124,44 @@ export function AdminDashboardView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+        <section className={panelClassName}>
           <h2 className="mb-4 font-display text-base font-semibold text-white">Sonidos más utilizados</h2>
           <div className="space-y-2">
             {(dashboard?.topSounds ?? []).map((sound, index) => (
-              <div key={sound.soundId} className="flex items-center gap-2 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
+              <div key={sound.soundId} className={`flex items-center gap-2 px-3 py-2 ${rowClassName}`}>
                 <span className="w-4 text-xs font-black text-gray-500">{index + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">{sound.name}</span>
-                <span className="font-mono text-[10px] text-[#FFC200]">{sound.count} veces</span>
+                <span className="font-mono text-[10px] text-[#FFD500]">{sound.count} veces</span>
               </div>
             ))}
             {!loading && (dashboard?.topSounds.length ?? 0) === 0 && <p className="py-4 text-center text-xs text-gray-500">No hay sonidos utilizados esta semana.</p>}
           </div>
         </section>
 
-        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+        <section className={panelClassName}>
           <h2 className="mb-4 font-display text-base font-semibold text-white">Miembros con más envíos</h2>
           <div className="space-y-2">
             {(dashboard?.topUploads ?? []).map((user, index) => (
-              <div key={user.userId} className="flex items-center gap-2 rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-2">
+              <div key={user.userId} className={`flex items-center gap-2 px-3 py-2 ${rowClassName}`}>
                 <span className="w-4 text-xs font-black text-gray-500">{index + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">@{user.name}</span>
-                <span className="font-mono text-[10px] text-[#FFC200]">{user.count}</span>
+                <span className="font-mono text-[10px] text-[#FFD500]">{user.count}</span>
               </div>
             ))}
             {!loading && (dashboard?.topUploads.length ?? 0) === 0 && <p className="py-4 text-center text-xs text-gray-500">No hay envíos registrados.</p>}
           </div>
         </section>
 
-        <section className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-5">
+        <section className={panelClassName}>
           <h2 className="mb-4 font-display text-base font-semibold text-white">Acciones pendientes</h2>
           <div className="space-y-2">
-            <Link href="/admin/operaciones?seccion=postulaciones" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+            <Link href="/admin/operaciones?seccion=postulaciones" className={`flex items-center justify-between px-3 py-3 text-xs font-semibold text-gray-200 hover:translate-x-[1px] hover:translate-y-[1px] ${rowClassName} ${focusClassName}`}>
               <span>Postulaciones por revisar</span>
-              <span className="font-mono font-black text-[#FFC200]">{summary?.pendingApplications ?? 0}</span>
+              <span className="font-mono font-black text-[#FFD500]">{summary?.pendingApplications ?? 0}</span>
             </Link>
-            <Link href="/admin/operaciones?seccion=multimedia" className="flex items-center justify-between rounded-xl border border-neutral-700/40 bg-[#35373d] px-3 py-3 text-xs font-semibold text-gray-300 hover:border-[#FFC200]/50">
+            <Link href="/admin/operaciones?seccion=multimedia" className={`flex items-center justify-between px-3 py-3 text-xs font-semibold text-gray-200 hover:translate-x-[1px] hover:translate-y-[1px] ${rowClassName} ${focusClassName}`}>
               <span>Envíos por moderar</span>
-              <span className="font-mono font-black text-[#FFC200]">{summary?.pendingUploads ?? 0}</span>
+              <span className="font-mono font-black text-[#FFD500]">{summary?.pendingUploads ?? 0}</span>
             </Link>
           </div>
         </section>
