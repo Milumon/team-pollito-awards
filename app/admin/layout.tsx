@@ -14,7 +14,12 @@ export const metadata: Metadata = {
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await getServerSession();
+  let session = null;
+  try {
+    session = await getServerSession();
+  } catch {
+    // Auth is gated by proxy.ts; tolerate RSC re-render failures.
+  }
 
   if (session && !session.isAdmin) {
     forbidden();
