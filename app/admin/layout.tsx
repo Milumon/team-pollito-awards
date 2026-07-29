@@ -3,6 +3,7 @@ import { forbidden, redirect } from 'next/navigation';
 
 import { buildAccessPath } from '@/lib/authRouting';
 import { AdminShell } from '@/components/admin/AdminShell';
+import { getPrivateReturnPath } from '@/lib/serverAuthRouting';
 import { getServerSession } from '@/lib/serverSession';
 
 export const metadata: Metadata = {
@@ -15,10 +16,13 @@ export const metadata: Metadata = {
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await getServerSession();
+  const [session, returnPath] = await Promise.all([
+    getServerSession(),
+    getPrivateReturnPath('/admin'),
+  ]);
 
   if (!session) {
-    redirect(buildAccessPath('/admin'));
+    redirect(buildAccessPath(returnPath));
   }
 
   if (!session.isAdmin) {

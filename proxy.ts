@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { buildAccessPath } from '@/lib/authRouting';
-import { updateServerAuth } from '@/lib/serverSession';
+import { refreshServerAuth } from '@/lib/serverSession';
+import { hasSupabaseAuthCookie } from '@/lib/supabaseAuthCookie';
 
 const PRIVATE_PREFIXES = ['/console', '/admin', '/panel'];
 
@@ -19,18 +20,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const { user, response } = await updateServerAuth(request);
+  const returnPath = `${pathname}${search}`;
 
-  if (user) {
-    return response;
+  if (
+    !hasSupabaseAuthCookie(
+      request.cookies.getAll(),
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    )
+  ) {
+    const loginUrl = new URL(buildAccessPath(returnPath), request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
-  const returnPath = `${pathname}${search}`;
-  const loginUrl = new URL(buildAccessPath(returnPath), request.url);
-  const redirectResponse = NextResponse.redirect(loginUrl);
-  response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
-  redirectResponse.headers.set('Cache-Control', 'private, no-store');
-  return redirectResponse;
+  return refreshServerAuth(request, returnPath);
 }
 
 export const config = {
