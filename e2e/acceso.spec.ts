@@ -577,6 +577,17 @@ test('mantiene accesibles las operaciones Admin pendientes de migracion', async 
   await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
 });
 
+test('conserva la busqueda de Usuarios en la URL al recargar', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).fill('Pollito');
+  await page.getByRole('textbox', { name: 'Buscar usuarios' }).press('Enter');
+
+  await expect(page).toHaveURL('/admin/usuarios?busqueda=Pollito');
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'Buscar usuarios' })).toHaveValue('Pollito');
+  await expect(page.getByRole('link', { name: 'Editar Pollito VIP' })).toBeVisible();
+});
+
 test('abre el editor de usuario como pagina directa sin confundir identidades', async ({ page }) => {
   await signInAsAdmin(page, '/admin/usuarios/user-1');
 

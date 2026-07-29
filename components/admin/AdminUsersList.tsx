@@ -2,7 +2,8 @@
 
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useDeferredValue, useMemo, useState } from 'react';
 
 import { adminFetch, readApiPayload } from './adminApi';
 import { useAdminUsers } from './AdminUsersProvider';
@@ -11,21 +12,36 @@ const USERS_PER_PAGE = 12;
 
 export function AdminUsersList() {
   const { users, loading, error, refresh } = useAdminUsers();
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.get('busqueda') || '';
+  const deferredSearch = useDeferredValue(search);
+  const requestedPage = Number(searchParams.get('pagina'));
   const [actionError, setActionError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const filteredUsers = useMemo(() => {
-    const needle = search.trim().toLowerCase();
+    const needle = deferredSearch.trim().toLowerCase();
     if (!needle) return users;
     return users.filter((user) =>
       [user.email, user.robloxUser ?? '', user.robloxDisplayName ?? '', user.id]
         .some((value) => value.toLowerCase().includes(needle)),
     );
-  }, [search, users]);
+  }, [deferredSearch, users]);
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const page = Number.isInteger(requestedPage) && requestedPage > 0
+    ? Math.min(requestedPage, totalPages)
+    : 1;
   const visibleUsers = filteredUsers.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
+
+  const navigateToPage = (nextPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPage > 1) params.set('pagina', String(nextPage));
+    else params.delete('pagina');
+    const query = params.toString();
+    const destination = query ? `${pathname}?${query}` : pathname;
+    window.history.pushState(null, '', destination);
+  };
 
   const runAction = async (userId: string, path: string, body: Record<string, unknown>) => {
     setUpdatingId(userId);
@@ -50,19 +66,16 @@ export function AdminUsersList() {
           <h1 className="mt-0.5 font-display text-lg font-semibold leading-none text-white">Usuarios de la Comunidad</h1>
           <p className="mt-1 text-xs font-semibold text-gray-400">Administra accesos y perfiles de Miembros Oficiales.</p>
         </div>
-        <div className="relative w-full shrink-0 sm:w-64">
+        <form action={pathname} className="relative w-full shrink-0 sm:w-64">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
+            defaultValue={search}
+            name="busqueda"
             aria-label="Buscar usuarios"
             placeholder="Buscar por usuario, email o id..."
             className="w-full rounded-xl border border-neutral-700/60 bg-[#202226] py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-[#FFC200]"
           />
-        </div>
+        </form>
       </div>
 
       {(error || actionError) && <p className="rounded-xl border border-red-500/20 bg-red-950/40 p-3 text-xs font-bold text-red-400">{error || actionError}</p>}
@@ -140,9 +153,9 @@ export function AdminUsersList() {
             <div className="flex items-center justify-between border-t border-neutral-700/60 pt-4 text-xs font-semibold">
               <span className="text-gray-400">{filteredUsers.length} usuarios</span>
               <div className="inline-flex items-center gap-2 rounded-xl border border-neutral-700/60 bg-[#202226] p-1">
-                <button type="button" aria-label="Pagina anterior" disabled={page === 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+                <button type="button" aria-label="Pagina anterior" disabled={page === 1} onClick={() => navigateToPage(page - 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
                 <span className="px-2 font-mono text-[10px] font-bold">PAG {page} / {totalPages}</span>
-                <button type="button" aria-label="Pagina siguiente" disabled={page === totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+                <button type="button" aria-label="Pagina siguiente" disabled={page === totalPages} onClick={() => navigateToPage(page + 1)} className="rounded-lg p-1.5 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
               </div>
             </div>
           )}

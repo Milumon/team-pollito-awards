@@ -2051,7 +2051,7 @@ export default function LegacyAdminPanel() {
                     </td>
                     <td className="py-3 px-2">
                       <span className={`inline-flex items-center rounded-2xl px-1.5 py-0.5 text-[9px] font-semibold border ${
-                        u.linkStatus === 'approved' 
+                        u.linkStatus === 'approved'
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                           : u.linkStatus === 'pending'
                           ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
@@ -2071,7 +2071,7 @@ export default function LegacyAdminPanel() {
                         >
                           Editar
                         </button>
-                        
+
                         <button
                           type="button"
                           onClick={() => handleToggleAdminRole(u.id, u.isAdmin)}
@@ -2301,8 +2301,8 @@ export default function LegacyAdminPanel() {
                       <p className="text-[10px] text-gray-500 font-medium">@{u.robloxUser || 'no-vinculado'}</p>
                     </div>
                     <span className={`ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                      u.testimonialApproved 
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                      u.testimonialApproved
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                     }`}>
                       {u.testimonialApproved ? 'Aprobado' : 'Pendiente'}
@@ -2414,8 +2414,8 @@ export default function LegacyAdminPanel() {
                         {slot.slot_time.substring(0, 5)}
                       </span>
                       <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-2xl border ${
-                        slot.is_booked 
-                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
+                        slot.is_booked
+                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
                           : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                       }`}>
                         {slot.is_booked ? 'Reservado' : 'Libre'}
@@ -2485,8 +2485,8 @@ export default function LegacyAdminPanel() {
                 {streamSettings.is_muted ? 'Stream Silenciado' : 'Consola Activa'}
               </h3>
               <p className="text-[10px] text-gray-400 mt-1 font-semibold leading-normal">
-                {streamSettings.is_muted 
-                  ? 'Ningún VIP puede reproducir sonidos o TTS.' 
+                {streamSettings.is_muted
+                  ? 'Ningún VIP puede reproducir sonidos o TTS.'
                   : 'Los VIPs pueden enviar sonidos y mensajes.'}
               </p>
             </div>
@@ -2496,15 +2496,15 @@ export default function LegacyAdminPanel() {
               disabled={updatingStreamSettings}
               onClick={() => handleUpdateStreamSettings({ isMuted: !streamSettings.is_muted })}
               className={`w-full py-3 rounded-2xl border border-neutral-700/60 font-display font-black uppercase tracking-wider text-xs transition-colors cursor-pointer text-center shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] ${
-                streamSettings.is_muted 
-                  ? 'bg-emerald-500 hover:bg-emerald-400 text-black border-black' 
+                streamSettings.is_muted
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-black border-black'
                   : 'bg-red-600 hover:bg-red-500 text-white'
               }`}
             >
-              {updatingStreamSettings 
-                ? 'Procesando...' 
-                : streamSettings.is_muted 
-                ? '🔊 Reactivar Consola' 
+              {updatingStreamSettings
+                ? 'Procesando...'
+                : streamSettings.is_muted
+                ? '🔊 Reactivar Consola'
                 : '🚨 BOTÓN DE PÁNICO: MUTEAR'}
             </button>
           </div>
@@ -3627,8 +3627,8 @@ export default function LegacyAdminPanel() {
             {pingingVM && <RefreshCw className="w-3.5 h-3.5 text-gray-500 animate-spin" />}
           </span>
           <span className={`h-2 w-2 rounded-full ${
-            vmStatus === 'online' 
-              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+            vmStatus === 'online'
+              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
               : vmStatus === 'checking'
               ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
               : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
@@ -3638,8 +3638,8 @@ export default function LegacyAdminPanel() {
         <div className="flex items-center justify-between p-4 bg-[#2b2d31] rounded-2xl border border-neutral-700/60 ">
           <span className="text-xs text-gray-300 font-bold">OBS WebSocket (Overlay)</span>
           <span className={`h-2 w-2 rounded-full ${
-            isOverlayOnline 
-              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+            isOverlayOnline
+              ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
               : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
           }`} />
         </div>
@@ -3647,7 +3647,7 @@ export default function LegacyAdminPanel() {
 
       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 space-y-4 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
         <h3 className="font-display font-semibold text-xs text-gray-300">Bitácora de Auditoría</h3>
-        
+
         <div className="border border-neutral-700/60 bg-[#2b2d31] rounded-2xl p-4 space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin ">
           {loadingAuditLogs ? (
             <p className="text-xs text-gray-500 text-center uppercase tracking-wider py-4 animate-pulse">Cargando logs...</p>
@@ -4070,8 +4070,8 @@ export default function LegacyAdminPanel() {
                     {pingingVM && <RefreshCw className="w-3 h-3 text-gray-500 animate-spin" />}
                   </span>
                   <span className={`h-2 w-2 rounded-full ${
-                    vmStatus === 'online' 
-                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+                    vmStatus === 'online'
+                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
                       : vmStatus === 'checking'
                       ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]'
                       : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
@@ -4081,8 +4081,8 @@ export default function LegacyAdminPanel() {
                 <div className="flex items-center justify-between p-3 bg-[#171A20] rounded-xl border border-neutral-700/60 ">
                   <span className="text-xs text-gray-300 font-bold">OBS WebSocket (Overlay)</span>
                   <span className={`h-2 w-2 rounded-full ${
-                    isOverlayOnline 
-                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' 
+                    isOverlayOnline
+                      ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
                       : 'bg-red-500 shadow-[0_0_8px_#ef4444]'
                   }`} />
                 </div>
@@ -4091,7 +4091,7 @@ export default function LegacyAdminPanel() {
 
             <div className="space-y-3 flex-grow flex flex-col min-h-0">
               <h3 className="text-[11px] font-display font-medium text-gray-400 uppercase tracking-wider">Actividad Reciente</h3>
-              
+
               <div className="flex-1 overflow-y-auto max-h-[360px] border border-neutral-700/60 bg-[#171A20] rounded-xl p-3 space-y-2.5 scrollbar-thin ">
                 {loadingAuditLogs ? (
                   <p className="text-[10px] text-gray-500 text-center uppercase tracking-wider py-4 animate-pulse">Cargando bitácora...</p>
@@ -4694,7 +4694,3 @@ export default function LegacyAdminPanel() {
     </div>
   );
 }
-
-
-
-
