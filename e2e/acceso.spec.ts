@@ -952,14 +952,29 @@ test('expone las operaciones comunitarias en la navegacion movil', async ({ page
   await signInAsAdmin(page, '/admin/postulaciones');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Menu' }).click();
+  const mobileNavigation = page.getByRole('complementary', {
+    name: 'Navegación móvil del Panel de Control',
+  });
 
   for (const route of communityAdminRoutes) {
-    await expect(page.getByRole('link', { name: route.link, exact: true })).toBeVisible();
+    await expect(
+      mobileNavigation.getByRole('link', { name: route.link, exact: true }),
+    ).toBeVisible();
   }
+  await expect(
+    mobileNavigation.getByRole('link', { name: 'Postulaciones', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 
-  await page.getByRole('link', { name: 'Agenda', exact: true }).click();
+  await mobileNavigation.getByRole('link', { name: 'Agenda', exact: true }).click();
   await expect(page).toHaveURL('/admin/agenda');
   await expect(page.getByRole('heading', { name: 'Crear Horario' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(
+    page
+      .getByRole('complementary', { name: 'Navegación móvil del Panel de Control' })
+      .getByRole('link', { name: 'Agenda', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
 });
 
 test('conserva la busqueda de Usuarios en la URL al recargar', async ({ page }) => {
