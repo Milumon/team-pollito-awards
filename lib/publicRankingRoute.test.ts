@@ -7,16 +7,26 @@ import {
   parsePublicRankingFilters,
 } from './publicRankingRoute.ts';
 
-test('traduce parametros espanoles validos al modelo interno', () => {
-  assert.deepEqual(
-    parsePublicRankingFilters({ metrica: 'regalos', periodo: '28-dias' }),
-    {
-      metric: 'gifts',
-      period: '28_days',
-      metrica: 'regalos',
-      periodo: '28-dias',
-    },
-  );
+test('traduce todos los parametros espanoles validos al modelo interno', () => {
+  const cases = [
+    ['espectadores', 'ultimo-live', 'viewers', 'last_live'],
+    ['espectadores', '7-dias', 'viewers', '7_days'],
+    ['regalos', '28-dias', 'gifts', '28_days'],
+    ['regalos', '60-dias', 'gifts', '60_days'],
+  ] as const;
+
+  for (const [metrica, periodo, metric, period] of cases) {
+    assert.deepEqual(parsePublicRankingFilters({ metrica, periodo }), {
+      metric,
+      period,
+      metrica,
+      periodo,
+    });
+    assert.equal(
+      buildPublicRankingHref({ metric, period }),
+      `/clasificaciones?metrica=${metrica}&periodo=${periodo}`,
+    );
+  }
 });
 
 test('usa valores predeterminados seguros cuando faltan parametros', () => {

@@ -11,20 +11,20 @@ import {
 export const metadata: Metadata = {
   title: 'Clasificaciones de TikTok LIVE | Team Pollito',
   description:
-    'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en espanol.',
+    'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en español.',
   alternates: {
     canonical: '/clasificaciones',
   },
   openGraph: {
     title: 'Clasificaciones de TikTok LIVE | Team Pollito',
     description:
-      'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en espanol.',
+      'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en español.',
     url: '/clasificaciones',
   },
   twitter: {
     title: 'Clasificaciones de TikTok LIVE | Team Pollito',
     description:
-      'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en espanol.',
+      'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en español.',
   },
 };
 
@@ -40,11 +40,13 @@ export default async function ClasificacionesPage({ searchParams }: Clasificacio
   });
   const expectedHref = buildPublicRankingHref(normalized);
   const hasUnexpectedParams = Object.keys(params).some((key) => key !== 'metrica' && key !== 'periodo');
+  const hasRepeatedParams = Array.isArray(params.metrica) || Array.isArray(params.periodo);
 
   if (
     firstSearchParam(params.metrica) !== normalized.metrica
     || firstSearchParam(params.periodo) !== normalized.periodo
     || hasUnexpectedParams
+    || hasRepeatedParams
   ) {
     redirect(expectedHref);
   }

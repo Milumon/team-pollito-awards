@@ -50,12 +50,24 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('publica /clasificaciones con filtros URL compartibles y canonical fija', async ({ page }) => {
+  const completeRankingRequest = page.waitForRequest(
+    (request) => request.url().includes('/api/tiktok/rankings/current?limit=500'),
+  );
   await page.goto('/clasificaciones?metrica=regalos&periodo=7-dias');
+  await completeRankingRequest;
 
   await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=7-dias');
   await expect(page).toHaveTitle('Clasificaciones de TikTok LIVE | Team Pollito');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    'Explora las clasificaciones completas de TikTok LIVE de la comunidad con filtros compartibles en español.',
+  );
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
+    'https://teampollito.milumon.dev/clasificaciones',
+  );
+  await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+    'content',
     'https://teampollito.milumon.dev/clasificaciones',
   );
   await expect(page.getByText('Regalos · 7 días')).toBeVisible();
@@ -73,6 +85,12 @@ test('normaliza parametros ausentes o invalidos a una URL coherente y segura', a
   await page.goto('/clasificaciones?metrica=invalida&periodo=999-dias');
   await expect(page).toHaveURL('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
   await expect(page.getByText('Espectadores · Último live')).toBeVisible();
+
+  await page.goto('/clasificaciones?metrica=regalos&metrica=espectadores&periodo=7-dias');
+  await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=7-dias');
+
+  await page.goto('/clasificaciones?metrica=regalos&periodo=7-dias&extra=1');
+  await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=7-dias');
 });
 
 test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial navegable', async ({ page }) => {
@@ -90,10 +108,10 @@ test('la landing mantiene el Top 10 y enlaza a la pagina completa con historial 
   await expect(page).toHaveURL('/clasificaciones?metrica=espectadores&periodo=ultimo-live');
   await expect(page.getByText('Usuario 11')).toBeVisible();
 
-  await page.getByLabel('Metrica de clasificacion').selectOption('gifts');
+  await page.getByLabel('Métrica de clasificación').selectOption('gifts');
   await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=ultimo-live');
 
-  await page.getByLabel('Periodo de clasificacion').selectOption('28_days');
+  await page.getByLabel('Período de clasificación').selectOption('28_days');
   await expect(page).toHaveURL('/clasificaciones?metrica=regalos&periodo=28-dias');
   await expect(page.getByText('Regalos · 28 días')).toBeVisible();
 

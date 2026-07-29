@@ -145,10 +145,10 @@ function RankingControls({
   const selectClass = dark ? 'border-neutral-700 bg-[#20232a] text-white' : 'border-gray-200 bg-white text-[#2D3139]';
   return (
     <div className="flex flex-wrap gap-2">
-      <select aria-label="Metrica de clasificacion" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
+      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
         {RANKING_METRICS.map((item) => <option key={item} value={item}>{METRIC_LABELS[item]}</option>)}
       </select>
-      <select aria-label="Periodo de clasificacion" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
+      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl border px-3 py-2 text-xs font-bold outline-none focus:border-[#FFC200] ${selectClass}`}>
         {RANKING_PERIODS.map((item) => <option key={item} value={item}>{PERIOD_LABELS[item]}</option>)}
       </select>
     </div>
@@ -264,7 +264,7 @@ export function TikTokRankingPublicPage({
   initialMetric: RankingMetric;
   initialPeriod: RankingPeriod;
 }) {
-  const state = useTikTokRankings(null);
+  const state = useTikTokRankings(null, 500);
   const router = useRouter();
   const [metric, setMetric] = useState<RankingMetric>(initialMetric);
   const [period, setPeriod] = useState<RankingPeriod>(initialPeriod);
@@ -309,7 +309,7 @@ export function TikTokRankingPublicPage({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h1 className="font-display text-4xl font-bold tracking-tight">Clasificaciones de TikTok LIVE</h1>
-              <p className="mt-2 text-sm font-semibold text-gray-500">El ranking publico completo del batch activo con filtros compartibles en espanol.</p>
+              <p className="mt-2 text-sm font-semibold text-gray-500">El ranking público completo del batch activo con filtros compartibles en español.</p>
             </div>
             <Link href="/" className="inline-flex items-center gap-1 text-xs font-bold text-[#D4A000] hover:text-[#2D3139]">
               Volver a la comunidad <ArrowRight className="h-3.5 w-3.5" />
@@ -336,7 +336,7 @@ export function TikTokRankingPublicPage({
           {state.loading || state.error || !state.data?.batch_id ? (
             <StatusState state={state} />
           ) : !selected || selected.entries.length === 0 ? (
-            <EmptyState title="Sin actividad para este periodo" detail="TikTok no devolvio participantes para esta combinacion." />
+            <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." />
           ) : (
             <RankingRows entries={selected.entries} metric={metric} />
           )}
