@@ -298,6 +298,39 @@ async function mockConsoleApis(page: Page) {
 }
 
 async function mockAdminApis(page: Page) {
+  const targetUser = {
+    id: 'user-1',
+    email: 'miembro@test.dev',
+    createdAt: new Date(0).toISOString(),
+    lastSignInAt: new Date(0).toISOString(),
+    hasVerifiedRoblox: true,
+    robloxUser: 'PollitoVIP',
+    robloxDisplayName: 'Pollito VIP',
+    robloxAvatarUrl: null,
+    robloxVerifiedAt: new Date(0).toISOString(),
+    tiktokUser: 'pollitovip',
+    linkStatus: 'approved',
+    rejectionReason: null,
+    votedCount: 0,
+    totalCategories: 0,
+    votedPercentage: 0,
+    isAdmin: false,
+    soundboardDisabled: false,
+    permUploadImages: true,
+    permUploadVideos: true,
+    permUploadAudio: true,
+    permTtsText: true,
+    permTtsRecord: true,
+    permEditNickname: true,
+    permTriggerSounds: true,
+    permTriggerMedia: true,
+    permTriggerAnimations: true,
+    permEditSounds: true,
+    testimonial: null,
+    testimonialApproved: false,
+    votes: [],
+  };
+
   await page.route('**/api/admin/**', async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -325,7 +358,7 @@ async function mockAdminApis(page: Page) {
       await route.fulfill({
         json: {
           summary: { totalUsers: 1, verifiedUsers: 1, totalVotes: 0, completedVoters: 0 },
-          users: [],
+          users: [targetUser],
           categoryStats: [],
         },
       });
@@ -378,6 +411,12 @@ async function mockAdminApis(page: Page) {
 
     await route.fulfill({ json: {} });
   });
+}
+
+async function signInAsAdmin(page: Page, returnPath: string) {
+  await mockAdminApis(page);
+  await page.goto(`/acceso?retorno=${encodeURIComponent(returnPath)}`);
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
 }
 
 test('redirige al visitante desde una ruta privada hacia /acceso preservando el retorno', async ({
@@ -522,11 +561,58 @@ test('responde 403 a un usuario autenticado sin rol Admin en /admin', async ({ p
 });
 
 test('permite que un Administrador retome /admin tras pasar por /acceso', async ({ page }) => {
-  await mockAdminApis(page);
+  await signInAsAdmin(page, '/admin');
 
-  await page.goto('/acceso?retorno=%2Fadmin');
-  await page.getByRole('button', { name: /Continuar con Google/i }).click();
-
-  await expect(page).toHaveURL('/admin');
+  await expect(page).toHaveURL('/admin/inicio');
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+});
+
+test('abre el editor de usuario como pagina directa sin confundir identidades', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios/user-1');
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+  await expect(page.getByText('miembro@test.dev')).toBeVisible();
+  await expect(page.getByText('admin@test.dev')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.reload();
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('intercepta el editor desde Usuarios y respeta cierre e historial', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/usuarios');
+  await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
+
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Cerrar editor' }).click();
+  await expect(page).toHaveURL('/admin/usuarios');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.goForward();
+  await expect(page).toHaveURL('/admin/usuarios/user-1');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL('/admin/usuarios');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('responde 403 server-side a un Miembro Oficial en una ruta Admin anidada', async ({ page }) => {
+  await page.goto('/acceso?retorno=%2Fadmin%2Fusuarios%3Frol%3Dmiembro');
+  const responsePromise = page.waitForResponse((response) =>
+    response.request().resourceType() === 'document' &&
+    response.url().endsWith('/admin/usuarios?rol=miembro'),
+  );
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const response = await responsePromise;
+
+  expect(response.status()).toBe(403);
+  await expect(page.getByRole('heading', { name: /ACCESO RESTRINGIDO/i })).toBeVisible();
 });
