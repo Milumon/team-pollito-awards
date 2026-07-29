@@ -535,7 +535,8 @@ test('navega entre Inicio y Sonidos preservando el filtro, recarga e historial',
 test('ofrece navegación móvil con la URL como estado activo', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockConsoleApis(page);
-  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Ftipo%3Dmultimedia');
+  await page.goto('/panel/sonidos?tipo=multimedia');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpanel%2Fsonidos%3Ftipo%3Dmultimedia');
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
   const mobileNavigation = page.locator('nav').filter({ has: page.getByRole('link', { name: 'Inicio' }) });

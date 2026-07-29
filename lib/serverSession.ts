@@ -1,5 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
-import type { User } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -11,6 +11,7 @@ type ProfileFlags = {
 };
 
 export type ServerSession = {
+  authSession: Session;
   user: User;
   isAdmin: boolean;
   linkStatus: LinkStatus;
@@ -35,6 +36,7 @@ async function readProfile(
 
 async function buildServerSession(
   supabase: ReturnType<typeof createServerClient>,
+  authSession: Session,
   user: User | null,
 ) {
   if (!user) {
@@ -44,6 +46,7 @@ async function buildServerSession(
   const profile = await readProfile(supabase, user.id);
 
   return {
+    authSession,
     user,
     isAdmin: Boolean(profile?.is_admin || user.email === ownerEmail),
     linkStatus: profile?.link_status || 'none',
@@ -71,7 +74,17 @@ export async function getServerSession() {
     error,
   } = await supabase.auth.getUser();
 
-  return error ? null : buildServerSession(supabase, user);
+  if (error || !user) {
+    return null;
+  }
+
+  // Authorization uses the verified user above; this cookie-backed session only
+  // hydrates the client without loading it again after the layout has approved it.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session ? buildServerSession(supabase, session, user) : null;
 }
 
 export function createRouteHandlerSupabaseClient(

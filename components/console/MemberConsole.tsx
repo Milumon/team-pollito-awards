@@ -199,11 +199,12 @@ const CONSOLE_TABS = [
 
 export default function MemberConsole({
   children,
+  initialSession,
   panelMode = false,
-}: Readonly<{ children?: React.ReactNode; panelMode?: boolean }>) {
+}: Readonly<{ children?: React.ReactNode; initialSession?: Session; panelMode?: boolean }>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null>(initialSession ?? null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<StoredRobloxProfile | null>(null);
   const [recentEvents, setRecentEvents] = useState<StreamEvent[]>([]);
@@ -913,19 +914,19 @@ export default function MemberConsole({
   // Auth initialization
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      setSession(initialSession);
-      if (initialSession) {
-        await fetchProfile(initialSession);
+      const currentSession = initialSession ?? (await supabase.auth.getSession()).data.session;
+      setSession(currentSession);
+      if (currentSession) {
+        await fetchProfile(currentSession);
         await fetchRecentEvents();
-        await fetchLeaderboards(initialSession);
+        await fetchLeaderboards(currentSession);
         await fetchSounds();
         await fetchStreamSettings();
         await fetchStats();
-        await loadMySubmissions(initialSession);
-        await loadMyPrivateSounds(initialSession);
+        await loadMySubmissions(currentSession);
+        await loadMyPrivateSounds(currentSession);
         await fetchMedia();
-        await loadMediaSubmissions(initialSession);
+        await loadMediaSubmissions(currentSession);
       }
       setLoading(false);
     };
@@ -948,7 +949,7 @@ export default function MemberConsole({
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
+  }, [initialSession, fetchProfile, fetchRecentEvents, fetchLeaderboards, fetchSounds, fetchStreamSettings, fetchStats, loadMySubmissions, loadMyPrivateSounds]);
 
   // Load current audio for editing when audio editor is enabled
   useEffect(() => {
@@ -1341,7 +1342,7 @@ export default function MemberConsole({
                 >
                   <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-6 shadow-[0_4px_12px_rgba(0,0,0,.25)] space-y-4">
                     <h2 className="font-display font-bold text-2xl text-white leading-none">
-                      🐣 Bienvenido a la Consola
+                      🐣 {panelMode ? 'Bienvenido al Panel del Miembro' : 'Bienvenido a la Consola'}
                     </h2>
                     <p className="text-xs text-gray-400 font-semibold leading-relaxed max-w-2xl">
                       Hola, <strong className="text-white">@{profile.roblox_user}</strong>. Tienes acceso completo al panel de interacción en tiempo real de la transmisión de Milumon. Todo lo que dispares aquí se emitirá de forma instantánea en la transmisión en vivo.
