@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { MAX_RANKING_ENTRIES_PER_SNAPSHOT } from '@/lib/tiktokRankingLimits';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +21,11 @@ export async function GET(request: NextRequest) {
 
   const limitParam = request.nextUrl.searchParams.get('limit');
   const limit = limitParam === null ? 100 : Number(limitParam);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
-    return NextResponse.json({ error: 'limit must be an integer between 1 and 500' }, { status: 400 });
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_RANKING_ENTRIES_PER_SNAPSHOT) {
+    return NextResponse.json(
+      { error: `limit must be an integer between 1 and ${MAX_RANKING_ENTRIES_PER_SNAPSHOT}` },
+      { status: 400 },
+    );
   }
 
   const { data, error } = await supabaseAdmin.rpc('get_current_tiktok_rankings', {

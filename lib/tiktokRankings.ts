@@ -1,3 +1,5 @@
+import { MAX_RANKING_ENTRIES_PER_SNAPSHOT } from './tiktokRankingLimits';
+
 export const RANKING_METRICS = ['viewers', 'gifts'] as const;
 export const RANKING_PERIODS = ['last_live', '7_days', '28_days', '60_days'] as const;
 export const RANKING_CONTRACT_VERSION = 1;
@@ -72,7 +74,9 @@ export function validateTikTokRankingBatch(input: unknown): TikTokRankingBatch {
     if (!windowMissing && !windowValid) {
       throw new Error(`Invalid source window order at index ${setIndex}`);
     }
-    if (!Array.isArray(rawSet.entries) || rawSet.entries.length > 500) throw new Error(`Invalid entries at index ${setIndex}`);
+    if (!Array.isArray(rawSet.entries) || rawSet.entries.length > MAX_RANKING_ENTRIES_PER_SNAPSHOT) {
+      throw new Error(`Invalid entries at index ${setIndex}`);
+    }
 
     let previousPosition = 0;
     let previousValue: bigint | null = null;
@@ -82,6 +86,9 @@ export function validateTikTokRankingBatch(input: unknown): TikTokRankingBatch {
       const { position, tiktok_id, display_id, nickname, value } = rawEntry;
       if (typeof position !== 'number' || !Number.isSafeInteger(position) || position < 1 || position <= previousPosition) {
         throw new Error(`Entries must have strictly ascending positions at ${setIndex}:${entryIndex}`);
+      }
+      if (position > MAX_RANKING_ENTRIES_PER_SNAPSHOT) {
+        throw new Error(`Ranking position must not exceed ${MAX_RANKING_ENTRIES_PER_SNAPSHOT}`);
       }
       previousPosition = position;
       if (typeof tiktok_id !== 'string' || !DECIMAL_STRING.test(tiktok_id)) throw new Error('TikTok IDs must be decimal strings');

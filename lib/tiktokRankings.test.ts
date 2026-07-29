@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateTikTokRankingBatch } from './tiktokRankings.ts';
+import { MAX_RANKING_ENTRIES_PER_SNAPSHOT } from './tiktokRankingLimits.ts';
 import { buildPayload } from '../extension/tiktok-rankings/collector.mjs';
 
 const sets = ['viewers', 'gifts'].flatMap((metric) => ['last_live', '7_days', '28_days', '60_days'].map((period) => ({
@@ -36,4 +37,56 @@ test('accepts a missing source window for the last live period', () => {
       : set),
   };
   assert.equal(validateTikTokRankingBatch(input).sets.filter((set) => set.period === 'last_live').length, 2);
+});
+
+test('defines a complete ranking snapshot as at most 500 entries', () => {
+  assert.equal(MAX_RANKING_ENTRIES_PER_SNAPSHOT, 500);
+
+  const entries = Array.from({ length: MAX_RANKING_ENTRIES_PER_SNAPSHOT }, (_, index) => ({
+    position: index + 1,
+    tiktok_id: String(10_000 + index),
+    display_id: `pollito-${index}`,
+    nickname: `Pollito ${index}`,
+    value: String(500 - index),
+  }));
+  const atLimit = {
+    ...fixture(),
+    sets: sets.map((set, index) => index === 0 ? { ...set, entries } : set),
+  };
+
+  assert.equal(
+    validateTikTokRankingBatch(atLimit).sets[0].entries.length,
+    MAX_RANKING_ENTRIES_PER_SNAPSHOT,
+  );
+  assert.throws(
+    () => validateTikTokRankingBatch({
+      ...atLimit,
+      sets: atLimit.sets.map((set, index) => index === 0
+        ? {
+            ...set,
+            entries: [
+              ...entries,
+              {
+                position: MAX_RANKING_ENTRIES_PER_SNAPSHOT + 1,
+                tiktok_id: '20000',
+                display_id: 'pollito-500',
+                nickname: 'Pollito 500',
+                value: '0',
+              },
+            ],
+          }
+        : set),
+    }),
+    /Invalid entries/,
+  );
+
+  assert.throws(
+    () => validateTikTokRankingBatch({
+      ...fixture(),
+      sets: sets.map((set, index) => index === 0
+        ? { ...set, entries: [{ ...set.entries[0], position: 501 }] }
+        : set),
+    }),
+    /position.*500/i,
+  );
 });
