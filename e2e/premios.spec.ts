@@ -53,26 +53,13 @@ test('navega mediante enlaces y respeta Atras y Adelante', async ({ page }) => {
   await expect(page).toHaveURL('/premios');
 });
 
-test('vuelve a /premios despues de iniciar la autenticacion', async ({ page }) => {
-  let requestedRedirectTo: string | null = null;
-
-  await page.route('http://127.0.0.1:54321/auth/v1/authorize**', async (route) => {
-    requestedRedirectTo = new URL(route.request().url()).searchParams.get('redirect_to');
-
-    await route.fulfill({
-      status: 302,
-      headers: {
-        location: requestedRedirectTo ?? 'http://127.0.0.1:3100/premios',
-      },
-    });
-  });
-
+test('conserva /premios al abrir el recorrido de acceso', async ({ page }) => {
   await page.goto('/premios');
   await page.getByRole('button', { name: /Inici. sesi.n con Google/i }).click();
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
-  await expect.poll(() => requestedRedirectTo).toBe('http://127.0.0.1:3100/premios');
-  await expect(page).toHaveURL('/premios');
+  await expect(page).toHaveURL('/acceso?retorno=%2Fpremios');
+  await expect(page.getByRole('heading', { name: /Entrar a la comunidad/i })).toBeVisible();
 });
 
 test('redirige permanentemente la ruta historica sin perder el retorno', async ({

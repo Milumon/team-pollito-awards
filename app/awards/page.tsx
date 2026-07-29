@@ -22,6 +22,7 @@ import Confetti from '@/components/Confetti';
 import RobloxOnboarding from '@/components/RobloxOnboarding';
 import { soundManager } from '@/lib/sound';
 import { supabase } from '@/lib/supabaseClient';
+import { buildAccessPath } from '@/lib/authRouting';
 import { Session } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
@@ -468,17 +469,7 @@ export default function LandingPage() {
 
   const handleGoogleSignIn = async () => {
     setAuthError(null);
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/premios`,
-      },
-    });
-
-    if (error) {
-      setAuthError(error.message);
-    }
+    window.location.assign(buildAccessPath(`${window.location.pathname}${window.location.search}`));
   };
 
   const handleCopyLink = () => {
