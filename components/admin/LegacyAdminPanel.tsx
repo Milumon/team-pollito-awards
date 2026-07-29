@@ -273,7 +273,24 @@ function formatDate(dateStr: string) {
   }
 }
 
-export default function LegacyAdminPanel() {
+type AdminTab =
+  | 'dashboard'
+  | 'nominees'
+  | 'votes'
+  | 'users'
+  | 'applications'
+  | 'agenda'
+  | 'stream'
+  | 'overlay-design'
+  | 'soundboard'
+  | 'media-submissions'
+  | 'stream-status'
+  | 'testimonials'
+  | 'tiktok';
+
+export default function LegacyAdminPanel({
+  initialTab = 'dashboard',
+}: Readonly<{ initialTab?: AdminTab }>) {
   // Auth states
   const [session, setSession] = useState<Session | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -324,7 +341,7 @@ export default function LegacyAdminPanel() {
   const USERS_PER_PAGE = 12;
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'nominees' | 'votes' | 'users' | 'applications' | 'agenda' | 'stream' | 'overlay-design' | 'soundboard' | 'media-submissions' | 'stream-status' | 'testimonials' | 'tiktok'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
 
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -1672,10 +1689,10 @@ export default function LegacyAdminPanel() {
           <section className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-5 shadow-[0_4px_12px_rgba(0,0,0,.25)]">
             <h2 className="font-display font-semibold text-base text-white mb-4">🎯 Acciones pendientes</h2>
             <div className="space-y-2">
-              <button type="button" onClick={() => setActiveTab('applications')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
+              <Link href="/admin/postulaciones" className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
                 <span className="text-xs text-gray-300 font-semibold">Postulaciones por revisar</span>
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingApplications ?? 0}</span>
-              </button>
+              </Link>
               <button type="button" onClick={() => setActiveTab('media-submissions')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
                 <span className="text-xs text-gray-300 font-semibold">Uploads por moderar</span>
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingUploads ?? 0}</span>
@@ -3888,29 +3905,29 @@ export default function LegacyAdminPanel() {
             <button type="button" onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={navBtnClass('users')}>
               <span>👑</span> Usuarios
             </button>
-            <button type="button" onClick={() => { setActiveTab('applications'); setMobileMenuOpen(false); }} className={navBtnClass('applications')}>
-              <span>📝</span> Postulaciones
-            </button>
-            <button type="button" onClick={() => { setActiveTab('testimonials'); setMobileMenuOpen(false); }} className={navBtnClass('testimonials')}>
-              <span>💬</span> Opiniones
-            </button>
-            <button type="button" onClick={() => { setActiveTab('tiktok'); setMobileMenuOpen(false); }} className={navBtnClass('tiktok')}>
-              <span>🎵</span> Rankings TikTok
-            </button>
-            <button type="button" onClick={() => { setActiveTab('agenda'); setMobileMenuOpen(false); }} className={navBtnClass('agenda')}>
-              <span>📅</span> Agenda Viernes
-            </button>
+            <Link href="/admin/postulaciones" aria-current={activeTab === 'applications' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('applications')}>
+              <span aria-hidden>📝</span> Postulaciones
+            </Link>
+            <Link href="/admin/testimonios" aria-current={activeTab === 'testimonials' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('testimonials')}>
+              <span aria-hidden>💬</span> Testimonios
+            </Link>
+            <Link href="/admin/clasificaciones" aria-current={activeTab === 'tiktok' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('tiktok')}>
+              <span aria-hidden>🎵</span> Clasificaciones
+            </Link>
+            <Link href="/admin/agenda" aria-current={activeTab === 'agenda' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('agenda')}>
+              <span aria-hidden>📅</span> Agenda
+            </Link>
           </div>
 
           {/* Módulo: Awards */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Awards</p>
-            <button type="button" onClick={() => { setActiveTab('nominees'); setMobileMenuOpen(false); }} className={navBtnClass('nominees')}>
-              <span>👥</span> Overview Nominados
-            </button>
-            <button type="button" onClick={() => { setActiveTab('votes'); setMobileMenuOpen(false); }} className={navBtnClass('votes')}>
-              <span>📊</span> Recuento de Votos
-            </button>
+            <Link href="/admin/nominados" aria-current={activeTab === 'nominees' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('nominees')}>
+              <span aria-hidden>👥</span> Nominados
+            </Link>
+            <Link href="/admin/votos" aria-current={activeTab === 'votes' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('votes')}>
+              <span aria-hidden>📊</span> Votos
+            </Link>
           </div>
 
           {/* Módulo: Stream */}

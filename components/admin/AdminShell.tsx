@@ -10,8 +10,24 @@ import { supabase } from '@/lib/supabaseClient';
 const navigation = [
   { href: '/admin/inicio', label: 'Inicio', icon: '📊' },
   { href: '/admin/usuarios', label: 'Usuarios', icon: '👑' },
+  { href: '/admin/postulaciones', label: 'Postulaciones', icon: '📝' },
+  { href: '/admin/testimonios', label: 'Testimonios', icon: '💬' },
+  { href: '/admin/clasificaciones', label: 'Clasificaciones', icon: '🎵' },
+  { href: '/admin/agenda', label: 'Agenda', icon: '📅' },
+  { href: '/admin/nominados', label: 'Nominados', icon: '👥' },
+  { href: '/admin/votos', label: 'Votos', icon: '📊' },
   { href: '/admin/operaciones', label: 'Otras operaciones', icon: '🛠️' },
 ];
+
+const legacyShellRoutes = new Set([
+  '/admin/operaciones',
+  '/admin/postulaciones',
+  '/admin/testimonios',
+  '/admin/clasificaciones',
+  '/admin/agenda',
+  '/admin/nominados',
+  '/admin/votos',
+]);
 
 export function AdminShell({
   adminEmail,
@@ -20,7 +36,7 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  if (pathname === '/admin/operaciones') {
+  if (legacyShellRoutes.has(pathname)) {
     return children;
   }
 
@@ -42,6 +58,7 @@ export function AdminShell({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? 'page' : undefined}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-2 rounded-xl px-3 py-2.5 font-display text-sm font-semibold transition-colors ${
                   active
