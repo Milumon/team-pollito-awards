@@ -9,6 +9,9 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['@supabase/supabase-js'],
+  experimental: {
+    authInterrupts: true,
+  },
   turbopack: {},
   async redirects() {
     return [

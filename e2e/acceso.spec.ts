@@ -1,0 +1,438 @@
+import { createServer } from 'node:http';
+
+import { expect, test, type Page } from '@playwright/test';
+
+const baseUrl = 'http://127.0.0.1:3100';
+const supabaseUrl = 'http://127.0.0.1:54321';
+
+const authFixtures = {
+  'member-code': {
+    accessToken: 'member-access-token',
+    refreshToken: 'member-refresh-token',
+    user: {
+      id: 'user-1',
+      email: 'miembro@test.dev',
+    },
+    profile: {
+      is_admin: false,
+      link_status: 'approved',
+    },
+  },
+  'admin-code': {
+    accessToken: 'admin-access-token',
+    refreshToken: 'admin-refresh-token',
+    user: {
+      id: 'admin-1',
+      email: 'admin@test.dev',
+    },
+    profile: {
+      is_admin: true,
+      link_status: 'approved',
+    },
+  },
+} as const;
+
+const authByAccessToken = new Map<string, (typeof authFixtures)[keyof typeof authFixtures]>(
+  Object.values(authFixtures).map((fixture) => [fixture.accessToken, fixture]),
+);
+
+let supabaseMockServer: Awaited<ReturnType<typeof startSupabaseMockServer>> | null = null;
+
+async function startSupabaseMockServer() {
+  const server = createServer(async (request, response) => {
+    const url = new URL(request.url || '/', supabaseUrl);
+
+    if (request.method === 'GET' && url.pathname === '/auth/v1/authorize') {
+      const redirectTo = url.searchParams.get('redirect_to') || `${baseUrl}/acceso?retorno=%2F`;
+      const code = redirectTo.includes('/admin') ? 'admin-code' : 'member-code';
+      const location = new URL(redirectTo);
+      location.searchParams.set('code', code);
+
+      response.writeHead(302, { location: location.toString() });
+      response.end();
+      return;
+    }
+
+    if (request.method === 'POST' && url.pathname === '/auth/v1/token') {
+      const body = await new Promise<string>((resolve) => {
+        let payload = '';
+        request.on('data', (chunk) => {
+          payload += chunk;
+        });
+        request.on('end', () => resolve(payload));
+      });
+
+      const params = new URLSearchParams(body);
+      const code = params.get('auth_code');
+      const refreshToken = params.get('refresh_token');
+      const fixture =
+        (code && authFixtures[code as keyof typeof authFixtures]) ||
+        [...authByAccessToken.values()].find((candidate) => candidate.refreshToken === refreshToken);
+
+      if (!fixture) {
+        response.writeHead(401, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'invalid_grant' }));
+        return;
+      }
+
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          access_token: fixture.accessToken,
+          refresh_token: fixture.refreshToken,
+          expires_in: 3600,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+          token_type: 'bearer',
+          user: {
+            id: fixture.user.id,
+            email: fixture.user.email,
+            app_metadata: {},
+            user_metadata: {},
+            aud: 'authenticated',
+            created_at: new Date(0).toISOString(),
+          },
+        }),
+      );
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/auth/v1/user') {
+      const authorization = request.headers.authorization;
+      const token = authorization?.startsWith('Bearer ')
+        ? authorization.slice('Bearer '.length)
+        : null;
+      const fixture = token ? authByAccessToken.get(token) : null;
+
+      if (!fixture) {
+        response.writeHead(401, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'invalid_token' }));
+        return;
+      }
+
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(
+        JSON.stringify({
+          id: fixture.user.id,
+          email: fixture.user.email,
+          app_metadata: {},
+          user_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date(0).toISOString(),
+        }),
+      );
+      return;
+    }
+
+    if (request.method === 'GET' && url.pathname === '/rest/v1/profiles') {
+      const userId = url.searchParams.get('id')?.replace(/^eq\./, '') || '';
+      const fixture = Object.values(authFixtures).find((candidate) => candidate.user.id === userId);
+
+      if (!fixture) {
+        response.writeHead(404, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ message: 'Not found' }));
+        return;
+      }
+
+      response.writeHead(200, {
+        'content-type': 'application/json',
+        'content-range': '0-0/*',
+      });
+      response.end(JSON.stringify(fixture.profile));
+      return;
+    }
+
+    response.writeHead(404, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ error: 'Not found' }));
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(54321, '127.0.0.1', () => resolve());
+  });
+
+  return server;
+}
+
+test.beforeAll(async () => {
+  supabaseMockServer = await startSupabaseMockServer();
+});
+
+test.afterAll(async () => {
+  await new Promise<void>((resolve, reject) => {
+    if (!supabaseMockServer) {
+      resolve();
+      return;
+    }
+
+    supabaseMockServer.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+});
+
+async function mockConsoleApis(page: Page) {
+  await page.route('**/api/profile/verify-roblox', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      json: {
+        profile: {
+          id: 'user-1',
+          roblox_user_id: 123,
+          roblox_user: 'PollitoVIP',
+          roblox_display_name: 'PollitoVIP',
+          roblox_avatar_url: null,
+          roblox_verified_at: new Date().toISOString(),
+          tiktok_user: 'pollitovip',
+          link_status: 'approved',
+          rejection_reason: null,
+          soundboard_disabled: false,
+          perm_upload_images: true,
+          perm_upload_videos: true,
+          perm_upload_audio: true,
+          perm_tts_text: true,
+          perm_tts_record: true,
+          perm_edit_nickname: true,
+          perm_trigger_sounds: true,
+          perm_trigger_media: true,
+          perm_trigger_animations: true,
+          perm_edit_sounds: true,
+        },
+        isComplete: true,
+        isBotAccount: false,
+      },
+    });
+  });
+
+  await page.route('**/api/interviews/my-status', async (route) => {
+    await route.fulfill({
+      json: {
+        status: 'approved',
+        roblox_user: 'PollitoVIP',
+        tiktok_user: 'pollitovip',
+        avatar_url: null,
+        is_admin: false,
+      },
+    });
+  });
+
+  await page.route('**/api/stream/events', async (route) => {
+    await route.fulfill({ json: { events: [] } });
+  });
+
+  await page.route('**/api/console/leaderboard', async (route) => {
+    await route.fulfill({
+      json: {
+        weekStart: new Date().toISOString(),
+        weekly: { usage: [], sounds: [], images: [] },
+        allTime: { usage: [], sounds: [], images: [] },
+      },
+    });
+  });
+
+  await page.route('**/api/admin/sounds', async (route) => {
+    await route.fulfill({ json: { sounds: [] } });
+  });
+
+  await page.route('**/api/stream/settings', async (route) => {
+    await route.fulfill({
+      json: {
+        id: 1,
+        is_muted: false,
+        global_cooldown_seconds: 30,
+        personal_cooldown_seconds: 300,
+        overlay_media_repeat_count: 1,
+      },
+    });
+  });
+
+  await page.route('**/api/console/sounds/my-submissions', async (route) => {
+    await route.fulfill({ json: { submissions: [] } });
+  });
+
+  await page.route('**/api/console/sounds/my-private', async (route) => {
+    await route.fulfill({ json: { sounds: [] } });
+  });
+
+  await page.route('**/api/console/media/my-submissions', async (route) => {
+    await route.fulfill({ json: { submissions: [] } });
+  });
+}
+
+async function mockAdminApis(page: Page) {
+  await page.route('**/api/admin/**', async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+
+    if (pathname.endsWith('/dashboard')) {
+      await route.fulfill({
+        json: {
+          summary: {
+            totalUsers: 1,
+            approvedUsers: 1,
+            newUsers: 0,
+            interactions: 0,
+            pendingApplications: 0,
+            pendingUploads: 0,
+          },
+          recentAccesses: [],
+          topUsers: [],
+          topSounds: [],
+          topUploads: [],
+        },
+      });
+      return;
+    }
+
+    if (pathname.endsWith('/stats')) {
+      await route.fulfill({
+        json: {
+          summary: { totalUsers: 1, verifiedUsers: 1, totalVotes: 0, completedVoters: 0 },
+          users: [],
+          categoryStats: [],
+        },
+      });
+      return;
+    }
+
+    if (pathname.endsWith('/interviews')) {
+      await route.fulfill({ json: { slots: [] } });
+      return;
+    }
+
+    if (pathname.endsWith('/overlay-link')) {
+      await route.fulfill({ json: { overlay_url: 'https://example.com/overlay' } });
+      return;
+    }
+
+    if (pathname.endsWith('/sounds')) {
+      await route.fulfill({ json: { sounds: [] } });
+      return;
+    }
+
+    if (pathname.endsWith('/logs')) {
+      await route.fulfill({ json: { logs: [] } });
+      return;
+    }
+
+    if (pathname.endsWith('/ping-vm')) {
+      await route.fulfill({ json: { ok: true } });
+      return;
+    }
+
+    if (pathname.endsWith('/tiktok/rankings')) {
+      await route.fulfill({
+        json: {
+          history: [],
+          active_batch: null,
+          latest_import: null,
+          import_attempts: [],
+          identities: [],
+          import_token_configured: false,
+        },
+      });
+      return;
+    }
+
+    if (pathname.endsWith('/nominees')) {
+      await route.fulfill({ json: { nominees: [] } });
+      return;
+    }
+
+    await route.fulfill({ json: {} });
+  });
+}
+
+test('redirige al visitante desde una ruta privada hacia /acceso preservando el retorno', async ({
+  page,
+}) => {
+  await page.goto('/console?vista=sonidos');
+
+  await expect(page).toHaveURL('/acceso?retorno=%2Fconsole%3Fvista%3Dsonidos');
+  await expect(page.getByRole('heading', { name: /Entrar a la comunidad/i })).toBeVisible();
+});
+
+test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
+  let requestedRedirectTo: string | null = null;
+
+  await page.route(`${supabaseUrl}/auth/v1/authorize**`, async (route) => {
+    requestedRedirectTo = new URL(route.request().url()).searchParams.get('redirect_to');
+
+    await route.fulfill({
+      status: 302,
+      headers: {
+        location: requestedRedirectTo ?? `${baseUrl}/api/auth/callback?retorno=%2Fconsole`,
+      },
+    });
+  });
+
+  await page.goto('/acceso?retorno=%2Fconsole%3Fvista%3Dsonidos');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect.poll(() => requestedRedirectTo).toBe(
+    'http://127.0.0.1:3100/api/auth/callback?retorno=%2Fconsole%3Fvista%3Dsonidos',
+  );
+});
+
+test('bloquea retornos externos al iniciar autenticación', async ({ page }) => {
+  let requestedRedirectTo: string | null = null;
+
+  await page.route(`${supabaseUrl}/auth/v1/authorize**`, async (route) => {
+    requestedRedirectTo = new URL(route.request().url()).searchParams.get('redirect_to');
+
+    await route.fulfill({
+      status: 302,
+      headers: {
+        location: requestedRedirectTo ?? `${baseUrl}/api/auth/callback?retorno=%2F`,
+      },
+    });
+  });
+
+  await page.goto('/acceso?retorno=https://evil.example/phishing');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect.poll(() => requestedRedirectTo).toBe(
+    'http://127.0.0.1:3100/api/auth/callback?retorno=%2F',
+  );
+});
+
+test('permite que un Miembro Oficial retome exactamente /console tras pasar por /acceso', async ({
+  page,
+}) => {
+  await mockConsoleApis(page);
+
+  await page.goto('/acceso?retorno=%2Fconsole');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/console');
+  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+});
+
+test('responde 403 a un usuario autenticado sin rol Admin en /admin', async ({ page }) => {
+  await page.goto('/acceso?retorno=%2Fadmin');
+  const responsePromise = page.waitForResponse((response) => {
+    return response.request().resourceType() === 'document' && response.url().endsWith('/admin');
+  });
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+  const response = await responsePromise;
+
+  expect(response.status()).toBe(403);
+  await expect(page).toHaveURL('/admin');
+  await expect(page.getByRole('heading', { name: /ACCESO RESTRINGIDO/i })).toBeVisible();
+});
+
+test('permite que un Administrador retome /admin tras pasar por /acceso', async ({ page }) => {
+  await mockAdminApis(page);
+
+  await page.goto('/acceso?retorno=%2Fadmin');
+  await page.getByRole('button', { name: /Continuar con Google/i }).click();
+
+  await expect(page).toHaveURL('/admin');
+  await expect(page.getByText(/MILUMON ADMIN/i)).toBeVisible();
+});

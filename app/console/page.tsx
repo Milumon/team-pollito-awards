@@ -879,7 +879,9 @@ export default function MemberConsolePage() {
   // Auth initialization
   useEffect(() => {
     const initAuth = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      const { data: { session: localSession } } = await supabase.auth.getSession();
+      const initialSession = localSession ?? null;
+
       setSession(initialSession);
       if (initialSession) {
         await fetchProfile(initialSession);

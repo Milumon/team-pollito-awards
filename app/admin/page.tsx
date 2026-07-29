@@ -629,7 +629,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    Promise.resolve().then(async () => {
+      const { data: { session: localSession } } = await supabase.auth.getSession();
+      const initialSession = localSession ?? null;
+
       setSession(initialSession);
       checkAdminRole(initialSession);
     });

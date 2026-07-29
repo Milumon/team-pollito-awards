@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import { buildAccessPath } from '@/lib/authRouting';
 import { Session } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
@@ -259,12 +260,7 @@ export default function ComunidadPage() {
   };
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`,
-      },
-    });
+    window.location.assign(buildAccessPath(`${window.location.pathname}${window.location.search}`));
   };
 
   const handleLogout = async () => {
