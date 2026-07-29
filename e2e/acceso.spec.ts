@@ -609,7 +609,7 @@ test('ignora hosts reenviados al resolver el callback', async ({ request }) => {
   );
 });
 
-test('permite que un Miembro Oficial retome exactamente /console tras pasar por /acceso', async ({
+test('redirige /console a Sonidos tras autenticar al Miembro Oficial', async ({
   page,
 }) => {
   await mockConsoleApis(page);
@@ -617,8 +617,12 @@ test('permite que un Miembro Oficial retome exactamente /console tras pasar por 
   await page.goto('/acceso?retorno=%2Fconsole');
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
-  await expect(page).toHaveURL('/console');
-  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+  await expect(page).toHaveURL('/panel/sonidos');
+  await expect(page.getByRole('heading', { name: 'Banco' })).toBeVisible();
+
+  const response = await page.request.get('/console', { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toBe('/panel/sonidos');
 });
 
 test('redirige /panel al Inicio del Panel del Miembro', async ({ page }) => {
