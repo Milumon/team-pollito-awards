@@ -753,7 +753,7 @@ test('abre el editor de usuario como pagina directa sin confundir identidades', 
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('intercepta el editor desde Usuarios y respeta cierre e historial', async ({ page }) => {
+test('abre el editor de usuario como overlay y respeta cierre e historial', async ({ page }) => {
   await signInAsAdmin(page, '/admin/usuarios');
   await page.getByRole('link', { name: 'Editar Pollito VIP' }).click();
 
@@ -778,7 +778,7 @@ test('intercepta el editor desde Usuarios y respeta cierre e historial', async (
   await page.reload();
   await expect(page).toHaveURL('/admin/usuarios/user-1');
   await expect(page.getByRole('heading', { name: 'Editar usuario' })).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
 });
 
 test('responde 403 server-side a un Miembro Oficial en una ruta Admin anidada', async ({ page }) => {
