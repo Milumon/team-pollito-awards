@@ -4018,6 +4018,7 @@ export default function LegacyAdminPanel({
 
               {/* Sidebar deslizable */}
               <motion.aside
+                aria-label="Navegación móvil del Panel de Control"
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
