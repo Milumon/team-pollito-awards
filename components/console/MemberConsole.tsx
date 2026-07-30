@@ -188,7 +188,7 @@ const PANEL_TABS = [
   { id: 'tts' as const, label: 'Voz', icon: Send, href: '/panel/voz?modo=texto' },
   { id: 'animations' as const, label: 'Efectos', icon: Sparkles, href: '/panel/efectos' },
   { id: 'rankings' as const, label: 'Ranking', icon: Trophy, href: '/panel/clasificaciones' },
-  { id: 'feed' as const, label: 'Feed', icon: List, href: '/panel/inicio' },
+  { id: 'feed' as const, label: 'Feed', icon: List, href: '/panel/feed' },
   { id: 'nickname' as const, label: 'Nick', icon: User, href: '/panel/perfil' },
   { id: 'settings' as const, label: 'Ajustes', icon: Settings, href: '/panel/ajustes' },
   { id: 'help' as const, label: 'Ayuda', icon: HelpCircle, href: '/panel/ayuda' },
@@ -343,11 +343,23 @@ export default function MemberConsole({
   const routedTab =
     (pathname === '/panel/inicio'
       ? 'dashboard'
-      : pathname === '/panel/voz'
-        ? 'tts'
-        : pathname === '/panel/efectos'
-          ? 'animations'
-          : 'sounds') as ConsoleTab;
+      : pathname === '/panel/feed'
+        ? 'feed'
+        : pathname === '/panel/voz'
+          ? 'tts'
+          : pathname === '/panel/efectos'
+            ? 'animations'
+            : pathname === '/panel/sonidos'
+              ? 'sounds'
+              : pathname === '/panel/clasificaciones'
+                ? 'rankings'
+                : pathname === '/panel/perfil'
+                  ? 'nickname'
+                  : pathname === '/panel/ajustes'
+                    ? 'settings'
+                    : pathname === '/panel/ayuda'
+                      ? 'help'
+                      : 'sounds') as ConsoleTab;
   const requestedSoundType = searchParams.get('tipo');
   const routedSoundType: SoundType =
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
