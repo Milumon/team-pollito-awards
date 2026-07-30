@@ -187,6 +187,11 @@ const PANEL_TABS = [
   { id: 'sounds' as const, label: 'Sonidos', icon: Volume2, href: '/panel/sonidos' },
   { id: 'tts' as const, label: 'Voz', icon: Send, href: '/panel/voz?modo=texto' },
   { id: 'animations' as const, label: 'Efectos', icon: Sparkles, href: '/panel/efectos' },
+  { id: 'rankings' as const, label: 'Ranking', icon: Trophy, href: '/panel/clasificaciones' },
+  { id: 'feed' as const, label: 'Feed', icon: List, href: '/panel/inicio' },
+  { id: 'nickname' as const, label: 'Nick', icon: User, href: '/panel/perfil' },
+  { id: 'settings' as const, label: 'Ajustes', icon: Settings, href: '/panel/ajustes' },
+  { id: 'help' as const, label: 'Ayuda', icon: HelpCircle, href: '/panel/ayuda' },
 ];
 
 export default function MemberConsole({
@@ -1331,6 +1336,7 @@ export default function MemberConsole({
                   sendRepeatEnabled={sendRepeatEnabled}
                   localTestAudioRef={localTestAudioRef}
                   localTestVideoRef={localTestVideoRef}
+                  setSoundboardSubTab={() => {}}
                   setCustomImageMessage={setCustomImageMessage}
                   setSendMessageEnabled={setSendMessageEnabled}
                   setSendRepeatEnabled={setSendRepeatEnabled}
@@ -1372,6 +1378,7 @@ export default function MemberConsole({
                   recordDuration={recordDuration}
                   sendingVoice={sendingVoice}
                   audioPreview={recordedFile ? <AudioPreview file={recordedFile} onTrimChange={(start, end) => setAudioTrim({ start, end })} /> : null}
+                  onModeChange={() => {}}
                   onTextChange={setTtsText}
                   onTextSubmit={handleTtsSubmit}
                   onStartRecording={() => void startRecording()}
