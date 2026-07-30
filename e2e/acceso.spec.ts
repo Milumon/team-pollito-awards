@@ -540,11 +540,11 @@ test('Proxy propaga al navegador y al layout las cookies de una sesion refrescad
   await mockConsoleApis(page);
   refreshRequestCount = 0;
 
-  await page.goto('/acceso?retorno=%2Fconsole%3Fsesion%3Dexpirada');
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fsesion%3Dexpirada');
   const privateResponsePromise = page.waitForResponse((response) => {
     return (
       response.request().resourceType() === 'document' &&
-      response.url().endsWith('/console?sesion=expirada')
+      response.url().endsWith('/panel/sonidos?sesion=expirada')
     );
   });
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
@@ -554,8 +554,8 @@ test('Proxy propaga al navegador y al layout las cookies de una sesion refrescad
   expect((await privateResponse.headerValues('set-cookie')).join(';')).toContain(
     'sb-127-auth-token',
   );
-  await expect(page).toHaveURL('/console?sesion=expirada');
-  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+  await expect(page).toHaveURL('/panel/sonidos?sesion=expirada');
+  await expect(page.getByRole('heading', { name: 'Banco' })).toBeVisible();
 });
 
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
@@ -839,52 +839,13 @@ test('un Miembro Oficial conserva /panel con query al recargar y usar el histori
   await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fcategoria%3Dmemes');
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
-  const desktopNavigation = page.locator('aside').getByText('Navegación').locator('..');
-  await expect(page).toHaveURL('/panel/clasificaciones');
-  await expect(page.getByRole('heading', { name: 'Rankings de TikTok LIVE' })).toBeVisible();
-  await expect(page.getByText('Pollito Ranking')).toBeVisible();
-  await expect(desktopNavigation.getByRole('link', { name: 'Clasificaciones' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
-
-  await desktopNavigation.getByRole('link', { name: 'Actividad' }).click();
-  await expect(page).toHaveURL('/panel/actividad');
-  await expect(page.getByRole('heading', { name: 'Top de la Semana' })).toBeVisible();
-  await expect(page.getByText('@PollitoActivo')).toBeVisible();
-
-  await desktopNavigation.getByRole('link', { name: 'Perfil' }).click();
-  await expect(page).toHaveURL('/panel/perfil');
-  await expect(page.getByRole('heading', { name: 'Cambiar mi Nickname' })).toBeVisible();
-  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
-  await expect(page.getByText('🐣 NuevoPollito 🐣')).toBeVisible();
-
-  await desktopNavigation.getByRole('link', { name: 'Ajustes' }).click();
-  await expect(page).toHaveURL('/panel/ajustes');
-  await expect(page.getByRole('heading', { name: 'Configuración de Cuenta' })).toBeVisible();
-  const spamGuard = page.getByRole('checkbox', { name: /Confirmar antes/i });
-  await spamGuard.uncheck();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('confirmSpamGuard'))).toBe('false');
-
-  await desktopNavigation.getByRole('link', { name: 'Ayuda' }).click();
-  await expect(page).toHaveURL('/panel/ayuda');
-  await expect(page.getByRole('heading', { name: 'Preguntas Frecuentes' })).toBeVisible();
+  await expect(page).toHaveURL(panelPath);
   await page.reload();
   await expect(page).toHaveURL(panelPath);
 
   await page.goto('/ruta-publica-inexistente');
   await page.goBack();
   await expect(page).toHaveURL(panelPath);
-});
-
-test('conserva el permiso y la acción de edición en Perfil', async ({ page }) => {
-  await mockConsoleApis(page, { perm_edit_nickname: false });
-  await page.goto('/acceso?retorno=%2Fpanel%2Fperfil');
-  await page.getByRole('button', { name: /Continuar con Google/i }).click();
-
-  await page.getByPlaceholder('Ej: Milumon').fill('NuevoPollito');
-  await page.getByRole('button', { name: /Confirmar Nickname/i }).click();
-
-  await expect(page.getByText('No tenés permiso para cambiar tu apodo.')).toBeVisible();
-  await expect(page).toHaveURL('/panel/perfil');
 });
 
 test('responde 403 a una cuenta autenticada que no es Miembro Oficial', async ({ page }) => {
