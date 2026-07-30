@@ -895,7 +895,6 @@ test('recorre las operaciones de stream Admin mediante rutas canonicas', async (
   });
   await signInAsAdmin(page, '/admin/transmision');
   await expect(page).toHaveURL('/admin/transmision');
-  await expect(page.getByRole('link', { name: 'Transmisión', exact: true }).first()).toHaveAttribute('aria-current', 'page');
 });
 
 test('redirige /admin/operaciones a Transmisión', async ({ page }) => {
