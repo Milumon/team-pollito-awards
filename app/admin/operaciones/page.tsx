@@ -1,22 +1,5 @@
-import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
+import { redirect } from 'next/navigation';
 
-type Props = {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-};
-
-export default async function LegacyAdminOperationsPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const section = typeof params.seccion === 'string' ? params.seccion : undefined;
-
-  return (
-    <LegacyAdminPanel
-      initialTab={
-        section === 'postulaciones'
-          ? 'applications'
-          : section === 'multimedia'
-            ? 'media-submissions'
-            : 'dashboard'
-      }
-    />
-  );
+export default function LegacyAdminOperationsPage() {
+  redirect('/admin/transmision');
 }

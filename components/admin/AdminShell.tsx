@@ -16,7 +16,11 @@ const navigation = [
   { href: '/admin/agenda', label: 'Agenda', icon: '📅' },
   { href: '/admin/nominados', label: 'Nominados', icon: '👥' },
   { href: '/admin/votos', label: 'Votos', icon: '📊' },
-  { href: '/admin/operaciones', label: 'Otras operaciones', icon: '🛠️' },
+  { href: '/admin/transmision', label: 'Transmisión', icon: '📺' },
+  { href: '/admin/overlay', label: 'Overlay', icon: '🎨' },
+  { href: '/admin/sonidos', label: 'Sonidos', icon: '🔊' },
+  { href: '/admin/multimedia', label: 'Multimedia', icon: '🖼️' },
+  { href: '/admin/estado-transmision', label: 'Estado de transmisión', icon: '📡' },
 ];
 
 const legacyShellRoutes = new Set([
@@ -27,6 +31,11 @@ const legacyShellRoutes = new Set([
   '/admin/agenda',
   '/admin/nominados',
   '/admin/votos',
+  '/admin/transmision',
+  '/admin/overlay',
+  '/admin/sonidos',
+  '/admin/multimedia',
+  '/admin/estado-transmision',
 ]);
 
 export function AdminShell({

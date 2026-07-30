@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/set-state-in-effect, react-hooks/refs, @typescript-eslint/no-explicit-any, @next/next/no-img-element, @typescript-eslint/no-unused-vars */
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,7 +15,6 @@ import { Header } from '@/components/ui/Header';
 import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 import MediaSubmissionsPanel from '@/components/admin/MediaSubmissionsPanel';
 import MediaUploadForm from '@/components/console/MediaUploadForm';
-import { getAdminUserStatusLabel } from '@/components/admin/types';
 
 function maskEmail(email: string): string {
   if (!email) return '';
@@ -275,7 +273,7 @@ function formatDate(dateStr: string) {
   }
 }
 
-type AdminTab =
+export type AdminView =
   | 'dashboard'
   | 'nominees'
   | 'votes'
@@ -291,8 +289,8 @@ type AdminTab =
   | 'tiktok';
 
 export default function LegacyAdminPanel({
-  initialTab = 'dashboard',
-}: Readonly<{ initialTab?: AdminTab }>) {
+  view = 'dashboard',
+}: Readonly<{ view?: AdminView }>) {
   // Auth states
   const [session, setSession] = useState<Session | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -342,8 +340,7 @@ export default function LegacyAdminPanel({
   const [userPage, setUserPage] = useState(1);
   const USERS_PER_PAGE = 12;
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
+  // Tabs — view is now controlled by URL routing, not internal state
 
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
@@ -934,23 +931,6 @@ export default function LegacyAdminPanel({
       clearInterval(interval);
     };
   }, [isAdmin, loadNominees, loadStats, loadDashboard, loadInterviewSlots, loadStreamSettings, loadOverlayUrl, loadSounds, loadAuditLogs, loadTiktokOperations, pingAlexaVM]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    if (activeTab === 'agenda') {
-      void (async () => {
-        await loadInterviewSlots();
-      })();
-    } else if (activeTab === 'stream' || activeTab === 'overlay-design') {
-      void (async () => {
-        await loadStreamSettings();
-      })();
-    } else if (activeTab === 'soundboard') {
-      void (async () => {
-        await loadSounds();
-      })();
-    }
-  }, [activeTab, isAdmin, loadInterviewSlots, loadStreamSettings, loadSounds]);
 
   const handleVerifyLink = async (userId: string, action: 'approve' | 'reject' | 'revoke', rejectionReason?: string) => {
     setError(null);
@@ -1695,10 +1675,10 @@ export default function LegacyAdminPanel({
                 <span className="text-xs text-gray-300 font-semibold">Postulaciones por revisar</span>
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingApplications ?? 0}</span>
               </Link>
-              <button type="button" onClick={() => setActiveTab('media-submissions')} className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
-                <span className="text-xs text-gray-300 font-semibold">Envíos por moderar</span>
+              <Link href="/admin/multimedia" className="w-full flex items-center justify-between bg-[#35373d] border border-neutral-700/40 rounded-xl px-3 py-3 text-left cursor-pointer hover:border-[#FFC200]/50 transition-colors">
+                <span className="text-xs text-gray-300 font-semibold">Uploads por moderar</span>
                 <span className="text-[#FFC200] font-mono font-black">{summary?.pendingUploads ?? 0}</span>
-              </button>
+              </Link>
             </div>
           </section>
         </div>
@@ -2078,7 +2058,7 @@ export default function LegacyAdminPanel({
                           ? 'bg-red-500/10 text-red-400 border-red-500/20'
                           : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
                       }`}>
-                        {getAdminUserStatusLabel(u.linkStatus)}
+                        {u.linkStatus.toUpperCase()}
                       </span>
                     </td>
                     <td className="py-3 px-2 text-right">
@@ -3756,7 +3736,7 @@ export default function LegacyAdminPanel({
   };
 
   const renderActiveTabContent = () => {
-    switch (activeTab) {
+    switch (view) {
       case 'dashboard':
         return renderDashboard();
       case 'nominees':
@@ -3890,7 +3870,7 @@ export default function LegacyAdminPanel({
   const renderSidebarContent = () => {
     const navBtnClass = (tab: string) =>
       `w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-display font-semibold transition-all cursor-pointer ${
-        activeTab === tab
+        view === tab
           ? 'bg-[#FFC200]/10 text-[#FFC200]'
           : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
       }`;
@@ -3901,22 +3881,22 @@ export default function LegacyAdminPanel({
           {/* Módulo: Comunidad */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Comunidad</p>
-            <button type="button" onClick={() => { setActiveTab('dashboard'); setMobileMenuOpen(false); }} className={navBtnClass('dashboard')}>
+            <Link href="/admin/inicio" onClick={() => setMobileMenuOpen(false)} className={navBtnClass('dashboard')}>
               <span>📊</span> Panel de Control
-            </button>
-            <button type="button" onClick={() => { setActiveTab('users'); setMobileMenuOpen(false); }} className={navBtnClass('users')}>
+            </Link>
+            <Link href="/admin/usuarios" onClick={() => setMobileMenuOpen(false)} className={navBtnClass('users')}>
               <span>👑</span> Usuarios
-            </button>
-            <Link href="/admin/postulaciones" aria-current={activeTab === 'applications' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('applications')}>
+            </Link>
+            <Link href="/admin/postulaciones" aria-current={view === 'applications' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('applications')}>
               <span aria-hidden>📝</span> Postulaciones
             </Link>
-            <Link href="/admin/testimonios" aria-current={activeTab === 'testimonials' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('testimonials')}>
+            <Link href="/admin/testimonios" aria-current={view === 'testimonials' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('testimonials')}>
               <span aria-hidden>💬</span> Testimonios
             </Link>
-            <Link href="/admin/clasificaciones" aria-current={activeTab === 'tiktok' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('tiktok')}>
+            <Link href="/admin/clasificaciones" aria-current={view === 'tiktok' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('tiktok')}>
               <span aria-hidden>🎵</span> Clasificaciones
             </Link>
-            <Link href="/admin/agenda" aria-current={activeTab === 'agenda' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('agenda')}>
+            <Link href="/admin/agenda" aria-current={view === 'agenda' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('agenda')}>
               <span aria-hidden>📅</span> Agenda
             </Link>
           </div>
@@ -3924,10 +3904,10 @@ export default function LegacyAdminPanel({
           {/* Módulo: Awards */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Awards</p>
-            <Link href="/admin/nominados" aria-current={activeTab === 'nominees' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('nominees')}>
+            <Link href="/admin/nominados" aria-current={view === 'nominees' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('nominees')}>
               <span aria-hidden>👥</span> Nominados
             </Link>
-            <Link href="/admin/votos" aria-current={activeTab === 'votes' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('votes')}>
+            <Link href="/admin/votos" aria-current={view === 'votes' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('votes')}>
               <span aria-hidden>📊</span> Votos
             </Link>
           </div>
@@ -3935,26 +3915,26 @@ export default function LegacyAdminPanel({
           {/* Módulo: Stream */}
           <div className="space-y-0.5">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Stream</p>
-            <button type="button" onClick={() => { setActiveTab('stream'); setMobileMenuOpen(false); }} className={navBtnClass('stream')}>
-              <span>📺</span> Ajustes de Cooldown
-            </button>
-            <button type="button" onClick={() => { setActiveTab('overlay-design'); setMobileMenuOpen(false); }} className={navBtnClass('overlay-design')}>
-              <span>🎨</span> Diseño del Pop-up
-            </button>
-            <button type="button" onClick={() => { setActiveTab('soundboard'); setMobileMenuOpen(false); }} className={navBtnClass('soundboard')}>
-              <span>🔊</span> Botonera OBS
-            </button>
-            <button type="button" onClick={() => { setActiveTab('media-submissions'); setMobileMenuOpen(false); }} className={navBtnClass('media-submissions')}>
-              <span>🖼️</span> Media de Usuarios
-            </button>
+            <Link href="/admin/transmision" aria-current={view === 'stream' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('stream')}>
+              <span>📺</span> Transmisión
+            </Link>
+            <Link href="/admin/overlay" aria-current={view === 'overlay-design' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('overlay-design')}>
+              <span>🎨</span> Overlay
+            </Link>
+            <Link href="/admin/sonidos" aria-current={view === 'soundboard' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('soundboard')}>
+              <span>🔊</span> Sonidos
+            </Link>
+            <Link href="/admin/multimedia" aria-current={view === 'media-submissions' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('media-submissions')}>
+              <span>🖼️</span> Multimedia
+            </Link>
           </div>
 
           {/* Módulo Móvil: Diagnóstico */}
           <div className="space-y-0.5 block lg:hidden">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-2">Diagnóstico</p>
-            <button type="button" onClick={() => { setActiveTab('stream-status'); setMobileMenuOpen(false); }} className={navBtnClass('stream-status')}>
-              <span>📡</span> Estado del Directo
-            </button>
+            <Link href="/admin/estado-transmision" aria-current={view === 'stream-status' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('stream-status')}>
+              <span>📡</span> Estado de transmisión
+            </Link>
           </div>
         </div>
 
@@ -4047,7 +4027,7 @@ export default function LegacyAdminPanel({
 
         {/* MAIN DISPLAY AREA */}
         <main className={`flex-grow overflow-y-auto bg-[#1e1f22] min-w-0 ${
-          activeTab === 'overlay-design' ? 'flex flex-col p-0' : 'p-4 sm:p-6'
+          view === 'overlay-design' ? 'flex flex-col p-0' : 'p-4 sm:p-6'
         }`}>
           {error && (
             <div className="bg-red-950/40 border border-neutral-700/60 rounded-2xl p-4 text-xs font-bold text-red-400 mb-6 flex items-center justify-between shadow-[0_2px_8px_rgba(0,0,0,.3)]">
@@ -4062,7 +4042,7 @@ export default function LegacyAdminPanel({
             </div>
           )}
 
-          <div className={activeTab === 'overlay-design' ? 'flex-1 flex flex-col min-h-0 p-4 sm:p-6' : ''}>
+          <div className={view === 'overlay-design' ? 'flex-1 flex flex-col min-h-0 p-4 sm:p-6' : ''}>
             {renderActiveTabContent()}
           </div>
         </main>
