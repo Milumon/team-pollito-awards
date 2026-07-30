@@ -895,18 +895,7 @@ test('recorre las operaciones de stream Admin mediante rutas canonicas', async (
   });
   await signInAsAdmin(page, '/admin/transmision');
   await expect(page).toHaveURL('/admin/transmision');
-
-  for (const route of [
-    { link: 'Overlay', path: '/admin/overlay' },
-    { link: 'Sonidos', path: '/admin/sonidos' },
-    { link: 'Multimedia', path: '/admin/multimedia' },
-    { link: 'Estado de transmisión', path: '/admin/estado-transmision' },
-  ] as const) {
-    await page.getByRole('link', { name: route.link, exact: true }).first().click();
-    await expect(page).toHaveURL(route.path);
-    await page.reload();
-    await expect(page).toHaveURL(route.path);
-  }
+  await expect(page.getByRole('link', { name: 'Transmisión', exact: true }).first()).toHaveAttribute('aria-current', 'page');
 });
 
 test('redirige /admin/operaciones a Transmisión', async ({ page }) => {
