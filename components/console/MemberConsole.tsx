@@ -340,14 +340,14 @@ export default function MemberConsole({
     return true;
   });
 
-  const routedTab: ConsoleTab =
-    pathname === '/panel/inicio'
+  const routedTab =
+    (pathname === '/panel/inicio'
       ? 'dashboard'
       : pathname === '/panel/voz'
         ? 'tts'
         : pathname === '/panel/efectos'
           ? 'animations'
-          : 'sounds';
+          : 'sounds') as ConsoleTab;
   const requestedSoundType = searchParams.get('tipo');
   const routedSoundType: SoundType =
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
