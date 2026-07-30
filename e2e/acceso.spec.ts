@@ -295,7 +295,11 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
     await route.fulfill({
       json: {
         weekStart: new Date().toISOString(),
-        weekly: { usage: [], sounds: [], images: [] },
+        weekly: {
+          usage: [{ userId: 'user-1', name: 'PollitoActivo', avatarUrl: null, count: 7 }],
+          sounds: [],
+          images: [],
+        },
         allTime: { usage: [], sounds: [], images: [] },
       },
     });
@@ -327,6 +331,32 @@ async function mockConsoleApis(page: Page, profileOverrides: Record<string, unkn
 
   await page.route('**/api/console/media/my-submissions', async (route) => {
     await route.fulfill({ json: { submissions: [] } });
+  });
+
+  await page.route('**/api/tiktok/rankings/current**', async (route) => {
+    await route.fulfill({
+      json: {
+        batch_id: 'batch-1',
+        captured_at: '2026-07-29T00:00:00.000Z',
+        sets: [{
+          metric: 'viewers',
+          period: 'last_live',
+          window: { begin: null, end: null },
+          entries: [{
+            position: 1,
+            display_id: 'pollito-ranking',
+            nickname: 'Pollito Ranking',
+            value: '1234',
+            profile: null,
+          }],
+          me: null,
+        }],
+      },
+    });
+  });
+
+  await page.route('**/api/tiktok/rankings?**', async (route) => {
+    await route.fulfill({ json: { history: [] } });
   });
 }
 
@@ -510,11 +540,11 @@ test('Proxy propaga al navegador y al layout las cookies de una sesion refrescad
   await mockConsoleApis(page);
   refreshRequestCount = 0;
 
-  await page.goto('/acceso?retorno=%2Fconsole%3Fsesion%3Dexpirada');
+  await page.goto('/acceso?retorno=%2Fpanel%2Fsonidos%3Fsesion%3Dexpirada');
   const privateResponsePromise = page.waitForResponse((response) => {
     return (
       response.request().resourceType() === 'document' &&
-      response.url().endsWith('/console?sesion=expirada')
+      response.url().endsWith('/panel/sonidos?sesion=expirada')
     );
   });
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
@@ -524,8 +554,8 @@ test('Proxy propaga al navegador y al layout las cookies de una sesion refrescad
   expect((await privateResponse.headerValues('set-cookie')).join(';')).toContain(
     'sb-127-auth-token',
   );
-  await expect(page).toHaveURL('/console?sesion=expirada');
-  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+  await expect(page).toHaveURL('/panel/sonidos?sesion=expirada');
+  await expect(page.getByRole('heading', { name: 'Banco' })).toBeVisible();
 });
 
 test('envia el retorno validado a OAuth desde /acceso', async ({ page }) => {
@@ -609,7 +639,7 @@ test('ignora hosts reenviados al resolver el callback', async ({ request }) => {
   );
 });
 
-test('permite que un Miembro Oficial retome exactamente /console tras pasar por /acceso', async ({
+test('redirige /console a Sonidos tras autenticar al Miembro Oficial', async ({
   page,
 }) => {
   await mockConsoleApis(page);
@@ -617,8 +647,12 @@ test('permite que un Miembro Oficial retome exactamente /console tras pasar por 
   await page.goto('/acceso?retorno=%2Fconsole');
   await page.getByRole('button', { name: /Continuar con Google/i }).click();
 
-  await expect(page).toHaveURL('/console');
-  await expect(page.getByText('Cambiar mi Nickname')).toBeVisible();
+  await expect(page).toHaveURL('/panel/sonidos');
+  await expect(page.getByRole('heading', { name: 'Banco' })).toBeVisible();
+
+  const response = await page.request.get('/console', { maxRedirects: 0 });
+  expect(response.status()).toBe(307);
+  expect(response.headers().location).toBe('/panel/sonidos');
 });
 
 test('redirige /panel al Inicio del Panel del Miembro', async ({ page }) => {

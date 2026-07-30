@@ -6,7 +6,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
-import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
 import RobloxOnboarding from '@/components/RobloxOnboarding';
 import { Card } from '@/components/ui/Card';
@@ -23,7 +22,6 @@ import {
   LayoutDashboard,
   Settings,
   HelpCircle,
-  Menu,
   X,
   Users,
   Crown,
@@ -116,7 +114,7 @@ const ANIMATIONS = [
 ];
 
 const LEADERBOARD_SECTIONS = [
-  { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
+  { key: 'usage' as const, title: 'Más uso del panel', icon: '⚡', suffix: 'interacciones' },
   { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
   { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
 ];
@@ -189,16 +187,11 @@ const PANEL_TABS = [
   { id: 'sounds' as const, label: 'Sonidos', icon: Volume2, href: '/panel/sonidos' },
   { id: 'tts' as const, label: 'Voz', icon: Send, href: '/panel/voz?modo=texto' },
   { id: 'animations' as const, label: 'Efectos', icon: Sparkles, href: '/panel/efectos' },
-];
-
-const CONSOLE_TABS = [
-  { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'rankings' as const, label: 'Rankings', icon: Trophy },
-  { id: 'sounds' as const, label: 'Banco', icon: Volume2 },
-  { id: 'tts' as const, label: 'TTS Mensajes', icon: Send },
-  { id: 'animations' as const, label: 'Efectos Visuales', icon: Sparkles },
-  { id: 'feed' as const, label: 'Feed de Actividad', icon: List },
-  { id: 'nickname' as const, label: 'Cambiar mi Nickname', icon: User },
+  { id: 'rankings' as const, label: 'Ranking', icon: Trophy, href: '/panel/clasificaciones' },
+  { id: 'feed' as const, label: 'Feed', icon: List, href: '/panel/inicio' },
+  { id: 'nickname' as const, label: 'Nick', icon: User, href: '/panel/perfil' },
+  { id: 'settings' as const, label: 'Ajustes', icon: Settings, href: '/panel/ajustes' },
+  { id: 'help' as const, label: 'Ayuda', icon: HelpCircle, href: '/panel/ayuda' },
 ];
 
 export default function MemberConsole({
@@ -215,10 +208,6 @@ export default function MemberConsole({
   const [allTimeLeaderboards, setAllTimeLeaderboards] = useState<WeeklyLeaderboards>({ usage: [], sounds: [], images: [] });
   const [loadingLeaderboards, setLoadingLeaderboards] = useState(true);
 
-  // Navigation state (app feel)
-  const [activeTab, setActiveTab] = useState<ConsoleTab>('sounds');
-  const [soundboardSubTab, setSoundboardSubTab] = useState<SoundType>('audios');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRobloxOnboardingOpen, setIsRobloxOnboardingOpen] = useState(false);
 
   // TTS State
@@ -226,7 +215,6 @@ export default function MemberConsole({
   const [sendingTts, setSendingTts] = useState(false);
 
   // Voice Recording State
-  const [ttsMode, setTtsMode] = useState<'text' | 'voice'>('text');
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedFile, setRecordedFile] = useState<File | null>(null);
@@ -352,23 +340,23 @@ export default function MemberConsole({
     return true;
   });
 
-  const routedTab: ConsoleTab =
-    pathname === '/panel/inicio'
+  const routedTab =
+    (pathname === '/panel/inicio'
       ? 'dashboard'
       : pathname === '/panel/voz'
         ? 'tts'
         : pathname === '/panel/efectos'
           ? 'animations'
-          : 'sounds';
+          : 'sounds') as ConsoleTab;
   const requestedSoundType = searchParams.get('tipo');
   const routedSoundType: SoundType =
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
       ? requestedSoundType
       : 'audios';
-  const displayedTab = panelMode ? routedTab : activeTab;
-  const displayedSoundType = panelMode ? routedSoundType : soundboardSubTab;
+  const displayedTab: ConsoleTab = routedTab;
+  const displayedSoundType = routedSoundType;
   const routedTtsMode = searchParams.get('modo') === 'grabacion' ? 'voice' : 'text';
-  const displayedTtsMode = panelMode ? routedTtsMode : ttsMode;
+  const displayedTtsMode = routedTtsMode;
 
 
   const warnedRealtimeRef = useRef(false);
@@ -1153,7 +1141,7 @@ export default function MemberConsole({
     return (
       <div className="h-screen w-screen bg-[#1e1f22] text-white flex flex-col items-center justify-center font-sans">
         <Loader2 className="w-10 h-10 animate-spin text-[#FFC200]" />
-        <p className="mt-3 font-sans text-sm text-gray-500">Cargando consola VIP...</p>
+        <p className="mt-3 font-sans text-sm text-gray-500">Cargando Panel del Miembro...</p>
       </div>
     );
   }
@@ -1168,7 +1156,7 @@ export default function MemberConsole({
           </div>
           <h1 className="font-display font-bold text-2xl leading-none text-red-500">Acceso Restringido</h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            Iniciá sesión en el portal de comunidad con tu cuenta autorizada para acceder a la Consola en Vivo de Miembros Oficiales.
+            Iniciá sesión en el portal de comunidad con tu cuenta autorizada para acceder al Panel del Miembro.
           </p>
           <button
             onClick={handleBackToLanding}
@@ -1200,10 +1188,10 @@ export default function MemberConsole({
           </h1>
           <p className="text-xs text-gray-400 leading-relaxed">
             {isPending
-              ? 'Tu solicitud de vinculación está siendo evaluada por Milumon. Cuando seas aprobado como Miembro Oficial, se habilitará la consola interactiva.'
+              ? 'Tu solicitud de vinculación está siendo evaluada por Milumon. Cuando seas aprobado como Miembro Oficial, se habilitará el Panel del Miembro.'
               : isRejected
               ? `Tu vinculación fue rechazada. Motivo: "${profile?.rejection_reason || 'Sin motivo especificado'}"`
-              : 'Para acceder a la Consola en Vivo debés completar tu onboarding y ser aprobado como Miembro Oficial.'}
+              : 'Para acceder al Panel del Miembro debés completar tu onboarding y ser aprobado como Miembro Oficial.'}
           </p>
           <button
             onClick={handleBackToLanding}
@@ -1242,8 +1230,8 @@ export default function MemberConsole({
         session={session}
         isAdmin={isAdmin}
         onLogout={handleBackToLanding}
-        panelName={panelMode ? 'Panel del Miembro' : 'Consola'}
-        panelHref={panelMode ? '/panel/inicio' : '/console'}
+        panelName="Panel del Miembro"
+        panelHref="/panel/inicio"
         showMobileToggle={false}
         theme="dark"
       />
@@ -1256,22 +1244,15 @@ export default function MemberConsole({
           <div className="space-y-1">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest px-3 mb-3">Navegación</p>
 
-            {(panelMode ? PANEL_TABS : CONSOLE_TABS).map((tab) => {
+            {PANEL_TABS.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = displayedTab === tab.id;
-              const href = 'href' in tab && typeof tab.href === 'string' ? tab.href : '/console';
               return (
                 <Link
                   key={tab.id}
-                  href={href}
+                  href={tab.href}
                   aria-current={isActive ? 'page' : undefined}
-                  onClick={(event) => {
-                    soundManager.playPop();
-                    if (!panelMode) {
-                      event.preventDefault();
-                      setActiveTab(tab.id);
-                    }
-                  }}
+                  onClick={() => soundManager.playPop()}
                   className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
                     isActive
                       ? 'bg-[#FFC200]/10 text-[#FFC200]'
@@ -1284,31 +1265,6 @@ export default function MemberConsole({
               );
             })}
 
-            {!panelMode && <div className="h-px bg-white/5 my-3" />}
-
-            {!panelMode && <button
-              onClick={() => { soundManager.playPop(); setActiveTab('settings'); }}
-              className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
-                displayedTab === 'settings'
-                  ? 'bg-[#FFC200]/10 text-[#FFC200]'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-              }`}
-            >
-              <Settings className={`w-4 h-4 shrink-0 ${displayedTab === 'settings' ? 'text-[#FFC200]' : 'text-gray-500'}`} />
-              <span>Configuración</span>
-            </button>}
-
-            {!panelMode && <button
-              onClick={() => { soundManager.playPop(); setActiveTab('help'); }}
-              className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
-                displayedTab === 'help'
-                  ? 'bg-[#FFC200]/10 text-[#FFC200]'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-              }`}
-            >
-              <HelpCircle className={`w-4 h-4 shrink-0 ${displayedTab === 'help' ? 'text-[#FFC200]' : 'text-gray-500'}`} />
-              <span>Ayuda</span>
-            </button>}
           </div>
 
           {/* ESTADO Y POLLITO */}
@@ -1380,7 +1336,7 @@ export default function MemberConsole({
                   sendRepeatEnabled={sendRepeatEnabled}
                   localTestAudioRef={localTestAudioRef}
                   localTestVideoRef={localTestVideoRef}
-                  setSoundboardSubTab={setSoundboardSubTab}
+                  setSoundboardSubTab={() => {}}
                   setCustomImageMessage={setCustomImageMessage}
                   setSendMessageEnabled={setSendMessageEnabled}
                   setSendRepeatEnabled={setSendRepeatEnabled}
@@ -1422,7 +1378,7 @@ export default function MemberConsole({
                   recordDuration={recordDuration}
                   sendingVoice={sendingVoice}
                   audioPreview={recordedFile ? <AudioPreview file={recordedFile} onTrimChange={(start, end) => setAudioTrim({ start, end })} /> : null}
-                  onModeChange={setTtsMode}
+                  onModeChange={() => {}}
                   onTextChange={setTtsText}
                   onTextSubmit={handleTtsSubmit}
                   onStartRecording={() => void startRecording()}
@@ -1472,11 +1428,7 @@ export default function MemberConsole({
                         <div className="py-12 text-center text-xs font-bold text-gray-500 uppercase animate-pulse">Cargando ranking...</div>
                       ) : (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                          {([
-                            { key: 'usage' as const, title: 'Más uso de consola', icon: '⚡', suffix: 'interacciones' },
-                            { key: 'sounds' as const, title: 'Más sonidos subidos', icon: '🔊', suffix: 'sonidos' },
-                            { key: 'images' as const, title: 'Más imágenes subidas', icon: '🖼️', suffix: 'imágenes' },
-                          ]).map((section) => {
+                          {LEADERBOARD_SECTIONS.map((section) => {
                             const entries = weeklyLeaderboards[section.key];
                             return (
                               <section key={section.key} className="bg-[#24262b] border border-neutral-700/60 rounded-2xl p-3.5">
@@ -1730,7 +1682,7 @@ export default function MemberConsole({
                       <div className="space-y-1">
                         <h4 className="text-xs font-semibold text-white">¿Por qué mis botones de sonido están deshabilitados?</h4>
                         <p className="text-[11px] text-gray-400 leading-relaxed font-semibold">
-                          Si disparaste un sonido recientemente, tendrás que esperar tu cooldown personal. También puede suceder que la consola esté bajo un **Mute Global** activado por el moderador del stream.
+                          Si disparaste un sonido recientemente, tendrás que esperar tu cooldown personal. También puede suceder que el panel esté bajo un **Mute Global** activado por el moderador del stream.
                         </p>
                       </div>
 
@@ -1802,27 +1754,16 @@ export default function MemberConsole({
 
       {/* ----------------- MOBILE BOTTOM NAV BAR ----------------- */}
       <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-around z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
-        {(panelMode ? PANEL_TABS : [
-          { id: 'sounds', label: 'Sonidos', icon: Volume2 },
-          { id: 'rankings', label: 'Ranking', icon: Trophy },
-          { id: 'tts', label: 'Voz', icon: Send },
-          { id: 'animations', label: 'Efectos', icon: Sparkles },
-          { id: 'feed', label: 'Feed', icon: List },
-        ] as const).map((tab) => {
+        {PANEL_TABS.map((tab) => {
           const IconComponent = tab.icon;
           const isActive = displayedTab === tab.id;
-          const href = 'href' in tab && typeof tab.href === 'string' ? tab.href : '/console';
           return (
             <Link
               key={tab.id}
-              href={href}
+              href={tab.href}
               aria-current={isActive ? 'page' : undefined}
-              onClick={(event) => {
+              onClick={() => {
                 soundManager.playPop();
-                if (!panelMode) {
-                  event.preventDefault();
-                  setActiveTab(tab.id);
-                }
               }}
               className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
                 isActive
@@ -1836,16 +1777,6 @@ export default function MemberConsole({
           );
         })}
 
-        {!panelMode && <button
-          onClick={() => {
-            soundManager.playPop();
-            setIsMobileMenuOpen(true);
-          }}
-          className="flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl text-gray-500 font-bold cursor-pointer border border-transparent"
-        >
-          <Menu className="w-4.5 h-4.5" />
-          <span className="text-[8px] uppercase tracking-wide">Más</span>
-        </button>}
       </nav>
 
       {/* ----------------- NICKNAME ONBOARDING MODAL (Solo primer ingreso) ----------------- */}
@@ -1951,22 +1882,6 @@ export default function MemberConsole({
           </div>
         )}
       </AnimatePresence>
-
-      {/* Mobile Bottom Tab Bar */}
-      {!panelMode && <NavBar
-        variant="tabbar"
-        tabs={[
-          { id: 'dashboard', name: 'Dash', icon: <LayoutDashboard className="w-4 h-4" />, onClick: () => setActiveTab('dashboard') },
-          { id: 'rankings', name: 'Ranking', icon: <Trophy className="w-4 h-4" />, onClick: () => setActiveTab('rankings') },
-          { id: 'sounds', name: 'Banco', icon: <Volume2 className="w-4 h-4" />, onClick: () => setActiveTab('sounds') },
-          { id: 'tts', name: 'TTS', icon: <Send className="w-4 h-4" />, onClick: () => setActiveTab('tts') },
-          { id: 'animations', name: 'Efectos', icon: <Sparkles className="w-4 h-4" />, onClick: () => setActiveTab('animations') },
-          { id: 'feed', name: 'Feed', icon: <List className="w-4 h-4" />, onClick: () => setActiveTab('feed') },
-        ]}
-        activeTab={activeTab}
-      />}
-
-      {children}
 
       {/* ----------------- MODAL DE PROTECCIÓN ANTI-SPAM ----------------- */}
       <AnimatePresence>

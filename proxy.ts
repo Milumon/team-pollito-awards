@@ -20,18 +20,35 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const returnPath = `${pathname}${search}`;
-
   if (
     !hasSupabaseAuthCookie(
       request.cookies.getAll(),
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     )
   ) {
+    const returnPath = `${pathname}${search}`;
     const loginUrl = new URL(buildAccessPath(returnPath), request.url);
     return NextResponse.redirect(loginUrl);
   }
 
+  if (pathname === '/panel') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/panel/inicio';
+    return NextResponse.redirect(url);
+  }
+
+  if (pathname === '/panel/sonidos') {
+    const tipo = request.nextUrl.searchParams.get('tipo');
+    if (tipo !== null && tipo !== 'audios' && tipo !== 'multimedia' && tipo !== 'videos') {
+      const url = request.nextUrl.clone();
+      const params = new URLSearchParams(request.nextUrl.searchParams);
+      params.set('tipo', 'audios');
+      url.search = `?${params.toString()}`;
+      return NextResponse.redirect(url);
+    }
+  }
+
+  const returnPath = `${pathname}${search}`;
   return refreshServerAuth(request, returnPath);
 }
 
