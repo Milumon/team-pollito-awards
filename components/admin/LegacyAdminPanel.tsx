@@ -335,6 +335,13 @@ export default function LegacyAdminPanel() {
     return 'dashboard';
   });
 
+  // Sync activeTab with URL search params (needed for Suspense boundary)
+  useEffect(() => {
+    const section = searchParams.get('seccion');
+    if (section === 'postulaciones') setActiveTab('applications');
+    else if (section === 'multimedia') setActiveTab('media-submissions');
+  }, [searchParams]);
+
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
