@@ -353,7 +353,7 @@ export default function MemberConsole({
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
       ? requestedSoundType
       : 'audios';
-  const displayedTab = routedTab;
+  const displayedTab: ConsoleTab = routedTab;
   const displayedSoundType = routedSoundType;
   const routedTtsMode = searchParams.get('modo') === 'grabacion' ? 'voice' : 'text';
   const displayedTtsMode = routedTtsMode;
