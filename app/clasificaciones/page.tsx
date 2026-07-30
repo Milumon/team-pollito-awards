@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
@@ -36,5 +37,5 @@ export default async function ClasificacionesPage({ searchParams }: Clasificacio
     redirect(redirectHref);
   }
 
-  return <TikTokRankingPublicPage />;
+  return <Suspense><TikTokRankingPublicPage /></Suspense>;
 }

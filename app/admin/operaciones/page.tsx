@@ -1,5 +1,10 @@
+import { Suspense } from 'react';
 import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
 
 export default function LegacyAdminOperationsPage() {
-  return <LegacyAdminPanel />;
+  return (
+    <Suspense>
+      <LegacyAdminPanel />
+    </Suspense>
+  );
 }

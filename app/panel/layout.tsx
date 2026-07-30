@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 
 import { requireMemberAccess } from '@/lib/memberPanelAuth';
@@ -15,5 +16,5 @@ export default async function MemberPanelLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   await requireMemberAccess('/panel');
 
-  return <MemberConsole panelMode>{children}</MemberConsole>;
+  return <Suspense><MemberConsole panelMode>{children}</MemberConsole></Suspense>;
 }
