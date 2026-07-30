@@ -348,10 +348,10 @@ export default function MemberConsole({
     requestedSoundType === 'multimedia' || requestedSoundType === 'videos'
       ? requestedSoundType
       : 'audios';
-  const displayedTab = panelMode ? routedTab : activeTab;
-  const displayedSoundType = panelMode ? routedSoundType : soundboardSubTab;
+  const displayedTab = routedTab;
+  const displayedSoundType = routedSoundType;
   const routedTtsMode = searchParams.get('modo') === 'grabacion' ? 'voice' : 'text';
-  const displayedTtsMode = panelMode ? routedTtsMode : ttsMode;
+  const displayedTtsMode = routedTtsMode;
 
 
   const warnedRealtimeRef = useRef(false);
@@ -1331,7 +1331,6 @@ export default function MemberConsole({
                   sendRepeatEnabled={sendRepeatEnabled}
                   localTestAudioRef={localTestAudioRef}
                   localTestVideoRef={localTestVideoRef}
-                  setSoundboardSubTab={setSoundboardSubTab}
                   setCustomImageMessage={setCustomImageMessage}
                   setSendMessageEnabled={setSendMessageEnabled}
                   setSendRepeatEnabled={setSendRepeatEnabled}
@@ -1373,7 +1372,6 @@ export default function MemberConsole({
                   recordDuration={recordDuration}
                   sendingVoice={sendingVoice}
                   audioPreview={recordedFile ? <AudioPreview file={recordedFile} onTrimChange={(start, end) => setAudioTrim({ start, end })} /> : null}
-                  onModeChange={setTtsMode}
                   onTextChange={setTtsText}
                   onTextSubmit={handleTtsSubmit}
                   onStartRecording={() => void startRecording()}
@@ -1749,13 +1747,7 @@ export default function MemberConsole({
 
       {/* ----------------- MOBILE BOTTOM NAV BAR ----------------- */}
       <nav className="flex md:hidden h-16 bg-[#2b2d31] border-t border-neutral-700/40 items-center justify-around z-20 shrink-0 px-2 select-none rounded-t-2xl shadow-[0_-4px_0_0_#000]">
-        {(panelMode ? PANEL_TABS : [
-          { id: 'sounds', label: 'Sonidos', icon: Volume2 },
-          { id: 'rankings', label: 'Ranking', icon: Trophy },
-          { id: 'tts', label: 'Voz', icon: Send },
-          { id: 'animations', label: 'Efectos', icon: Sparkles },
-          { id: 'feed', label: 'Feed', icon: List },
-        ] as const).map((tab) => {
+        {PANEL_TABS.map((tab) => {
           const IconComponent = tab.icon;
           const isActive = displayedTab === tab.id;
           return (
@@ -1763,12 +1755,8 @@ export default function MemberConsole({
               key={tab.id}
               href={tab.href}
               aria-current={isActive ? 'page' : undefined}
-              onClick={(event) => {
+              onClick={() => {
                 soundManager.playPop();
-                if (!panelMode) {
-                  event.preventDefault();
-                  setActiveTab(tab.id);
-                }
               }}
               className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
                 isActive
