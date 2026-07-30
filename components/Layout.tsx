@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/vote" className="hover:text-primary transition-colors">Votar</Link>
             </li>
             <li>
-              <Link href="/login" className="hover:text-primary transition-colors">Login</Link>
+              <Link href="/acceso" className="hover:text-primary transition-colors">Acceso</Link>
             </li>
           </ul>
         </nav>

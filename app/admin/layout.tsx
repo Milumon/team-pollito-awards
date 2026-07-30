@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
-import { forbidden } from 'next/navigation';
+import { forbidden, redirect } from 'next/navigation';
 
+import { buildAccessPath } from '@/lib/authRouting';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { getServerSession } from '@/lib/serverSession';
 
@@ -14,19 +15,18 @@ export const metadata: Metadata = {
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  let session = null;
-  try {
-    session = await getServerSession();
-  } catch {
-    // Auth is gated by proxy.ts; tolerate RSC re-render failures.
+  const session = await getServerSession();
+
+  if (!session) {
+    redirect(buildAccessPath('/admin/inicio'));
   }
 
-  if (session && !session.isAdmin) {
+  if (!session.isAdmin) {
     forbidden();
   }
 
   return (
-    <AdminShell adminEmail={session?.user?.email || 'Administrador'}>
+    <AdminShell adminEmail={session.user.email || 'Administrador'}>
       {children}
     </AdminShell>
   );
