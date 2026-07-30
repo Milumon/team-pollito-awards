@@ -887,21 +887,29 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
   await expect(page.getByRole('heading', { name: 'Sonidos más utilizados' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Miembros con más envíos' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acciones pendientes' })).toBeVisible();
-  await expect(page.getByText('Uploads pendientes')).toHaveCount(0);
-
-  await page.getByRole('link', { name: /Postulaciones por revisar/ }).click();
-  await expect(page).toHaveURL('/admin/operaciones?seccion=postulaciones');
-  await expect(page.getByRole('heading', { name: 'Postulaciones Pendientes' })).toBeVisible();
 });
 
-test('mantiene accesibles las operaciones Admin pendientes de migracion', async ({ page }) => {
-  await signInAsAdmin(page, '/admin/inicio');
-  await page.getByRole('link', { name: 'Otras operaciones' }).click();
+test('recorre las operaciones de stream Admin mediante rutas canonicas', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/transmision');
+  await expect(page).toHaveURL('/admin/transmision');
+  await expect(page.getByRole('heading', { name: 'Cooldowns del Stream' })).toBeVisible();
 
-  await expect(page).toHaveURL('/admin/operaciones');
-  await expect(page.getByRole('link', { name: /Postulaciones$/i })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Agenda', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Botonera OBS/i })).toBeVisible();
+  await page.getByRole('link', { name: 'Overlay', exact: true }).first().click();
+  await expect(page).toHaveURL('/admin/overlay');
+
+  await page.getByRole('link', { name: 'Sonidos', exact: true }).first().click();
+  await expect(page).toHaveURL('/admin/sonidos');
+
+  await page.getByRole('link', { name: 'Multimedia', exact: true }).first().click();
+  await expect(page).toHaveURL('/admin/multimedia');
+
+  await page.getByRole('link', { name: 'Estado de transmisión', exact: true }).first().click();
+  await expect(page).toHaveURL('/admin/estado-transmision');
+});
+
+test('redirige /admin/operaciones a Transmisión', async ({ page }) => {
+  await signInAsAdmin(page, '/admin/operaciones');
+  await expect(page).toHaveURL('/admin/transmision');
 });
 
 const communityAdminRoutes = [
