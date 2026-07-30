@@ -4,7 +4,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { CATEGORIES } from '@/src/data/categories';
 import { Category } from '@/src/types';
@@ -345,13 +344,6 @@ export default function LegacyAdminPanel({
 
   // Tabs
   const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
-
-  // Sync activeTab with URL search params (needed for Suspense boundary)
-  useEffect(() => {
-    const section = searchParams.get('seccion');
-    if (section === 'postulaciones') setActiveTab('applications');
-    else if (section === 'multimedia') setActiveTab('media-submissions');
-  }, [searchParams]);
 
   // Slots & Stats
   const [slots, setSlots] = useState<InterviewSlotEnriched[]>([]);

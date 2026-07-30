@@ -1,10 +1,22 @@
-import { Suspense } from 'react';
 import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
 
-export default function LegacyAdminOperationsPage() {
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function LegacyAdminOperationsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const section = typeof params.seccion === 'string' ? params.seccion : undefined;
+
   return (
-    <Suspense>
-      <LegacyAdminPanel />
-    </Suspense>
+    <LegacyAdminPanel
+      initialTab={
+        section === 'postulaciones'
+          ? 'applications'
+          : section === 'multimedia'
+            ? 'media-submissions'
+            : 'dashboard'
+      }
+    />
   );
 }
