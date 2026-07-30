@@ -57,7 +57,7 @@ Historial guardado en la base de datos que registra toda acción destructiva o d
 _Avoid_: Log del sistema, Historial de visitas, Entrada de consola
 
 **ADN de Diseño / Sistema de Diseño (Design DNA / Design System)**:
-Conjunto unificado de directrices visuales basadas en el estilo Neobrutalismo Oscuro Unificado (tipografía Anton/Inter, color amarillo #FFD500, bordes de 3px y sombras duras amarillas en modo oscuro y negras en modo claro).
+Conjunto unificado de directrices visuales basadas en el estilo Neobrutalismo Oscuro Unificado (tipografía Anton/Inter, color amarillo #FFD500, bordes de 3px y sombras duras amarillas en modo oscuro y negras en modo claro). **Excepción**: El Panel de Control (admin) usa un estilo propio más sobrio — `border border-neutral-700/60`, sombras suaves `shadow-[0_4px_12px_rgba(0,0,0,.25)]`, color acento `#FFC200` (no `#FFD500`), y fondos `#2b2d31` / `#35373d` / `#171A20`. Los bordes de 3px y sombras duras son EXCLUSIVOS del sitio público y del panel del miembro.
 _Avoid_: Estilo SaaS, UI gamer, Tema Discord
 
 **Envío de Audio (Audio Submission)**:
