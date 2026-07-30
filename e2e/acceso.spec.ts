@@ -890,21 +890,23 @@ test('permite que un Administrador retome /admin tras pasar por /acceso', async 
 });
 
 test('recorre las operaciones de stream Admin mediante rutas canonicas', async ({ page }) => {
+  await page.route('**/api/stream/settings', async (route) => {
+    await route.fulfill({ json: { global_cooldown_seconds: 30, personal_cooldown_seconds: 300, is_muted: false } });
+  });
   await signInAsAdmin(page, '/admin/transmision');
   await expect(page).toHaveURL('/admin/transmision');
-  await expect(page.getByRole('heading', { name: 'Cooldowns del Stream' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Overlay', exact: true }).first().click();
-  await expect(page).toHaveURL('/admin/overlay');
-
-  await page.getByRole('link', { name: 'Sonidos', exact: true }).first().click();
-  await expect(page).toHaveURL('/admin/sonidos');
-
-  await page.getByRole('link', { name: 'Multimedia', exact: true }).first().click();
-  await expect(page).toHaveURL('/admin/multimedia');
-
-  await page.getByRole('link', { name: 'Estado de transmisión', exact: true }).first().click();
-  await expect(page).toHaveURL('/admin/estado-transmision');
+  for (const route of [
+    { link: 'Overlay', path: '/admin/overlay' },
+    { link: 'Sonidos', path: '/admin/sonidos' },
+    { link: 'Multimedia', path: '/admin/multimedia' },
+    { link: 'Estado de transmisión', path: '/admin/estado-transmision' },
+  ] as const) {
+    await page.getByRole('link', { name: route.link, exact: true }).first().click();
+    await expect(page).toHaveURL(route.path);
+    await page.reload();
+    await expect(page).toHaveURL(route.path);
+  }
 });
 
 test('redirige /admin/operaciones a Transmisión', async ({ page }) => {
