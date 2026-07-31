@@ -1,2 +1,6 @@
 :root { color-scheme: dark; font: 14px system-ui, sans-serif; background: #171717; color: #fff; }
 body { margin: 0; min-width: 320px; } main { max-width: 560px; margin: 32px auto; padding: 24px; } h1 { color: #ffd500; } label { display: grid; gap: 8px; margin: 18px 0; } input { box-sizing: border-box; padding: 10px; width: 100%; } button { background: #ffd500; border: 2px solid #000; cursor: pointer; font-weight: 700; padding: 11px 14px; } button:disabled { cursor: wait; opacity: .6; } #progress { margin-top: 18px; font-weight: 700; line-height: 1.6; } #progress div { font-weight: 400; } #message { min-height: 40px; color: #ddd; } a { color: #ffd500; }.popup main { width: 280px; margin: 0; }
+.token-field { display: flex; gap: 6px; align-items: stretch; }
+.token-field input { flex: 1; }
+.eye-btn { background: transparent; border: 2px solid #555; color: #fff; font-size: 18px; padding: 6px 10px; line-height: 1; min-width: 42px; }
+.eye-btn:hover { border-color: #ffd500; }

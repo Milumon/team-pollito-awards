@@ -16,7 +16,10 @@
         </label>
         <label>
           TIKTOK_IMPORT_TOKEN
-          <input id="importToken" type="password" placeholder="Dejalo vacio para conservar el token guardado">
+          <div class="token-field">
+            <input id="importToken" type="password" placeholder="Dejalo vacio para conservar el token guardado">
+            <button type="button" id="toggleToken" class="eye-btn" aria-label="Mostrar token">&#128065;</button>
+          </div>
         </label>
         <button>Guardar configuracion</button>
       </form>

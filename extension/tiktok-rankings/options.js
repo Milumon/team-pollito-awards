@@ -2,10 +2,23 @@ const form = document.querySelector("#form");
 const status = document.querySelector("#status");
 const portalUrl = document.querySelector("#portalUrl");
 const importToken = document.querySelector("#importToken");
+const toggleToken = document.querySelector("#toggleToken");
 
 const existing = await chrome.storage.local.get(["portalUrl", "importToken"]);
 if (existing.portalUrl) portalUrl.value = existing.portalUrl;
-if (existing.importToken) importToken.placeholder = "Token guardado (escribe otro para rotarlo)";
+if (existing.importToken) {
+  importToken.placeholder = "Token guardado (escribe otro para rotarlo)";
+  importToken.dataset.savedLength = String(existing.importToken.length);
+}
+
+toggleToken.addEventListener("click", async () => {
+  const isPassword = importToken.type === "password";
+  importToken.type = isPassword ? "text" : "password";
+  if (isPassword && !importToken.value) {
+    const stored = await chrome.storage.local.get("importToken");
+    if (stored.importToken) importToken.value = stored.importToken;
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { isTikTokImportAuthorized } from '@/lib/tiktokImportAuth';
+import { getAuthError } from '@/lib/tiktokImportAuth';
 import { validateTikTokRankingBatch } from '@/lib/tiktokRankings';
 import { buildTikTokImportAttempt } from '@/lib/tiktokImportAttempts';
 import { readLimitedRequestBody, RequestBodyTooLargeError } from '@/lib/readLimitedRequestBody';
@@ -9,7 +9,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  if (!isTikTokImportAuthorized(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authError = getAuthError(request);
+  if (authError) {
+    console.error(`[TikTok import auth]: ${authError}`);
+    return NextResponse.json({ error: 'Unauthorized', detail: authError }, { status: 401 });
+  }
 
   const recordAttempt = async (attempt: ReturnType<typeof buildTikTokImportAttempt>) => {
     const { error } = await supabaseAdmin.from('tiktok_import_attempts').insert(attempt);

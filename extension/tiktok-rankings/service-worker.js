@@ -198,16 +198,22 @@ async function publish(tabId, importState) {
     importState.idempotencyKey,
   );
 
+  const endpoint = `${config.portalUrl.replace(/\/$/, "")}/api/tiktok/rankings/import`;
+  console.log(`[TikTok Rankings] Publishing to ${endpoint}`);
+  console.log(`[TikTok Rankings] Token length: ${config.importToken?.length ?? 0}, sets: ${importState.sets.size}`);
+
   try {
-    const response = await fetch(`${config.portalUrl.replace(/\/$/, "")}/api/tiktok/rankings/import`, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json", "x-tiktok-import-token": config.importToken },
       body: JSON.stringify(payload),
     });
     const result = await response.json().catch(() => null);
+    console.log(`[TikTok Rankings] Response: ${response.status}`, result);
     if (!response.ok) {
-      const detail = result && typeof result.error === "string" ? `: ${result.error}` : "";
-      throw new Error(`El portal respondio HTTP ${response.status}${detail}`);
+      const detail = result && typeof result.detail === "string" ? result.detail
+        : result && typeof result.error === "string" ? result.error : "";
+      throw new Error(`El portal respondio HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
     }
     if (!isPublishResult(result)) {
       throw new Error("La URL configurada no corresponde al backend de Team Pollito.");
@@ -218,6 +224,7 @@ async function publish(tabId, importState) {
   } catch (error) {
     importState.status = "error";
     importState.error = error instanceof Error ? error.message : "No se pudo publicar el batch";
+    console.error("[TikTok Rankings] Publish failed:", importState.error);
   }
 
   await persist(tabId, importState);
