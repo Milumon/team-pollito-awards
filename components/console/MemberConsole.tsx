@@ -1262,11 +1262,12 @@ export default function MemberConsole({
               const IconComponent = tab.icon;
               const isActive = displayedTab === tab.id;
               const p = profile as Record<string, unknown> | null;
-              const tabDisabled =
+              const tabDisabled = !!(
                 (tab.id === 'sounds' && p && !p.perm_trigger_sounds && !p.perm_upload_audio && !p.perm_edit_sounds) ||
                 (tab.id === 'tts' && p && !p.perm_tts_text && !p.perm_tts_record) ||
                 (tab.id === 'animations' && p && !p.perm_trigger_animations && !p.perm_trigger_media) ||
-                (tab.id === 'nickname' && p && p.perm_edit_nickname === false);
+                (tab.id === 'nickname' && p && p.perm_edit_nickname === false)
+              );
               return (
                 <Link
                   key={tab.id}
@@ -1825,11 +1826,12 @@ export default function MemberConsole({
           const IconComponent = tab.icon;
           const isActive = displayedTab === tab.id;
           const p = profile as Record<string, unknown> | null;
-          const tabDisabled =
+          const tabDisabled = !!(
             (tab.id === 'sounds' && p && !p.perm_trigger_sounds && !p.perm_upload_audio && !p.perm_edit_sounds) ||
             (tab.id === 'tts' && p && !p.perm_tts_text && !p.perm_tts_record) ||
             (tab.id === 'animations' && p && !p.perm_trigger_animations && !p.perm_trigger_media) ||
-            (tab.id === 'nickname' && p && p.perm_edit_nickname === false);
+            (tab.id === 'nickname' && p && p.perm_edit_nickname === false)
+          );
           return (
             <Link
               key={tab.id}
