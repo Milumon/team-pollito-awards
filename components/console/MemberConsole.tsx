@@ -30,6 +30,8 @@ import {
   ExternalLink,
   Scissors,
   Trophy,
+  Check,
+  Ban,
 } from 'lucide-react';
 import { soundManager } from '@/lib/sound';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
@@ -1259,20 +1261,30 @@ export default function MemberConsole({
             {PANEL_TABS.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = displayedTab === tab.id;
+              const p = profile as Record<string, unknown> | null;
+              const tabDisabled =
+                (tab.id === 'sounds' && p && !p.perm_trigger_sounds && !p.perm_upload_audio && !p.perm_edit_sounds) ||
+                (tab.id === 'tts' && p && !p.perm_tts_text && !p.perm_tts_record) ||
+                (tab.id === 'animations' && p && !p.perm_trigger_animations && !p.perm_trigger_media) ||
+                (tab.id === 'nickname' && p && p.perm_edit_nickname === false);
               return (
                 <Link
                   key={tab.id}
-                  href={tab.href}
+                  href={tabDisabled ? '#' : tab.href}
                   aria-current={isActive ? 'page' : undefined}
-                  onClick={() => soundManager.playPop()}
-                  className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-[#FFC200]/10 text-[#FFC200]'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  aria-disabled={tabDisabled}
+                  onClick={(e) => { if (tabDisabled) { e.preventDefault(); return; } soundManager.playPop(); }}
+                  className={`w-full py-2.5 px-3 rounded-xl font-display font-semibold text-sm flex items-center gap-2.5 transition-all ${
+                    tabDisabled
+                      ? 'opacity-30 cursor-not-allowed pointer-events-none'
+                      : isActive
+                        ? 'bg-[#FFC200]/10 text-[#FFC200] cursor-pointer'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5 cursor-pointer'
                   }`}
                 >
                   <IconComponent className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#FFC200]' : 'text-gray-500'}`} />
                   <span>{tab.label}</span>
+                  {tabDisabled && <Ban className="w-3 h-3 ml-auto text-gray-600" />}
                 </Link>
               );
             })}
@@ -1635,6 +1647,49 @@ export default function MemberConsole({
                       </div>
 
                       <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 ">
+                        <h3 className="font-display font-medium text-xs text-gray-500">Mis Permisos</h3>
+                        <p className="text-[11px] text-gray-500 leading-relaxed font-semibold">
+                          Permisos asignados por un administrador. Si necesitas acceso adicional, contacta al admin del equipo.
+                        </p>
+                        {(() => {
+                          const perms = [
+                            { key: 'perm_trigger_sounds', label: 'Activar sonidos' },
+                            { key: 'perm_trigger_media', label: 'Activar media (imágenes/audio)' },
+                            { key: 'perm_trigger_animations', label: 'Activar animaciones' },
+                            { key: 'perm_tts_text', label: 'TTS por texto' },
+                            { key: 'perm_tts_record', label: 'TTS por grabación' },
+                            { key: 'perm_upload_images', label: 'Subir imágenes' },
+                            { key: 'perm_upload_videos', label: 'Subir videos' },
+                            { key: 'perm_upload_audio', label: 'Subir audio' },
+                            { key: 'perm_edit_nickname', label: 'Cambiar nickname' },
+                            { key: 'perm_edit_sounds', label: 'Editar sonidos' },
+                          ];
+                          const p = profile as Record<string, unknown> | null;
+                          return (
+                            <div className="space-y-1.5">
+                              {perms.map(({ key, label }) => {
+                                const enabled = p ? p[key] !== false : true;
+                                return (
+                                  <div key={key} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-white/5">
+                                    <span className="text-xs font-semibold text-gray-300">{label}</span>
+                                    {enabled ? (
+                                      <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                                        <Check className="w-3 h-3" /> Activo
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/15 border border-red-500/20 px-2 py-0.5 rounded-full">
+                                        <Ban className="w-3 h-3" /> Deshabilitado
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-4 space-y-3 ">
                         <h3 className="font-display font-medium text-xs text-gray-500">Seguridad Anti-Spam (Niños)</h3>
                         <p className="text-[11px] text-gray-500 leading-relaxed font-semibold">
                           Cuando está activado, solicita una confirmación en pantalla antes de reproducir sonidos o efectos. Ideal para evitar toques involuntarios.
@@ -1769,18 +1824,25 @@ export default function MemberConsole({
         {PANEL_TABS.map((tab) => {
           const IconComponent = tab.icon;
           const isActive = displayedTab === tab.id;
+          const p = profile as Record<string, unknown> | null;
+          const tabDisabled =
+            (tab.id === 'sounds' && p && !p.perm_trigger_sounds && !p.perm_upload_audio && !p.perm_edit_sounds) ||
+            (tab.id === 'tts' && p && !p.perm_tts_text && !p.perm_tts_record) ||
+            (tab.id === 'animations' && p && !p.perm_trigger_animations && !p.perm_trigger_media) ||
+            (tab.id === 'nickname' && p && p.perm_edit_nickname === false);
           return (
             <Link
               key={tab.id}
-              href={tab.href}
+              href={tabDisabled ? '#' : tab.href}
               aria-current={isActive ? 'page' : undefined}
-              onClick={() => {
-                soundManager.playPop();
-              }}
-              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all cursor-pointer ${
-                isActive
-                  ? 'text-[#FFC200] font-semibold'
-                  : 'text-gray-500 font-bold'
+              aria-disabled={tabDisabled}
+              onClick={(e) => { if (tabDisabled) { e.preventDefault(); return; } soundManager.playPop(); }}
+              className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-2xl border border-transparent transition-all ${
+                tabDisabled
+                  ? 'opacity-30 cursor-not-allowed pointer-events-none'
+                  : isActive
+                    ? 'text-[#FFC200] font-semibold cursor-pointer'
+                    : 'text-gray-500 font-bold cursor-pointer'
               }`}
             >
               <IconComponent className="w-4.5 h-4.5" />

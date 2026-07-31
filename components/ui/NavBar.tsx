@@ -100,7 +100,9 @@ export const NavBar: React.FC<NavBarProps> = ({
         <>
           <Link href="/" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Ir a Inicio</Link>
           <Link href="/panel/inicio" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel del Miembro</Link>
-          <Link href="/admin/inicio" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel Admin</Link>
+          {statusInfo?.is_admin && (
+            <Link href="/admin/inicio" className="py-2.5 px-2 text-sm font-display font-semibold text-gray-600 hover:text-[#2D3139] hover:bg-gray-50 rounded-lg decoration-transparent block">Panel Admin</Link>
+          )}
         </>
       )}
 

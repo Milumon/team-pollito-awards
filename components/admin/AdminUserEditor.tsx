@@ -10,7 +10,7 @@ import { adminFetch, readApiPayload } from './adminApi';
 import { useAdminUsers } from './AdminUsersProvider';
 import type { AdminUser } from './types';
 
-const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD500] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111318]';
+const focusClassName = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC200] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111318]';
 
 type EditorTab = 'profile' | 'votes' | 'permissions';
 type ProfileForm = {
@@ -50,13 +50,13 @@ export function AdminUserEditor({ userId, onSaved }: { userId: string; onSaved?:
     return <p className="py-16 text-center text-xs font-bold uppercase tracking-wider text-gray-500">Cargando usuario...</p>;
   }
   if (usersError) {
-    return <p className="rounded-xl border-3 border-black bg-red-950/40 p-4 text-sm text-red-300 shadow-[3px_3px_0_0_#FFD500]">{usersError}</p>;
+    return <p className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">{usersError}</p>;
   }
   if (!user) {
     return (
-      <div className="rounded-2xl border-3 border-black bg-[#2b2d31] p-6 text-center shadow-[4px_4px_0_0_#FFD500]">
+      <div className="rounded-2xl border border-neutral-700/60 bg-[#2b2d31] p-6 text-center">
         <h1 className="font-display text-xl font-bold text-white">Usuario no encontrado</h1>
-        <Link href="/admin/usuarios" className={`mt-4 inline-flex rounded-xl border-3 border-black bg-[#FFD500] px-4 py-2 text-sm font-bold text-black shadow-[3px_3px_0_0_#FFD500] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#FFD500] ${focusClassName}`}>Volver a Usuarios</Link>
+        <Link href="/admin/usuarios" className="mt-4 inline-flex rounded-xl border border-neutral-700/60 bg-[#FFC200] px-4 py-2 text-sm font-bold text-black hover:brightness-105 transition-all">Volver a Usuarios</Link>
       </div>
     );
   }
@@ -182,8 +182,8 @@ function LoadedAdminUserEditor({
 
   return (
     <article className="flex max-h-[78vh] flex-col text-gray-200">
-      <header className="mb-4 flex shrink-0 items-center gap-3 border-b-3 border-black pb-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-3 border-black bg-[#171A20] shadow-[2px_2px_0_0_#FFD500]">🐣</span>
+      <header className="mb-4 flex shrink-0 items-center gap-3 border-b border-neutral-700/60 pb-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1b1d22] border border-neutral-700/60">🐣</span>
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-wide text-gray-500">Gestión de perfil</p>
           <h1 className="truncate font-display text-xl font-semibold text-white">Editar usuario</h1>
@@ -192,7 +192,7 @@ function LoadedAdminUserEditor({
         </div>
       </header>
 
-      <div className="mb-5 flex shrink-0 border-b-3 border-black">
+      <div className="mb-5 flex shrink-0 border-b border-neutral-700/60">
         {([['profile', 'Perfil'], ['votes', 'Premios y votos'], ['permissions', 'Permisos']] as const).map(([key, label]) => (
           <button
             key={key}
@@ -202,15 +202,15 @@ function LoadedAdminUserEditor({
               setEditorError(null);
               setMessage(null);
             }}
-            className={`flex-1 cursor-pointer border-b-3 pb-2 text-[10px] font-bold uppercase tracking-wider ${tab === key ? 'border-[#FFD500] text-white' : 'border-transparent text-gray-400'} ${focusClassName}`}
+            className={`flex-1 cursor-pointer border-b-2 pb-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${tab === key ? 'border-[#FFC200] text-white' : 'border-transparent text-gray-400 hover:text-gray-200'} ${focusClassName}`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {editorError && <p className="mb-3 rounded-xl border-3 border-black bg-red-500/10 p-3 text-xs font-semibold text-red-300 shadow-[3px_3px_0_0_#FFD500]">{editorError}</p>}
-      {message && <p className="mb-3 rounded-xl border-3 border-black bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-300 shadow-[3px_3px_0_0_#FFD500]">{message}</p>}
+      {editorError && <p className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-semibold text-red-300">{editorError}</p>}
+      {message && <p className="mb-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-semibold text-emerald-300">{message}</p>}
 
       {tab === 'profile' && (
         <form onSubmit={saveProfile} className="flex flex-1 flex-col gap-4 overflow-y-auto pr-1">
@@ -225,29 +225,29 @@ function LoadedAdminUserEditor({
                   setConflictedEmail('');
                   setForceClaim(false);
                 }}
-                className={`min-w-0 flex-1 rounded-xl border-3 border-black bg-[#171A20] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white shadow-[3px_3px_0_0_#FFD500] outline-none ${focusClassName}`}
+                className="min-w-0 flex-1 rounded-2xl border border-neutral-700/60 bg-[#1b1d22] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] transition-colors"
               />
-              <button type="button" onClick={() => void verifyRoblox()} disabled={validating || !form.robloxUsername.trim()} className={`cursor-pointer rounded-xl border-3 border-black bg-[#2b2d31] px-4 py-2 text-xs font-semibold text-white shadow-[3px_3px_0_0_#FFD500] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#FFD500] disabled:opacity-50 ${focusClassName}`}>
+              <button type="button" onClick={() => void verifyRoblox()} disabled={validating || !form.robloxUsername.trim()} className="cursor-pointer rounded-2xl border border-neutral-700/60 bg-[#2b2d31] px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-700/40 disabled:opacity-50 transition-colors">
                 {validating ? 'Validando...' : 'Validar'}
               </button>
             </div>
           </label>
           {conflictedEmail && (
-            <label className="rounded-xl border-3 border-black bg-amber-500/10 p-3 text-xs font-semibold normal-case tracking-normal text-amber-200 shadow-[3px_3px_0_0_#FFD500]">
+            <label className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-semibold normal-case tracking-normal text-amber-200">
               La cuenta ya está vinculada a {conflictedEmail}.
               <span className="mt-2 flex items-center gap-2">
-                <input type="checkbox" checked={forceClaim} onChange={(event) => setForceClaim(event.target.checked)} className={`h-4 w-4 accent-[#FFD500] ${focusClassName}`} />
+                <input type="checkbox" checked={forceClaim} onChange={(event) => setForceClaim(event.target.checked)} className="h-4 w-4 accent-[#FFC200]" />
                 Confirmar reasignación forzada
               </span>
             </label>
           )}
           <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
             Usuario TikTok
-            <input value={form.tiktokUsername} onChange={(event) => setForm({ ...form, tiktokUsername: event.target.value })} className={`w-full rounded-xl border-3 border-black bg-[#171A20] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white shadow-[3px_3px_0_0_#FFD500] outline-none ${focusClassName}`} />
+            <input value={form.tiktokUsername} onChange={(event) => setForm({ ...form, tiktokUsername: event.target.value })} className="w-full rounded-2xl border border-neutral-700/60 bg-[#1b1d22] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] transition-colors" />
           </label>
           <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
             Estado de vinculación
-            <select value={form.linkStatus} onChange={(event) => setForm({ ...form, linkStatus: event.target.value as AdminUser['linkStatus'] })} className={`w-full rounded-xl border-3 border-black bg-[#171A20] px-3.5 py-2.5 text-xs text-white shadow-[3px_3px_0_0_#FFD500] outline-none ${focusClassName}`}>
+            <select value={form.linkStatus} onChange={(event) => setForm({ ...form, linkStatus: event.target.value as AdminUser['linkStatus'] })} className="w-full rounded-2xl border border-neutral-700/60 bg-[#1b1d22] px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] transition-colors">
               <option value="none">Sin verificar</option>
               <option value="pending">Pendiente</option>
               <option value="approved">Aprobado</option>
@@ -257,10 +257,10 @@ function LoadedAdminUserEditor({
           {form.linkStatus === 'rejected' && (
             <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
               Motivo del rechazo
-              <textarea value={form.rejectionReason} onChange={(event) => setForm({ ...form, rejectionReason: event.target.value })} rows={2} className={`w-full resize-none rounded-xl border-3 border-black bg-[#171A20] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white shadow-[3px_3px_0_0_#FFD500] outline-none ${focusClassName}`} />
+              <textarea value={form.rejectionReason} onChange={(event) => setForm({ ...form, rejectionReason: event.target.value })} rows={2} className="w-full resize-none rounded-2xl border border-neutral-700/60 bg-[#1b1d22] px-3.5 py-2.5 text-xs normal-case tracking-normal text-white outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] transition-colors" />
             </label>
           )}
-          <button type="submit" disabled={saving} className={`mt-auto flex cursor-pointer items-center justify-center gap-2 rounded-xl border-3 border-black bg-[#FFD500] py-3 font-display text-xs font-semibold text-black shadow-[3px_3px_0_0_#FFD500] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#FFD500] disabled:opacity-50 ${focusClassName}`}>
+          <button type="submit" disabled={saving} className="mt-auto flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#FFC200] py-3 font-display text-xs font-semibold text-black hover:brightness-105 disabled:opacity-50 transition-all">
             {saving && <Loader className="h-3.5 w-3.5 animate-spin" />} Guardar perfil
           </button>
         </form>
@@ -268,10 +268,15 @@ function LoadedAdminUserEditor({
 
       {tab === 'votes' && (
         <div className="flex-1 space-y-2 overflow-y-auto">
-          <p className="rounded-xl border-3 border-black bg-[#171A20] p-3 text-xs font-semibold text-gray-200 shadow-[3px_3px_0_0_#FFD500]">Progreso: {user.votedCount}/{user.totalCategories} categorías</p>
+          <p className="rounded-2xl border border-neutral-700/60 bg-[#1b1d22] p-3 text-xs font-semibold text-gray-200">Progreso: {user.votedCount}/{user.totalCategories} categorías</p>
           {CATEGORIES.map((category) => {
             const vote = user.votes.find((candidate) => candidate.categoryId === category.id);
-            return <div key={category.id} className="flex items-center justify-between gap-3 rounded-xl border-3 border-black bg-[#171A20] p-3 text-xs shadow-[3px_3px_0_0_#FFD500]"><span className="truncate text-gray-200">{category.title}</span><span className={vote ? 'text-[#FFD500]' : 'text-red-300'}>{vote?.nomineeName || 'Sin votar'}</span></div>;
+            return (
+              <div key={category.id} className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-700/60 bg-[#1b1d22] p-3 text-xs">
+                <span className="truncate text-gray-200">{category.title}</span>
+                <span className={vote ? 'text-[#FFC200]' : 'text-red-300'}>{vote?.nomineeName || 'Sin votar'}</span>
+              </div>
+            );
           })}
         </div>
       )}
@@ -280,13 +285,13 @@ function LoadedAdminUserEditor({
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 space-y-2 overflow-y-auto pr-1">
             {permissions.map(([clientKey, , label]) => (
-              <label key={clientKey} className="flex cursor-pointer items-center justify-between rounded-xl border-3 border-black bg-[#171A20] p-3 text-xs font-semibold text-white shadow-[3px_3px_0_0_#FFD500]">
+              <label key={clientKey} className="flex cursor-pointer items-center justify-between rounded-2xl border border-neutral-700/60 bg-[#1b1d22] p-3 text-xs font-semibold text-white hover:bg-white/5 transition-colors">
                 {label}
-                <input type="checkbox" checked={permissionDraft[clientKey]} onChange={(event) => setPermissionDraft({ ...permissionDraft, [clientKey]: event.target.checked })} className={`h-4 w-4 accent-[#FFD500] ${focusClassName}`} />
+                <input type="checkbox" checked={permissionDraft[clientKey]} onChange={(event) => setPermissionDraft({ ...permissionDraft, [clientKey]: event.target.checked })} className="h-4 w-4 accent-[#FFC200]" />
               </label>
             ))}
           </div>
-          <button type="button" onClick={() => void savePermissions()} disabled={saving} className={`mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border-3 border-black bg-[#FFD500] py-3 font-display text-xs font-semibold text-black shadow-[3px_3px_0_0_#FFD500] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#FFD500] disabled:opacity-50 ${focusClassName}`}>
+          <button type="button" onClick={() => void savePermissions()} disabled={saving} className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#FFC200] py-3 font-display text-xs font-semibold text-black hover:brightness-105 disabled:opacity-50 transition-all">
             {saving && <Loader className="h-3.5 w-3.5 animate-spin" />} Guardar permisos
           </button>
         </div>
@@ -297,8 +302,8 @@ function LoadedAdminUserEditor({
 
 export function AdminUserEditorPage({ userId }: { userId: string }) {
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl border-3 border-black bg-[#111318] p-6 shadow-[5px_5px_0_0_#FFD500]">
-      <Link href="/admin/usuarios" className={`mb-5 inline-flex rounded-lg border-3 border-black bg-[#2b2d31] px-3 py-2 text-xs font-semibold text-[#FFD500] shadow-[3px_3px_0_0_#FFD500] ${focusClassName}`}>← Volver a Usuarios</Link>
+    <div className="mx-auto max-w-2xl rounded-2xl border border-neutral-700/60 bg-[#1e1f22] p-6">
+      <Link href="/admin/usuarios" className="mb-5 inline-flex rounded-2xl border border-neutral-700/60 bg-[#2b2d31] px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-neutral-700/40 hover:text-white transition-colors">← Volver a Usuarios</Link>
       <AdminUserEditor userId={userId} />
     </div>
   );
@@ -307,9 +312,9 @@ export function AdminUserEditorPage({ userId }: { userId: string }) {
 export function AdminUserEditorModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   return (
     <div role="dialog" aria-modal="true" aria-label="Editor de usuario" className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/70" />
-      <div className="relative w-full max-w-lg rounded-2xl border-3 border-black bg-[#111318] p-6 shadow-[5px_5px_0_0_#FFD500]">
-        <button type="button" aria-label="Cerrar editor" onClick={onClose} className={`absolute right-4 top-4 z-10 cursor-pointer rounded-lg border-3 border-black bg-[#171A20] p-2 text-gray-200 shadow-[2px_2px_0_0_#FFD500] hover:text-white ${focusClassName}`}><X className="h-4 w-4" /></button>
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="relative w-full max-w-lg rounded-2xl border border-neutral-700/60 bg-[#1e1f22] p-6 shadow-2xl">
+        <button type="button" aria-label="Cerrar editor" onClick={onClose} className="absolute right-4 top-4 z-10 cursor-pointer rounded-xl border border-neutral-700/60 bg-[#2b2d31] p-2 text-gray-200 hover:text-white transition-colors"><X className="h-4 w-4" /></button>
         <AdminUserEditor userId={userId} onSaved={onClose} />
       </div>
     </div>
