@@ -14,7 +14,12 @@ import {
   Users,
   ChevronRight,
   Menu,
-  X
+  X,
+  CalendarDays,
+  Crown,
+  Headphones,
+  Link2,
+  LogIn,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { buildAccessPath } from '@/lib/authRouting';
@@ -267,15 +272,19 @@ export default function ComunidadPage() {
   };
 
   const fetchTestimonials = async () => {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+
     try {
-      const res = await fetch('/api/testimonials');
+      const res = await fetch('/api/testimonials', { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
-        setTestimonials(data);
+        setTestimonials(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error('Error fetching testimonials:', err);
     } finally {
+      window.clearTimeout(timeout);
       setLoadingTestimonials(false);
     }
   };
@@ -709,6 +718,45 @@ export default function ComunidadPage() {
             </div>
           </div>
 
+          {/* TESTIMONIOS: inmediatamente debajo del hero */}
+          <section id="testimonios" className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+              <span className="text-lg">⭐</span>
+              <h3 className="font-display font-bold text-xl text-[#2D3139]">Lo que dicen los pollitos</h3>
+            </div>
+
+            {loadingTestimonials ? (
+              <div className="flex justify-center items-center py-12">
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
+                  <Loader className="w-8 h-8 text-[#FFC200]" />
+                </motion.div>
+              </div>
+            ) : testimonials.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-xl">
+                <p className="font-sans text-sm text-gray-400">No hay opiniones aprobadas aún.</p>
+              </div>
+            ) : (
+              <TestimonialCarousel testimonials={testimonials} />
+            )}
+
+            {session && statusInfo.status === 'approved' && (
+              <div className="border-t border-gray-100 pt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    setUserTestimonial(statusInfo.testimonial || '');
+                    setShowTestimonialModal(true);
+                    setTestimonialError(null);
+                    setTestimonialSuccess(false);
+                  }}
+                  className="w-full sm:w-auto py-2.5 px-5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-2"
+                >
+                  <span>💬</span>
+                  {statusInfo.testimonial ? 'Editar mi opinión' : 'Dejar mi opinión'}
+                </button>
+              </div>
+            )}
+          </section>
+
           {/* BENEFICIOS SECTION */}
           <section id="beneficios" className="space-y-6 pt-8">
             <div className="text-center">
@@ -755,29 +803,33 @@ export default function ComunidadPage() {
                 Sigue estos 5 sencillos pasos para unirte
               </p>
             </div>
-            {/* Desktop: horizontal con línea conectora */}
             <div className="relative">
-              <div className="hidden md:block absolute top-5 left-[10%] right-[10%] h-px border-t border-dashed border-gray-200 z-0" />
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+              <div className="absolute left-8 top-8 bottom-8 border-l border-dashed border-[#E5D9B4] md:hidden" />
+              <div className="hidden md:block absolute top-6 left-[10%] right-[10%] h-px border-t border-dashed border-[#E5D9B4] z-0" />
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6">
                 {[
-                  { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.' },
-                  { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.' },
-                  { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.' },
-                  { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.' },
-                  { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.' }
+                  { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.', icon: LogIn },
+                  { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.', icon: CalendarDays },
+                  { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.', icon: Link2 },
+                  { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.', icon: Headphones },
+                  { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.', icon: Crown }
                 ].map((step, idx) => (
-                  <div key={idx} className="flex flex-col items-center text-center gap-3 relative z-10">
-                    <div className="w-10 h-10 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-base flex items-center justify-center border border-[#FFC200]/30">
-                      {step.id}
+                  <div key={idx} className="relative z-10 flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-[0_4px_16px_rgba(0,0,0,.05)] md:flex-col md:items-center md:gap-3 md:border-transparent md:bg-transparent md:p-0 md:text-center md:shadow-none">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FFF7DC] text-[#D4A000] md:h-12 md:w-12">
+                      <step.icon className="h-6 w-6 md:h-5 md:w-5" strokeWidth={1.8} />
                     </div>
-                    <div>
-                      <h4 className="font-display font-bold text-sm text-[#2D3139] leading-tight">
-                        {step.title}
-                      </h4>
-                      <p className="font-sans text-xs text-gray-500 leading-relaxed mt-1">
+                    <div className="min-w-0 flex-1 md:flex-none">
+                      <div className="mb-1 flex items-center gap-2 md:justify-center">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#FFDFA0] text-xs font-bold text-[#B8860B]">{step.id}</span>
+                        <h4 className="font-display font-bold text-base leading-tight text-[#2D3139] md:text-sm">
+                          {step.title}
+                        </h4>
+                      </div>
+                      <p className="font-sans text-xs leading-relaxed text-gray-500 md:mt-1">
                         {step.desc}
                       </p>
                     </div>
+                    <span className="hidden text-[#FFC200] md:block">✦</span>
                   </div>
                 ))}
               </div>
@@ -785,9 +837,9 @@ export default function ComunidadPage() {
           </section>
 
           {/* REGLAS & TESTIMONIOS */}
-          <section id="reglas-testimonios" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-8">
+          <section id="reglas-testimonios" className="pt-8">
             {/* Reglas (5 cols) */}
-            <div id="reglas" className="lg:col-span-5 space-y-5">
+            <div id="reglas" className="max-w-xl space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <span className="text-lg">📋</span>
                 <h3 className="font-display font-bold text-xl text-[#2D3139]">Reglas principales</h3>
@@ -815,47 +867,6 @@ export default function ComunidadPage() {
               </button>
             </div>
 
-            {/* Opiniones Dinámicas (7 cols) */}
-            <div id="testimonios" className="lg:col-span-7 bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
-                <span className="text-lg">⭐</span>
-                <h3 className="font-display font-bold text-xl text-[#2D3139]">Lo que dicen los pollitos</h3>
-              </div>
-
-              {loadingTestimonials ? (
-                <div className="flex justify-center items-center py-12">
-                  <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
-                    <Loader className="w-8 h-8 text-[#FFC200]" />
-                  </motion.div>
-                </div>
-              ) : testimonials.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-xl">
-                  <p className="font-sans text-sm text-gray-400">
-                    No hay opiniones aprobadas aún.
-                  </p>
-                </div>
-              ) : (
-                <TestimonialCarousel testimonials={testimonials} />
-              )}
-
-              {/* Dejar / editar opinión (Botón para abrir Modal) */}
-              {session && statusInfo.status === 'approved' && (
-                <div className="border-t border-gray-100 pt-4 flex justify-end">
-                  <button
-                    onClick={() => {
-                      setUserTestimonial(statusInfo.testimonial || '');
-                      setShowTestimonialModal(true);
-                      setTestimonialError(null);
-                      setTestimonialSuccess(false);
-                    }}
-                    className="w-full sm:w-auto py-2.5 px-5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97] flex items-center justify-center gap-2"
-                  >
-                    <span>💬</span>
-                    {statusInfo.testimonial ? 'Editar mi opinión' : 'Dejar mi opinión'}
-                  </button>
-                </div>
-              )}
-            </div>
           </section>
 
           {/* ADMISIÓN / VIP SECTION */}
