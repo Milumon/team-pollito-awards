@@ -57,18 +57,16 @@ function tiktokAvatarUrl(uri: string | null | undefined): string | null {
 function Avatar({
   entry,
   large = false,
-  publicStyle = false,
 }: {
   entry: RankingEntry;
   large?: boolean;
-  publicStyle?: boolean;
 }) {
   const robloxUrl = entry.profile?.roblox_avatar_url;
   const tiktokUrl = tiktokAvatarUrl(entry.tiktok_avatar_uri);
   const imgSrc = robloxUrl || tiktokUrl;
 
   return (
-    <div className={`${large ? 'h-11 w-11' : 'h-8 w-8'} flex shrink-0 items-center justify-center overflow-hidden ${publicStyle ? 'rounded-2xl border-3 border-black bg-[#FFD500]' : `rounded-full border ${entry.profile ? 'border-[#FFC200]' : 'border-neutral-700'} bg-[#35373d]`}`}>
+    <div className={`${large ? 'h-11 w-11' : 'h-8 w-8'} flex shrink-0 items-center justify-center overflow-hidden rounded-full border ${entry.profile ? 'border-[#FFC200]' : 'border-neutral-700'} bg-[#35373d]`}>
       {imgSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -86,48 +84,40 @@ function Avatar({
 function EmptyState({
   title,
   detail,
-  publicStyle = false,
 }: {
   title: string;
   detail: string;
-  publicStyle?: boolean;
 }) {
   return (
-    <div className={publicStyle
-      ? "rounded-2xl border-3 border-black bg-[#FFD500] px-4 py-8 text-center font-['Inter'] shadow-[6px_6px_0_0_#000]"
-      : 'rounded-xl border border-dashed border-neutral-700 bg-[#24262b] px-4 py-8 text-center'}>
-      <p className={publicStyle ? "font-['Anton'] text-sm uppercase text-black" : 'font-display text-sm text-white'}>{title}</p>
-      <p className={`mt-1 text-xs ${publicStyle ? 'text-black' : 'text-gray-500'}`}>{detail}</p>
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
+      <p className="font-display text-sm text-[#2D3139]">{title}</p>
+      <p className="mt-1 text-xs text-gray-400">{detail}</p>
     </div>
   );
 }
 
-function StatusState({ state, publicStyle = false }: { state: RankingsState; publicStyle?: boolean }) {
+function StatusState({ state }: { state: RankingsState }) {
   if (state.loading) {
     return (
-      <div className={publicStyle
-        ? "flex items-center justify-center gap-2 rounded-2xl border-3 border-black bg-[#FDFBF7] py-12 font-['Inter'] text-xs font-bold uppercase tracking-wide text-black shadow-[6px_6px_0_0_#000]"
-        : 'flex items-center justify-center gap-2 py-12 text-xs font-bold uppercase tracking-wide text-gray-500'}>
-        <Loader2 className={`h-4 w-4 animate-spin ${publicStyle ? 'text-[#FFD500]' : 'text-[#FFC200]'}`} />
-        {publicStyle ? 'Cargando Snapshot de Ranking...' : 'Cargando ranking...'}
+      <div className="flex items-center justify-center gap-2 py-12 text-xs font-bold uppercase tracking-wide text-gray-500">
+        <Loader2 className="h-4 w-4 animate-spin text-[#FFC200]" />
+        Cargando ranking...
       </div>
     );
   }
   if (state.error) {
     return (
       <EmptyState
-        title={publicStyle ? 'No se pudo cargar el Snapshot de Ranking' : 'No se pudo cargar el ranking'}
+        title="No se pudo cargar el ranking"
         detail="Vuelve a intentarlo en unos segundos."
-        publicStyle={publicStyle}
       />
     );
   }
   if (!state.data?.batch_id || state.data.sets.length === 0) {
     return (
       <EmptyState
-        title={publicStyle ? 'Aún no hay Snapshot de Ranking publicado' : 'Aún no hay snapshot publicado'}
-        detail={publicStyle ? 'El Snapshot de Ranking aparecerá después de la próxima importación.' : 'El ranking aparecerá después de la próxima importación.'}
-        publicStyle={publicStyle}
+        title="Aún no hay snapshot publicado"
+        detail="El ranking aparecerá después de la próxima importación."
       />
     );
   }
@@ -137,41 +127,37 @@ function StatusState({ state, publicStyle = false }: { state: RankingsState; pub
 function RankingRows({
   entries,
   dark = false,
-  publicStyle = false,
   limit,
   metric,
 }: {
   entries: RankingEntry[];
   dark?: boolean;
-  publicStyle?: boolean;
   limit?: number;
   metric?: RankingMetric;
 }) {
   return (
-    <div className={publicStyle ? 'space-y-4' : 'space-y-2'}>
+    <div className={dark ? 'space-y-2' : 'space-y-3'}>
       {entries.slice(0, limit).map((entry) => {
         const winner = entry.position === 1;
         const linked = Boolean(entry.profile);
-        const rowClass = publicStyle
-          ? 'border-black bg-white shadow-[6px_6px_0_0_#000]'
-          : dark
+        const rowClass = dark
           ? linked ? 'border-[#FFC200]/35 bg-[#FFC200]/5' : 'border-neutral-700/40 bg-[#2b2d31]'
           : linked ? 'border-[#FFC200]/35 bg-[#FFF9E6]' : 'border-gray-100 bg-white';
 
         return (
-          <div key={`${entry.display_id}-${entry.position}`} className={`flex items-center gap-3 px-3 py-2 ${publicStyle ? 'rounded-2xl border-3' : 'rounded-xl border'} ${rowClass}`}>
-            <span className={`w-6 text-center font-black ${winner ? `text-lg ${publicStyle ? 'text-black' : 'text-[#D4A000]'}` : `text-xs ${publicStyle ? 'text-black' : 'text-gray-400'}`}`}>
-              {winner ? <Crown className={`mx-auto h-4 w-4 ${publicStyle ? 'fill-[#FFD500] text-black' : ''}`} /> : entry.position}
+          <div key={`${entry.display_id}-${entry.position}`} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${rowClass}`}>
+            <span className={`w-6 text-center font-black ${winner ? `text-lg ${dark ? 'text-[#D4A000]' : 'text-[#D4A000]'}` : `text-xs ${dark ? 'text-gray-400' : 'text-gray-400'}`}`}>
+              {winner ? <Crown className="mx-auto h-4 w-4" /> : entry.position}
             </span>
-            <Avatar entry={entry} large={winner} publicStyle={publicStyle} />
+            <Avatar entry={entry} large={winner} />
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
-                <p className={`truncate text-xs font-bold ${dark ? 'text-white' : publicStyle ? 'text-black' : 'text-[#2D3139]'}`}>{entry.nickname || `@${entry.display_id}`}</p>
-                {linked && <span className={publicStyle ? 'shrink-0 rounded-2xl border-3 border-black bg-[#FFD500] px-2 py-0.5 text-[8px] font-black uppercase text-black shadow-[2px_2px_0_0_#000]' : 'shrink-0 rounded-full bg-[#FFC200]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4A000]'}>{publicStyle ? 'Miembro Oficial' : 'Miembro'}</span>}
+                <p className={`truncate text-xs font-bold ${dark ? 'text-white' : 'text-[#2D3139]'}`}>{entry.nickname || `@${entry.display_id}`}</p>
+                {linked && <span className="shrink-0 rounded-full bg-[#FFC200]/15 px-2 py-0.5 text-[8px] font-black uppercase text-[#D4A000]">Miembro</span>}
               </div>
               {linked && <p className="truncate text-[10px] text-gray-500">Perfil vinculado: @{entry.profile?.roblox_user}</p>}
             </div>
-            <span className={`shrink-0 text-xs font-bold ${publicStyle ? "font-['Inter']" : 'font-mono'} ${dark ? 'text-gray-300' : publicStyle ? 'text-black' : 'text-[#2D3139]'}`}>{formatValue(entry.value, metric)}</span>
+            <span className={`shrink-0 text-xs font-bold font-mono ${dark ? 'text-gray-300' : 'text-[#2D3139]'}`}>{formatValue(entry.value, metric)}</span>
           </div>
         );
       })}
@@ -185,25 +171,21 @@ function RankingControls({
   onMetric,
   onPeriod,
   dark = false,
-  publicStyle = false,
 }: {
   metric: RankingMetric;
   period: RankingPeriod;
   onMetric: (value: RankingMetric) => void;
   onPeriod: (value: RankingPeriod) => void;
   dark?: boolean;
-  publicStyle?: boolean;
 }) {
-  const selectClass = publicStyle
-    ? 'border-3 border-black bg-white text-black shadow-[3px_3px_0_0_#000]'
-    : dark ? 'border border-neutral-700 bg-[#20232a] text-white' : 'border border-gray-200 bg-white text-[#2D3139]';
-  const focusClass = publicStyle ? 'focus:border-[#FFD500]' : 'focus:border-[#FFC200]';
+  const selectClass = dark ? 'border border-neutral-700 bg-[#20232a] text-white' : 'border border-gray-200 bg-white text-[#2D3139]';
+  const focusClass = 'focus:border-[#FFC200]';
   return (
     <div className="flex flex-wrap gap-2">
-      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
+      <select aria-label="Métrica de clasificación" value={metric} onChange={(event) => onMetric(event.target.value as RankingMetric)} className={`rounded-xl px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
         {RANKING_METRICS.map((item) => <option key={item} value={item}>{METRIC_LABELS[item]}</option>)}
       </select>
-      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`${publicStyle ? 'rounded-2xl' : 'rounded-xl'} px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
+      <select aria-label="Período de clasificación" value={period} onChange={(event) => onPeriod(event.target.value as RankingPeriod)} className={`rounded-xl px-3 py-2 text-xs font-bold outline-none ${focusClass} ${selectClass}`}>
         {RANKING_PERIODS.map((item) => <option key={item} value={item}>{PERIOD_LABELS[item]}</option>)}
       </select>
     </div>
@@ -342,25 +324,24 @@ export function TikTokRankingPublicPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#FDFBF7] px-4 py-10 font-['Inter'] text-black sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#FAFAFA] px-4 py-10 font-sans text-black sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="space-y-2">
-          <p className="inline-flex border-3 border-black bg-[#FFD500] px-3 py-1 font-['Anton'] text-xs font-black uppercase tracking-[0.2em] shadow-[3px_3px_0_0_#000]">Clasificaciones</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-['Anton'] text-4xl font-bold uppercase tracking-tight">Clasificaciones de TikTok LIVE</h1>
-              <p className="mt-2 text-sm font-semibold text-gray-700">El Snapshot de Ranking publicado se muestra completo y admite filtros compartibles en español.</p>
+              <h1 className="font-display text-3xl font-bold tracking-tight text-[#2D3139]">Clasificaciones de TikTok LIVE</h1>
+              <p className="mt-2 text-sm text-gray-500">El Snapshot de Ranking publicado se muestra completo y admite filtros compartibles.</p>
             </div>
-            <Link href="/" className="inline-flex items-center gap-1 rounded-2xl border-3 border-black bg-[#FFD500] px-3 py-2 font-['Anton'] text-xs font-black uppercase text-black shadow-[3px_3px_0_0_#000] transition-transform active:translate-x-[3px] active:translate-y-[3px] active:shadow-none">
+            <Link href="/" className="inline-flex items-center gap-1 rounded-xl bg-[#FFD500] px-4 py-2 text-xs font-bold text-[#2D3139] transition hover:bg-[#FFC200]">
               Volver a la comunidad <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
 
-        <section className="brutalist-shadow rounded-2xl border-3 border-black bg-white p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b-3 border-black pb-3">
+        <section className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,.06)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
             <div>
-              <p className="font-['Anton'] text-xs font-bold uppercase text-black">{METRIC_LABELS[metric]} · {PERIOD_LABELS[period]}</p>
+              <p className="font-display text-xs font-bold uppercase text-[#2D3139]">{METRIC_LABELS[metric]} · {PERIOD_LABELS[period]}</p>
               <p className="mt-1 text-[10px] text-gray-400">
                 Actualizado {formatDate(state.data?.captured_at)} · Ventana: {formatWindow(selected)}
               </p>
@@ -370,16 +351,15 @@ export function TikTokRankingPublicPage() {
               period={period}
               onMetric={(nextMetric) => navigateToFilters(nextMetric, period)}
               onPeriod={(nextPeriod) => navigateToFilters(metric, nextPeriod)}
-              publicStyle
             />
           </div>
 
           {state.loading || state.error || !state.data?.batch_id ? (
-            <StatusState state={state} publicStyle />
+            <StatusState state={state} />
           ) : !selected || selected.entries.length === 0 ? (
-            <EmptyState title="Snapshot de Ranking sin actividad en este período" detail="TikTok no devolvió participantes para esta combinación." publicStyle />
+            <EmptyState title="Sin actividad en este período" detail="TikTok no devolvió participantes para esta combinación." />
           ) : (
-            <RankingRows entries={selected.entries} metric={metric} publicStyle />
+            <RankingRows entries={selected.entries} metric={metric} />
           )}
         </section>
       </div>
