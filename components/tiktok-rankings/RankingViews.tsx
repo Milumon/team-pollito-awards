@@ -140,17 +140,15 @@ function RankingRows({
   publicStyle = false,
   limit,
   metric,
-  className = '',
 }: {
   entries: RankingEntry[];
   dark?: boolean;
   publicStyle?: boolean;
   limit?: number;
   metric?: RankingMetric;
-  className?: string;
 }) {
   return (
-    <div className={`${publicStyle ? 'space-y-4' : 'space-y-2'} ${className}`}>
+    <div className={publicStyle ? 'space-y-4' : 'space-y-2'}>
       {entries.slice(0, limit).map((entry) => {
         const winner = entry.position === 1;
         const linked = Boolean(entry.profile);
@@ -250,7 +248,18 @@ export function TikTokRankingLanding() {
           </div>
           {!selected || selected.entries.length === 0
             ? <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." />
-            : <RankingRows entries={selected.entries} limit={10} metric={metric} />}
+            : (
+              <>
+                {selected.entries.length >= 3 && (
+                  <TopThreePodium viewers={selected.entries.slice(0, 3)} metric={metric} />
+                )}
+                <RankingRows
+                  entries={selected.entries.length >= 3 ? selected.entries.slice(3) : selected.entries}
+                  limit={7}
+                  metric={metric}
+                />
+              </>
+            )}
         </div>
       )}
     </section>
@@ -370,18 +379,7 @@ export function TikTokRankingPublicPage() {
           ) : !selected || selected.entries.length === 0 ? (
             <EmptyState title="Snapshot de Ranking sin actividad en este período" detail="TikTok no devolvió participantes para esta combinación." publicStyle />
           ) : (
-            <>
-              {selected.entries.length >= 3 && (
-                <TopThreePodium viewers={selected.entries.slice(0, 3)} metric={metric} />
-              )}
-              <RankingRows
-                entries={selected.entries.length >= 3 ? selected.entries.slice(3) : selected.entries}
-                metric={metric}
-                publicStyle
-                limit={7}
-                className={selected.entries.length < 3 ? 'mt-4' : ''}
-              />
-            </>
+            <RankingRows entries={selected.entries} metric={metric} publicStyle />
           )}
         </section>
       </div>
