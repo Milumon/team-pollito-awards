@@ -82,6 +82,76 @@ const getRoleColor = (role: string) => {
   }
 };
 
+function TestimonialCarousel({ testimonials }: { testimonials: Testimonial[] }) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || testimonials.length <= 1) return;
+
+    let animFrame: number;
+    let lastTime = performance.now();
+    const speed = 0.5;
+
+    const tick = (now: number) => {
+      if (!isPaused && el) {
+        const delta = now - lastTime;
+        el.scrollLeft += speed * (delta / 16);
+        if (el.scrollLeft >= el.scrollWidth - el.clientWidth) {
+          el.scrollLeft = 0;
+        }
+      }
+      lastTime = now;
+      animFrame = requestAnimationFrame(tick);
+    };
+
+    animFrame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animFrame);
+  }, [testimonials.length, isPaused]);
+
+  const doubled = [...testimonials, ...testimonials];
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scrollbar-none snap-x snap-mandatory pb-2"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {doubled.map((t, idx) => (
+          <div
+            key={`${t.roblox_user}-${idx}`}
+            className="shrink-0 w-[260px] snap-start rounded-xl border border-gray-100 bg-white p-4 shadow-[0_1px_6px_rgba(0,0,0,.04)]"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
+                {t.roblox_avatar_url ? (
+                  <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }} />
+                ) : (
+                  <span className="text-base">🐣</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-display font-semibold text-sm text-[#2D3139] leading-none truncate">{t.roblox_display_name}</h4>
+                <span className="text-[10px] text-gray-400">@{t.roblox_user}</span>
+              </div>
+              <span className="ml-auto text-[10px] text-amber-400 shrink-0">★★★★★</span>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed italic border-l-2 border-[#FFC200]/50 pl-2.5">
+              &quot;{t.testimonial}&quot;
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ComunidadPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -751,7 +821,7 @@ export default function ComunidadPage() {
                 <span className="text-lg">⭐</span>
                 <h3 className="font-display font-bold text-xl text-[#2D3139]">Lo que dicen los pollitos</h3>
               </div>
-              
+
               {loadingTestimonials ? (
                 <div className="flex justify-center items-center py-12">
                   <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}>
@@ -765,31 +835,7 @@ export default function ComunidadPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-0 max-h-[300px] overflow-y-auto pr-1.5 scrollbar-thin divide-y divide-gray-50">
-                  {testimonials.map((t, idx) => (
-                    <div key={idx} className="py-4 flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center shrink-0">
-                        {t.roblox_avatar_url ? (
-                          <img src={t.roblox_avatar_url} alt={t.roblox_display_name} className="w-full h-full object-cover" style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }} />
-                        ) : (
-                          <span className="text-lg">🐣</span>
-                        )}
-                      </div>
-                      <div className="text-left font-sans flex-grow">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h4 className="font-display font-semibold text-sm text-[#2D3139] leading-none">{t.roblox_display_name}</h4>
-                            <span className="text-[10px] text-gray-400">@{t.roblox_user}</span>
-                          </div>
-                          <span className="text-xs text-amber-400">★★★★★</span>
-                        </div>
-                        <p className="text-sm text-gray-600 leading-relaxed mt-2 italic border-l-2 border-[#FFC200]/50 pl-2.5">
-                          &quot;{t.testimonial}&quot;
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <TestimonialCarousel testimonials={testimonials} />
               )}
 
               {/* Dejar / editar opinión (Botón para abrir Modal) */}

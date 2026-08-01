@@ -96,3 +96,12 @@ body {
 .avatar-pop {
   animation: avatar-pop 0.4s ease-out both;
 }
+
+/* Hide scrollbar for carousel */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
