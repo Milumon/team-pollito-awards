@@ -5,6 +5,7 @@ import { ArrowRight, CalendarDays, Crown, Loader2, Medal, Trophy } from 'lucide-
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTikTokRankings } from './useTikTokRankings';
+import { TopThreePodium } from './TopThreePodium';
 import { buildPublicRankingHref, parsePublicRankingFilters } from '@/lib/publicRankingRoute';
 import { MAX_RANKING_ENTRIES_PER_SNAPSHOT } from '@/lib/tiktokRankingLimits';
 import {
@@ -139,15 +140,17 @@ function RankingRows({
   publicStyle = false,
   limit,
   metric,
+  className = '',
 }: {
   entries: RankingEntry[];
   dark?: boolean;
   publicStyle?: boolean;
   limit?: number;
   metric?: RankingMetric;
+  className?: string;
 }) {
   return (
-    <div className={publicStyle ? 'space-y-4' : 'space-y-2'}>
+    <div className={`${publicStyle ? 'space-y-4' : 'space-y-2'} ${className}`}>
       {entries.slice(0, limit).map((entry) => {
         const winner = entry.position === 1;
         const linked = Boolean(entry.profile);
@@ -367,7 +370,18 @@ export function TikTokRankingPublicPage() {
           ) : !selected || selected.entries.length === 0 ? (
             <EmptyState title="Snapshot de Ranking sin actividad en este período" detail="TikTok no devolvió participantes para esta combinación." publicStyle />
           ) : (
-            <RankingRows entries={selected.entries} metric={metric} publicStyle />
+            <>
+              {selected.entries.length >= 3 && (
+                <TopThreePodium viewers={selected.entries.slice(0, 3)} metric={metric} />
+              )}
+              <RankingRows
+                entries={selected.entries.length >= 3 ? selected.entries.slice(3) : selected.entries}
+                metric={metric}
+                publicStyle
+                limit={7}
+                className={selected.entries.length < 3 ? 'mt-4' : ''}
+              />
+            </>
           )}
         </section>
       </div>
