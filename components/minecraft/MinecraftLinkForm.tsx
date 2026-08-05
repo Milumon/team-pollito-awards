@@ -41,6 +41,8 @@ export default function MinecraftLinkForm() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [codeExpired, setCodeExpired] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -59,6 +61,7 @@ export default function MinecraftLinkForm() {
         if (current?.code && !isVerified(current)) {
           setCode(current.code);
           setExpiresAt(current.link_code_expires_at ?? null);
+          setCodeExpired(false);
         }
         if (isVerified(current) && !replaceMode) {
           setCode(null);
@@ -67,8 +70,11 @@ export default function MinecraftLinkForm() {
           setStep((current.verified_at ? 4 : 3));
         }
         if (!replaceMode && current?.status === 'pending' && current.link_code_expires_at && !current.code && new Date(current.link_code_expires_at).getTime() < Date.now()) {
+          setCode(null);
+          setExpiresAt(null);
+          setCodeExpired(true);
           setStep(1);
-          setMessage('Tu código expiró. Puedes solicitar uno nuevo sin perder tu cuenta web.');
+          setMessage(null);
         }
       } catch (error: unknown) {
         if (active && !account) setMessage(error instanceof Error ? error.message : 'No se pudo cargar la vinculación.');
@@ -85,8 +91,26 @@ export default function MinecraftLinkForm() {
     };
   }, [code, replaceMode, step]);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    if (!code || !expiresAt) return;
+
+    const updateCountdown = () => {
+      const seconds = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(seconds);
+      if (seconds === 0) {
+        setCode(null);
+        setExpiresAt(null);
+        setCodeExpired(true);
+        setStep(1);
+      }
+    };
+
+    updateCountdown();
+    const interval = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(interval);
+  }, [code, expiresAt]);
+
+  const requestCode = async () => {
     setSaving(true);
     setMessage(null);
 
@@ -101,12 +125,18 @@ export default function MinecraftLinkForm() {
       setAccount(payload.account ?? null);
       setCode(payload.code ?? null);
       setExpiresAt(payload.expiresAt ?? null);
+      setCodeExpired(false);
       setStep(3);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'No se pudo crear la solicitud.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await requestCode();
   };
 
   const copyCommand = async () => {
@@ -119,6 +149,7 @@ export default function MinecraftLinkForm() {
   const beginReplacement = () => {
     setReplaceMode(true);
     setCode(null);
+    setCodeExpired(false);
     setStep(1);
     setMessage(null);
   };
@@ -133,10 +164,11 @@ export default function MinecraftLinkForm() {
         {!replaceMode && account && isVerified(account) ? <SuccessCard account={account} onReplace={beginReplacement} /> : loading ? <p className="text-[#64748B]">Cargando tu aventura...</p> : (
           <>
             <Progress current={step} />
+            {codeExpired && <ExpiredCard saving={saving} onRegenerate={requestCode} />}
             {replaceMode && <div className="mb-6 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4 text-sm font-medium text-[#7A6330]">Estás creando una nueva vinculación. La anterior dejará de funcionar cuando completes este proceso.</div>}
             {step === 1 && <StepOne edition={edition} setEdition={setEdition} username={username} setUsername={setUsername} onNext={() => { setMessage(null); setStep(2); }} />}
             {step === 2 && <StepTwo edition={edition} username={username} saving={saving} onBack={() => setStep(1)} onSubmit={submit} />}
-            {step === 3 && code && <StepThree edition={edition} code={code} expiresAt={expiresAt} onNext={() => setStep(4)} onCopy={copyCommand} copied={copied} />}
+            {step === 3 && code && <StepThree edition={edition} code={code} expiresAt={expiresAt} remainingSeconds={remainingSeconds} onNext={() => setStep(4)} onCopy={copyCommand} copied={copied} />}
             {step === 4 && code && <StepFour code={code} onCopy={copyCommand} copied={copied} message={message} />}
             {message && <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">{message}</p>}
           </>
@@ -168,9 +200,14 @@ function ConnectionDetails({ port }: Readonly<{ port: string }>) {
   return <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] p-4"><p className="text-xs font-bold uppercase tracking-widest text-[#9A8D70]">Dirección</p><p className="mt-2 font-mono text-lg font-black text-[#2D3139]">mc.milumon.dev</p><button type="button" onClick={() => copy('mc.milumon.dev', 'address')} className="mt-3 rounded-lg bg-[#FFD500] px-3 py-2 text-xs font-black text-black">{copied === 'address' ? '✅ Copiada' : 'Copiar dirección'}</button></div><div className="rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] p-4"><p className="text-xs font-bold uppercase tracking-widest text-[#9A8D70]">Puerto</p><p className="mt-2 font-mono text-lg font-black text-[#2D3139]">{port}</p><button type="button" onClick={() => copy(port, 'port')} className="mt-3 rounded-lg bg-[#FFD500] px-3 py-2 text-xs font-black text-black">{copied === 'port' ? '✅ Copiado' : 'Copiar puerto'}</button></div><button type="button" onClick={() => copy(`mc.milumon.dev\n${port}`, 'both')} className="sm:col-span-2 rounded-xl border border-[#E8DFC5] px-4 py-3 text-sm font-black text-[#64748B]">{copied === 'both' ? '✅ Datos copiados' : 'Copiar dirección y puerto'}</button></div>;
 }
 
-function StepThree({ edition, code, expiresAt, onNext, onCopy, copied }: Readonly<{ edition: 'java' | 'bedrock'; code: string; expiresAt: string | null; onNext: () => void; onCopy: () => void; copied: boolean }>) {
+function StepThree({ edition, code, expiresAt, remainingSeconds, onNext, onCopy, copied }: Readonly<{ edition: 'java' | 'bedrock'; code: string; expiresAt: string | null; remainingSeconds: number | null; onNext: () => void; onCopy: () => void; copied: boolean }>) {
   const port = edition === 'bedrock' ? '19132' : '25565';
-  return <Card title="Tu código está listo" icon="🎉"><p className="text-sm font-medium leading-relaxed text-[#64748B]">Entra a Minecraft y usa la dirección y el puerto en sus campos separados:</p><ConnectionDetails port={port} /><p className="mt-5 text-sm font-medium leading-relaxed text-[#64748B]">Crea tu contraseña de Minecraft si AuthMe te la pide y luego usa este comando:</p><Command code={code} onCopy={onCopy} copied={copied} /><div className="mt-5 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4"><p className="font-bold text-[#8B6B00]">🔒 Contraseña secreta</p><p className="mt-1 text-sm font-medium leading-relaxed text-[#7A6330]">Usa una contraseña solo para Minecraft. No la compartas ni uses la de Google.</p></div><p className="mt-4 text-xs text-[#9A8D70]">El código expira a las {expiresAt ? new Date(expiresAt).toLocaleTimeString('es-PE') : 'pronto'}.</p><button type="button" onClick={onNext} className="mt-6 w-full rounded-xl bg-[#FFD500] px-5 py-3 font-black text-black">Ya ejecuté el comando ✅</button></Card>;
+  const countdown = remainingSeconds === null ? '10 minutos' : remainingSeconds >= 60 ? `${Math.ceil(remainingSeconds / 60)} minutos` : `${remainingSeconds} segundos`;
+  return <Card title="Tu código está listo" icon="🎉"><p className="text-sm font-medium leading-relaxed text-[#64748B]">Entra a Minecraft y usa la dirección y el puerto en sus campos separados:</p><ConnectionDetails port={port} /><p className="mt-5 text-sm font-medium leading-relaxed text-[#64748B]">Crea tu contraseña de Minecraft si AuthMe te la pide y luego usa este comando:</p><Command code={code} onCopy={onCopy} copied={copied} /><div className="mt-5 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4"><p className="font-bold text-[#8B6B00]">🔒 Contraseña secreta</p><p className="mt-1 text-sm font-medium leading-relaxed text-[#7A6330]">Usa una contraseña solo para Minecraft. No la compartas ni uses la de Google.</p></div><p className="mt-4 text-center text-sm font-black text-[#8B6B00]">⏰ Tienes aproximadamente {countdown} para usarlo.</p><p className="mt-1 text-center text-xs text-[#9A8D70]">Se vence a las {expiresAt ? new Date(expiresAt).toLocaleTimeString('es-PE') : 'pronto'}.</p><button type="button" onClick={onNext} className="mt-6 w-full rounded-xl bg-[#FFD500] px-5 py-3 font-black text-black">Ya ejecuté el comando ✅</button></Card>;
+}
+
+function ExpiredCard({ saving, onRegenerate }: Readonly<{ saving: boolean; onRegenerate: () => void }>) {
+  return <section className="mb-6 rounded-3xl border-2 border-orange-300 bg-[#FFF7DC] p-6 shadow-[7px_7px_0_#FCD34D] sm:p-8"><div className="flex items-center gap-3"><span className="text-4xl" aria-hidden>⏰</span><h2 className="font-display text-2xl font-black text-[#7A4A00]">Tu código ya venció</h2></div><p className="mt-4 text-sm font-medium leading-relaxed text-[#7A6330]">No pasa nada: tu cuenta sigue guardada. Genera un código nuevo y úsalo en Minecraft.</p><button type="button" onClick={onRegenerate} disabled={saving} className="mt-5 w-full rounded-xl bg-[#FFD500] px-5 py-4 text-base font-black text-black disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Generando...' : 'Generar un código nuevo'}</button></section>;
 }
 
 function StepFour({ code, onCopy, copied, message }: Readonly<{ code: string; onCopy: () => void; copied: boolean; message: string | null }>) {
