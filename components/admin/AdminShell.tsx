@@ -1,11 +1,12 @@
 'use client';
 
-import { LogOut, Menu, Shield, X } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
 import { supabase } from '@/lib/supabaseClient';
+import { AdminHeader } from './AdminHeader';
 
 const navigation = [
   { href: '/admin/inicio', label: 'Inicio', icon: '📊' },
@@ -21,9 +22,12 @@ const navigation = [
   { href: '/admin/sonidos', label: 'Sonidos', icon: '🔊' },
   { href: '/admin/multimedia', label: 'Multimedia', icon: '🖼️' },
   { href: '/admin/estado-transmision', label: 'Estado de transmisión', icon: '📡' },
+  { href: '/admin/minecraft', label: 'Minecraft', icon: '⛏️' },
 ];
 
 const legacyShellRoutes = new Set([
+  '/admin/inicio',
+  '/admin/usuarios',
   '/admin/operaciones',
   '/admin/postulaciones',
   '/admin/testimonios',
@@ -102,32 +106,11 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-[#1e1f22] font-sans text-gray-200 antialiased">
-      <header className="sticky top-0 z-50 border-b border-neutral-700/60 bg-[#1b1d22] px-4 shadow-[0_4px_12px_rgba(0,0,0,.25)] md:px-6">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-3">
-          <Link href="/" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFD500] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1d22]">
-            <span className="text-2xl" aria-hidden>🐣</span>
-            <span className="truncate font-display text-base font-bold text-[#FFD500]">
-              Team Pollito Comunidad
-            </span>
-          </Link>
-          <div className="ml-auto hidden items-center gap-2 md:flex">
-            <span className="flex items-center gap-1.5 rounded-lg border border-neutral-700/60 bg-[#FFC200]/10 px-2.5 py-1 font-display text-[11px] font-semibold text-[#FFC200]">
-              <Shield className="h-3 w-3" /> Administrador
-            </span>
-            <span className="rounded-xl border border-neutral-700/60 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-gray-200">
-              {adminEmail}
-            </span>
-          </div>
-          <button
-            type="button"
-            aria-label="Abrir navegación"
-            onClick={() => setMobileMenuOpen(true)}
-            className="ml-auto rounded-lg border border-neutral-700/60 bg-[#24262b] p-1.5 text-gray-200 hover:bg-neutral-700/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFC200] lg:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+      <AdminHeader
+        adminEmail={adminEmail}
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileMenuToggle={() => setMobileMenuOpen((open) => !open)}
+      />
 
       <div className="flex flex-1">
         <aside className="hidden w-[260px] shrink-0 flex-col border-r border-neutral-700/60 bg-[#24262b] p-4 shadow-[4px_0_12px_rgba(0,0,0,.15)] lg:flex">

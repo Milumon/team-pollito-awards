@@ -688,6 +688,32 @@ export default function ComunidadPage() {
             </div>
           </div>
 
+          {/* MINECRAFT FEATURE */}
+          <section className="overflow-hidden rounded-3xl bg-[#1B1D22] px-6 py-8 text-white shadow-[0_16px_40px_rgba(27,29,34,.14)] sm:px-10 sm:py-10">
+            <div className="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-2xl">
+                <div className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-[#FFD500]">
+                  <span aria-hidden="true">⛏️</span>
+                  Nueva aventura
+                </div>
+                <h3 className="font-display text-3xl font-black tracking-tight sm:text-4xl">
+                  El servidor Minecraft del Team Pollito
+                </h3>
+                <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-gray-300 sm:text-base">
+                  Entra al mundo de la comunidad, protege tus construcciones y juega con otros pollitos. Vincula tu cuenta para desbloquear el acceso.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-3">
+                <Link href="/minecraft" className="rounded-xl bg-[#FFD500] px-5 py-3 text-sm font-black text-black transition hover:brightness-105">
+                  Ver servidor
+                </Link>
+                <Link href="/minecraft/link" className="rounded-xl border border-white/20 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">
+                  Vincular cuenta
+                </Link>
+              </div>
+            </div>
+          </section>
+
           {/* TESTIMONIOS: inmediatamente debajo del hero */}
           <section id="testimonios" className="space-y-6 py-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

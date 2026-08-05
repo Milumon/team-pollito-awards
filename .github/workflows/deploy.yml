@@ -33,9 +33,11 @@ jobs:
         env:
           OVERLAY_TOKEN: ${{ secrets.OVERLAY_TOKEN }}
           TIKTOK_IMPORT_TOKEN: ${{ secrets.TIKTOK_IMPORT_TOKEN }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
         run: |
           test -n "$OVERLAY_TOKEN" || { echo "Missing OVERLAY_TOKEN"; exit 1; }
           test -n "$TIKTOK_IMPORT_TOKEN" || { echo "Missing TIKTOK_IMPORT_TOKEN"; exit 1; }
+          test "$NEXT_PUBLIC_SITE_URL" = "https://teampollito.milumon.dev" || { echo "NEXT_PUBLIC_SITE_URL must be https://teampollito.milumon.dev"; exit 1; }
 
       - name: Create Artifact Registry (first time only)
         run: |
@@ -78,8 +80,9 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 3 \
-            --set-env-vars "NODE_ENV=production" \
-            --set-env-vars "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
+             --set-env-vars "NODE_ENV=production" \
+             --set-env-vars "NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}" \
+             --set-env-vars "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
             --set-env-vars "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
             --set-env-vars "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             --set-env-vars "NEXT_PUBLIC_VOTING_PHASE=${{ secrets.NEXT_PUBLIC_VOTING_PHASE }}" \
@@ -90,8 +93,9 @@ jobs:
             --set-env-vars "ROBLOX_CLOTHING_ID=${{ secrets.ROBLOX_CLOTHING_ID }}" \
             --set-env-vars "ROBLOX_ALEXA_VM_URL=${{ secrets.ROBLOX_ALEXA_VM_URL }}" \
             --set-env-vars "ROBLOX_ALEXA_SHARED_SECRET=${{ secrets.ROBLOX_ALEXA_SHARED_SECRET }}" \
-            --set-env-vars "BRIDGE_API_KEY=${{ secrets.BRIDGE_API_KEY }}" \
-            --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS_B64=$GOOGLE_CREDS_B64"
+             --set-env-vars "BRIDGE_API_KEY=${{ secrets.BRIDGE_API_KEY }}" \
+             --update-secrets "MINECRAFT_BRIDGE_TOKEN=minecraft-bridge-token:latest" \
+             --set-env-vars "GOOGLE_APPLICATION_CREDENTIALS_B64=$GOOGLE_CREDS_B64"
 
       - name: Show deployment URL
         run: |

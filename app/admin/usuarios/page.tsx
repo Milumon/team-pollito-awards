@@ -1,6 +1,5 @@
-import { Suspense } from 'react';
-import { AdminUsersList } from '@/components/admin/AdminUsersList';
+import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
 
 export default function AdminUsersPage() {
-  return <Suspense><AdminUsersList /></Suspense>;
+  return <LegacyAdminPanel view="users" />;
 }

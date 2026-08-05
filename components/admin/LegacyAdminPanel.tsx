@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { convertAudioToMp3 } from '@/lib/audioConverter';
 import dynamic from 'next/dynamic';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
-import { Header } from '@/components/ui/Header';
+import { AdminHeader } from '@/components/admin/AdminHeader';
 import { OverlayCanvas, CANVAS_W, CANVAS_H, type OverlayParticle, type OverlayAnimationType } from '@/components/OverlayCanvas';
 import MediaSubmissionsPanel from '@/components/admin/MediaSubmissionsPanel';
 import MediaUploadForm from '@/components/console/MediaUploadForm';
@@ -286,6 +286,7 @@ export type AdminView =
   | 'soundboard'
   | 'media-submissions'
   | 'stream-status'
+  | 'minecraft'
   | 'testimonials'
   | 'tiktok';
 
@@ -3928,6 +3929,9 @@ export default function LegacyAdminPanel({
             <Link href="/admin/multimedia" aria-current={view === 'media-submissions' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('media-submissions')}>
               <span>🖼️</span> Multimedia
             </Link>
+            <Link href="/admin/minecraft" aria-current={view === 'minecraft' ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)} className={navBtnClass('minecraft')}>
+              <span>⛏️</span> Minecraft
+            </Link>
           </div>
 
           {/* Módulo Móvil: Diagnóstico */}
@@ -3964,18 +3968,10 @@ export default function LegacyAdminPanel({
   return (
     <div className="min-h-screen bg-[#1e1f22] text-gray-200 font-sans flex flex-col antialiased">
       {/* HEADER NAVBAR */}
-      <Header
-        session={session}
-        isAdmin={true}
-        onLogout={async () => {
-          await supabase.auth.signOut();
-          window.location.reload();
-        }}
-        panelName="Admin"
-        panelHref="/admin"
-        isMobileMenuOpen={mobileMenuOpen}
-        setIsMobileMenuOpen={setMobileMenuOpen}
-        theme="dark"
+      <AdminHeader
+        adminEmail={session.user.email || 'Administrador'}
+        mobileMenuOpen={mobileMenuOpen}
+        onMobileMenuToggle={() => setMobileMenuOpen((open) => !open)}
       />
 
       {/* 2. BODY CONTAINER */}

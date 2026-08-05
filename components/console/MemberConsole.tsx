@@ -1244,8 +1244,8 @@ export default function MemberConsole({
         session={session}
         isAdmin={isAdmin}
         onLogout={handleBackToLanding}
-        panelName="Panel del Miembro"
-        panelHref="/panel/inicio"
+         panelName={isAdmin ? 'Admin' : 'Panel del Miembro'}
+         panelHref={isAdmin ? '/admin/inicio' : '/panel/inicio'}
         showMobileToggle={false}
         theme="dark"
       />

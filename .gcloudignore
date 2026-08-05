@@ -1,0 +1,8 @@
+.git/
+.next/
+**/node_modules/**
+.sandcastle/**
+**/.sandcastle/**
+.env*
+playwright-report/
+test-results/

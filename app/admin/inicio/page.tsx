@@ -1,5 +1,5 @@
-import { AdminDashboardView } from '@/components/admin/AdminDashboardView';
+import LegacyAdminPanel from '@/components/admin/LegacyAdminPanel';
 
 export default function AdminHomePage() {
-  return <AdminDashboardView />;
+  return <LegacyAdminPanel view="dashboard" />;
 }
