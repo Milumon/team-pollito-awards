@@ -74,7 +74,7 @@ export const NavBar: React.FC<NavBarProps> = ({
   const username = session?.user?.email?.split('@')[0] || 'Usuario';
 
   return (
-    <div className="md:hidden bg-white border-b border-gray-100 px-5 py-4 flex flex-col gap-1 sticky top-14 z-40 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
+    <div className="hidden max-[1100px]:flex bg-white border-b border-gray-100 px-5 py-4 flex-col gap-1 sticky top-[72px] z-40 shadow-[0_8px_24px_rgba(0,0,0,0.06)]">
       {scrollToSection && (
         <>
           {[
@@ -93,6 +93,9 @@ export const NavBar: React.FC<NavBarProps> = ({
               {label}
             </button>
           ))}
+          <Link href="/minecraft" className="py-2.5 px-2 text-sm font-display font-semibold text-[#2D3139] hover:bg-[#FFF7DC] rounded-lg decoration-transparent block">
+            Minecraft
+          </Link>
         </>
       )}
 

@@ -105,3 +105,41 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.testimonial-card {
+  width: min(29vw, 310px);
+  max-width: 310px;
+  min-width: 250px;
+  height: 348px;
+}
+
+.testimonial-track {
+  animation: testimonial-scroll 38s linear infinite;
+}
+
+.testimonial-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes testimonial-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 0.625rem));
+  }
+}
+
+@media (max-width: 767px) {
+  .testimonial-card {
+    width: min(82vw, 310px);
+    min-width: 0;
+    height: 330px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-track {
+    animation: none;
+  }
+}
