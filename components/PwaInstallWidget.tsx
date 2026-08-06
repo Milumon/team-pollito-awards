@@ -101,7 +101,9 @@ export function PwaInstallWidget() {
         ×
       </button>
       <div className="flex gap-3 pr-5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#FFF7D6] text-2xl">🐣</div>
+        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[#FFF7D6] shadow-sm">
+          <img src="/icons/team-pollito-icon.png" alt="" className="h-full w-full object-cover" />
+        </div>
         <div>
           <p className="font-display text-sm font-bold text-[#2D3139]">Lleva el Team Pollito contigo</p>
           <p className="mt-1 text-xs font-medium leading-relaxed text-gray-500">

@@ -13,14 +13,14 @@
   "categories": ["social", "entertainment"],
   "icons": [
     {
-      "src": "/icons/icon-192x192.png",
-      "sizes": "192x192",
+      "src": "/icons/team-pollito-icon.png",
+      "sizes": "192x192 512x512 1254x1254",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512x512.png",
-      "sizes": "512x512",
+      "src": "/icons/team-pollito-icon.png",
+      "sizes": "192x192 512x512 1254x1254",
       "type": "image/png",
       "purpose": "any maskable"
     }
