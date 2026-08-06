@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('minecraft_accounts')
-    .select('edition, username, player_id, status')
+    .select('user_id, edition, username, player_id, status')
     .in('status', ['pending', 'approved'])
     .order('username');
 
@@ -19,9 +19,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudo consultar la whitelist.' }, { status: 500 });
   }
 
+  const userIds = [...new Set((data ?? []).map((account) => account.user_id))];
+  const { data: profiles, error: profilesError } = userIds.length === 0
+    ? { data: [], error: null }
+    : await supabaseAdmin
+      .from('profiles')
+      .select('id, roblox_display_name')
+      .in('id', userIds);
+
+  if (profilesError) {
+    console.error('[Minecraft whitelist profiles GET]:', profilesError.message);
+    return NextResponse.json({ error: 'No se pudieron consultar los perfiles.' }, { status: 500 });
+  }
+
+  const nicknameByUserId = new Map((profiles ?? []).map((profile) => [profile.id, profile.roblox_display_name?.trim() || null]));
   const accounts = (data ?? []).map((account) => ({
     ...account,
     player_id: account.player_id ?? `pending:${account.username}`,
+    nickname: nicknameByUserId.get(account.user_id) ?? null,
+    user_id: undefined,
   }));
 
   return NextResponse.json({ accounts }, { headers: { 'Cache-Control': 'no-store' } });

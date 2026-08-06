@@ -39,13 +39,13 @@ export async function POST(request: NextRequest) {
   const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action === 'revoke' ? 'revoked' : null;
 
   if (!accountId || !status || (status === 'rejected' && !reason)) {
-    if (action !== 'reset_password' || !accountId) return NextResponse.json({ error: 'Acción o solicitud inválida.' }, { status: 400 });
+    if (action !== 'reset_password' && action !== 'delete' || !accountId) return NextResponse.json({ error: 'Acción o solicitud inválida.' }, { status: 400 });
   }
 
   if (action === 'reset_password') {
     const { data: account, error: accountError } = await supabaseAdmin
       .from('minecraft_accounts')
-      .select('id, user_id, username, edition, status')
+      .select('id, user_id, username, edition, player_id, status')
       .eq('id', accountId)
       .maybeSingle();
 
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     const { error: insertError } = await supabaseAdmin.from('minecraft_password_resets').insert({
       account_id: account.id,
       username: account.username,
-      encrypted_payload: encryptPasswordReset(account.username, temporaryPassword, bridgeToken),
+      encrypted_payload: encryptPasswordReset(account.username, account.edition, account.player_id, temporaryPassword, bridgeToken),
       expires_at: expiresAt,
     });
 
@@ -82,6 +82,29 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ temporaryPassword, expiresAt });
+  }
+
+  if (action === 'delete') {
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('minecraft_accounts')
+      .select('id, user_id, edition, username')
+      .eq('id', accountId)
+      .maybeSingle();
+
+    if (accountError) return NextResponse.json({ error: 'No se pudo consultar la cuenta.' }, { status: 500 });
+    if (!account) return NextResponse.json({ error: 'Solicitud no encontrada.' }, { status: 404 });
+
+    const adminUser = await getSupabaseAdminUser(request);
+    await supabaseAdmin.from('minecraft_audit_log').insert({
+      actor_user_id: adminUser?.id ?? null,
+      target_user_id: account.user_id,
+      action: 'minecraft_account_deleted',
+      metadata: { accountId: account.id, edition: account.edition, username: account.username },
+    });
+
+    const { error: deleteError } = await supabaseAdmin.from('minecraft_accounts').delete().eq('id', account.id);
+    if (deleteError) return NextResponse.json({ error: 'No se pudo eliminar la cuenta de Minecraft.' }, { status: 500 });
+    return NextResponse.json({ deleted: true });
   }
 
   if (!accountId || !status || (status === 'rejected' && !reason)) {

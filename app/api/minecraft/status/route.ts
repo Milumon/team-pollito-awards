@@ -15,6 +15,81 @@ type StatusPayload = {
   mspt?: unknown;
 };
 
+type MinecraftAccount = {
+  user_id: string;
+  edition: 'java' | 'bedrock';
+  username: string;
+  status: string;
+};
+
+type Profile = {
+  id: string;
+  roblox_display_name: string | null;
+  roblox_avatar_url: string | null;
+};
+
+type OnlinePlayer = {
+  nickname: string | null;
+  avatarUrl: string | null;
+  java: string | null;
+  bedrock: string | null;
+};
+
+async function resolveOnlinePlayers(playerNames: string[]): Promise<OnlinePlayer[]> {
+  if (playerNames.length === 0) return [];
+
+  const { data: accounts, error: accountsError } = await supabaseAdmin
+    .from('minecraft_accounts')
+    .select('user_id, edition, username, status')
+    .in('status', ['pending', 'approved']);
+
+  if (accountsError) throw accountsError;
+
+  const normalizeMinecraftName = (name: string) => name.trim().replace(/^\./, '').toLocaleLowerCase();
+  const onlineNames = new Set(playerNames.map(normalizeMinecraftName));
+  const onlineAccounts = ((accounts ?? []) as MinecraftAccount[]).filter((account) => onlineNames.has(normalizeMinecraftName(account.username)));
+  const userIds = [...new Set(onlineAccounts.map((account) => account.user_id))];
+  if (userIds.length === 0) {
+    return playerNames.map((name) => {
+      const username = name.trim().replace(/^\./, '');
+      return name.trim().startsWith('.')
+        ? { nickname: null, avatarUrl: null, java: null, bedrock: username }
+        : { nickname: null, avatarUrl: null, java: username, bedrock: null };
+    });
+  }
+
+  const { data: profiles, error: profilesError } = await supabaseAdmin
+    .from('profiles')
+    .select('id, roblox_display_name, roblox_avatar_url')
+    .in('id', userIds);
+
+  if (profilesError) throw profilesError;
+
+  const profilesById = new Map(((profiles ?? []) as Profile[]).map((profile) => [profile.id, profile]));
+  const players = userIds.map((userId) => {
+    const profile = profilesById.get(userId);
+    const accountsForUser = onlineAccounts.filter((account) => account.user_id === userId);
+    return {
+      nickname: profile?.roblox_display_name?.trim() || null,
+      avatarUrl: profile?.roblox_avatar_url || null,
+      java: accountsForUser.find((account) => account.edition === 'java')?.username ?? null,
+      bedrock: accountsForUser.find((account) => account.edition === 'bedrock')?.username ?? null,
+    };
+  });
+
+  const matchedNames = new Set(onlineAccounts.map((account) => normalizeMinecraftName(account.username)));
+  const fallbackPlayers = playerNames
+    .filter((name) => !matchedNames.has(normalizeMinecraftName(name)))
+    .map((name) => {
+      const username = name.trim().replace(/^\./, '');
+      return name.trim().startsWith('.')
+        ? { nickname: null, avatarUrl: null, java: null, bedrock: username }
+        : { nickname: null, avatarUrl: null, java: username, bedrock: null };
+    });
+
+  return [...players, ...fallbackPlayers];
+}
+
 function isValidPlayerNames(value: unknown): value is string[] {
   return Array.isArray(value)
     && value.length <= 100
@@ -55,12 +130,20 @@ export async function GET() {
   const lastHeartbeatTime = new Date(data.last_heartbeat_at).getTime();
   const stale = !Number.isFinite(lastHeartbeatTime) || Date.now() - lastHeartbeatTime > STALE_AFTER_MS;
 
+  let players: OnlinePlayer[] = [];
+  try {
+    players = await resolveOnlinePlayers(Array.isArray(data.player_names) ? data.player_names : []);
+  } catch (resolveError) {
+    console.error('[Minecraft status players GET]:', resolveError);
+  }
+
   return NextResponse.json({
     serverId: data.server_id,
     status: stale ? 'offline' : data.status,
     stale,
     serverVersion: data.server_version,
     playerNames: Array.isArray(data.player_names) ? data.player_names : [],
+    players,
     playerCount: data.player_count,
     maxPlayers: data.max_players,
     tps: data.tps,
