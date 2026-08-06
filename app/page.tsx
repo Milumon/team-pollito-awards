@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { TikTokRankingLanding } from '@/components/tiktok-rankings/RankingViews';
+import { PwaInstallWidget } from '@/components/PwaInstallWidget';
 
 type Member = {
   roblox_user: string;
@@ -547,6 +548,7 @@ export default function ComunidadPage() {
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#2D3139] selection:bg-[#FFB000] selection:text-black font-sans flex flex-col justify-between">
+      <PwaInstallWidget />
       <div id="inicio">
         {/* HEADER NAVBAR */}
         <Header

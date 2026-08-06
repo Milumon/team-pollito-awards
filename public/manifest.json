@@ -2,21 +2,27 @@
   "name": "Comunidad del Team Pollito - Milumon",
   "short_name": "Team Pollito",
   "description": "Portal interactivo de la comunidad de Team Pollito y el stream de Milumon.",
-  "start_url": "/console",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0d0d0d",
   "theme_color": "#eab308",
   "orientation": "portrait-primary",
+  "lang": "es",
+  "categories": ["social", "entertainment"],
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
