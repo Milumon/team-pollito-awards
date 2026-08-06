@@ -65,6 +65,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Datos de Minecraft inválidos.' }, { status: 400 });
   }
 
+  const { data: existingAccount, error: existingAccountError } = await supabaseAdmin
+    .from('minecraft_accounts')
+    .select('user_id')
+    .eq('edition', edition)
+    .ilike('username', username)
+    .neq('user_id', session.user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingAccountError) {
+    console.error('[Minecraft link conflict check]:', existingAccountError.message);
+    return NextResponse.json({ error: 'No se pudo comprobar ese usuario de Minecraft.' }, { status: 500 });
+  }
+
+  if (existingAccount) {
+    return NextResponse.json({ error: 'Esa cuenta de Minecraft ya está vinculada a otro usuario.' }, { status: 409 });
+  }
+
   const playerId = submittedPlayerId || `pending:${session.user.id}:${edition}`;
   const code = createLinkCode();
   const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();

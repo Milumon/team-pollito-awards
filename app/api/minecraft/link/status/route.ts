@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     .from('minecraft_accounts')
     .select('status, verified_at')
     .eq('edition', edition)
-    .or(`player_id.eq.${playerId},username.eq.${username}`)
+    .or(`player_id.eq.${playerId},username.ilike.${username}`)
     .limit(1)
     .maybeSingle();
 
