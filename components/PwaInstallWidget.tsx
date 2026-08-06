@@ -11,6 +11,10 @@ const DISMISS_KEY = 'team-pollito-pwa-dismissed-at';
 let deferredInstallPrompt: InstallPromptEvent | null = null;
 const promptListeners = new Set<() => void>();
 
+export function requestPwaInstall() {
+  window.dispatchEvent(new Event('team-pollito:install'));
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
@@ -44,19 +48,25 @@ export function PwaInstallWidget() {
     const wasDismissedRecently = Number.isFinite(dismissedAt)
       && dismissedAt > 0
       && Date.now() - dismissedAt < 24 * 60 * 60 * 1000;
-    if (isStandalone() || wasDismissedRecently) return;
-
     setIsIOS(isAppleMobileDevice());
     const syncPrompt = () => setInstallPrompt(deferredInstallPrompt);
+    const handleInstallRequest = () => {
+      window.localStorage.removeItem(DISMISS_KEY);
+      setIsOpen(true);
+    };
     promptListeners.add(syncPrompt);
     syncPrompt();
-    const timer = window.setTimeout(() => {
-      if (deferredInstallPrompt || isAppleMobileDevice()) setIsOpen(true);
-    }, 3000);
+    window.addEventListener('team-pollito:install', handleInstallRequest);
+    const timer = isStandalone() || wasDismissedRecently
+      ? undefined
+      : window.setTimeout(() => {
+          if (deferredInstallPrompt || isAppleMobileDevice()) setIsOpen(true);
+        }, 3000);
 
     return () => {
-      window.clearTimeout(timer);
+      if (timer) window.clearTimeout(timer);
       promptListeners.delete(syncPrompt);
+      window.removeEventListener('team-pollito:install', handleInstallRequest);
     };
   }, []);
 

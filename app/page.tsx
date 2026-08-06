@@ -30,7 +30,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { TikTokRankingLanding } from '@/components/tiktok-rankings/RankingViews';
-import { PwaInstallWidget } from '@/components/PwaInstallWidget';
+import { PwaInstallWidget, requestPwaInstall } from '@/components/PwaInstallWidget';
 
 type Member = {
   roblox_user: string;
@@ -600,8 +600,8 @@ export default function ComunidadPage() {
                         ✓ Ir a la Consola
                       </Button>
                     </Link>
-                    <Button variant="secondary" size="lg" onClick={() => scrollToSection('testimonios')}>
-                      Dejar opinión
+                    <Button variant="secondary" size="lg" onClick={requestPwaInstall}>
+                      📲 Instalar app
                     </Button>
                   </div>
                 </>
@@ -759,6 +759,8 @@ export default function ComunidadPage() {
 
           </section>
 
+          <TikTokRankingLanding />
+
           {/* BENEFICIOS SECTION */}
           <section id="beneficios" className="space-y-6 pt-8">
             <div className="text-center">
@@ -792,8 +794,6 @@ export default function ComunidadPage() {
               ))}
             </div>
           </section>
-
-          <TikTokRankingLanding />
 
           {/* TIMELINE DE INGRESO */}
           <section id="timeline-ingreso" className="space-y-8 pt-8">
@@ -839,20 +839,19 @@ export default function ComunidadPage() {
           </section>
 
           {/* REGLAS & TESTIMONIOS */}
-          <section id="reglas-testimonios" className="pt-8">
-            {/* Reglas (5 cols) */}
-            <div id="reglas" className="max-w-xl space-y-5">
+          <section id="reglas-testimonios" className="w-full pt-8">
+            <div id="reglas" className="w-full space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <span className="text-lg">📋</span>
                 <h3 className="font-display font-bold text-xl text-[#2D3139]">Reglas principales</h3>
               </div>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {[
                   { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
                   { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
                   { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos.' }
                 ].map(rule => (
-                  <div key={rule.id} className="flex items-start gap-3 py-3">
+                  <div key={rule.id} className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,.04)]">
                     <span className="shrink-0 w-7 h-7 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-xs flex items-center justify-center border border-[#FFC200]/20">{rule.id}</span>
                     <div>
                       <h4 className="font-display font-semibold text-sm text-[#2D3139] leading-none">{rule.title}</h4>
@@ -863,7 +862,7 @@ export default function ComunidadPage() {
               </div>
               <button
                 onClick={() => setShowRulesModal(true)}
-                className="w-full py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
+                className="w-full max-w-sm py-2.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-sm rounded-xl transition-all cursor-pointer active:scale-[0.97]"
               >
                 Ver reglamento completo 📋
               </button>
