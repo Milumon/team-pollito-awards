@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     "La comunidad oficial de Team Pollito y Milumon: votaciones, stream, miembros, historias y eventos.",
   manifest: "/manifest.json",
   icons: {
-    apple: "/icons/team-pollito-icon.png",
+    apple: "/icons/icon-192x192.png",
   },
   appleWebApp: {
     capable: true,
