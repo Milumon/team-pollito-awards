@@ -55,7 +55,8 @@ export default function MinecraftLinkForm() {
         const payload = await response.json() as { accounts?: Account[]; error?: string };
         if (!response.ok) throw new Error(payload.error || 'No se pudo cargar la vinculación.');
         if (!active) return;
-        const current = payload.accounts?.[0] ?? null;
+        const accounts = payload.accounts ?? [];
+        const current = accounts.find((item) => item.edition === edition) ?? accounts[0] ?? null;
         setAccount(current);
         if (formHasChanges.current) return;
         if (!formHasChanges.current && current?.username) setUsername(current.username);
