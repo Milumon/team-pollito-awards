@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { CurrentRankings, RankingsState } from './types';
 
-export function useTikTokRankings(accessToken?: string | null, limit = 100): RankingsState {
+export function useTikTokRankings(accessToken?: string | null, limit = 100, batchId?: string | null): RankingsState {
   const [state, setState] = useState<RankingsState>({ data: null, loading: true, error: null });
 
   useEffect(() => {
     let cancelled = false;
     const headers: HeadersInit = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-    fetch(`/api/tiktok/rankings/current?limit=${limit}`, { headers })
+    const batchQuery = batchId ? `&batch_id=${encodeURIComponent(batchId)}` : '';
+    fetch(`/api/tiktok/rankings/current?limit=${limit}${batchQuery}`, { headers })
       .then(async (response) => {
         const body = await response.json() as CurrentRankings | { error?: string };
         if (!response.ok) throw new Error('error' in body && body.error ? body.error : 'No se pudo cargar el ranking.');
@@ -26,7 +27,7 @@ export function useTikTokRankings(accessToken?: string | null, limit = 100): Ran
       });
 
     return () => { cancelled = true; };
-  }, [accessToken, limit]);
+  }, [accessToken, limit, batchId]);
 
   return state;
 }

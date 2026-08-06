@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowRight, CalendarDays, Crown, Loader2, Medal, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -196,8 +196,65 @@ function findSet(data: RankingsState['data'], metric: RankingMetric, period: Ran
   return data?.sets.find((item) => item.metric === metric && item.period === period);
 }
 
-export function TikTokRankingLanding() {
-  const state = useTikTokRankings(null, 10);
+type RankingSnapshotOption = { id: string; captured_at: string };
+
+function SnapshotCalendar({
+  accessToken,
+  value,
+  onChange,
+}: {
+  accessToken: string;
+  value: string | null;
+  onChange: (batchId: string | null) => void;
+}) {
+  const [snapshots, setSnapshots] = useState<RankingSnapshotOption[]>([]);
+  const [date, setDate] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/tiktok/rankings/snapshots?limit=100', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).then((response) => response.json() as Promise<{ snapshots?: RankingSnapshotOption[] }>)
+      .then((body) => {
+        if (cancelled) return;
+        const next = body.snapshots ?? [];
+        setSnapshots(next);
+        const selected = next.find((snapshot) => snapshot.id === value) ?? next[0];
+        if (selected) {
+          setDate(selected.captured_at.slice(0, 10));
+          if (!value) onChange(selected.id);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshots([]);
+      });
+    return () => { cancelled = true; };
+  }, [accessToken, onChange, value]);
+
+  return (
+    <label className="flex items-center gap-2 text-[10px] font-bold text-gray-500">
+      <CalendarDays className="h-4 w-4 text-[#D4A000]" />
+      <span className="sr-only">Snapshot de ranking</span>
+      <input
+        type="date"
+        value={date}
+        onChange={(event) => {
+          const nextDate = event.target.value;
+          setDate(nextDate);
+          onChange(snapshots.find((snapshot) => snapshot.captured_at.slice(0, 10) === nextDate)?.id ?? null);
+        }}
+        min={snapshots.at(-1)?.captured_at.slice(0, 10)}
+        max={snapshots[0]?.captured_at.slice(0, 10)}
+        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#2D3139] outline-none focus:border-[#FFC200]"
+        aria-label="Seleccionar snapshot por fecha"
+      />
+    </label>
+  );
+}
+
+export function TikTokRankingLanding({ accessToken = null }: { accessToken?: string | null }) {
+  const [snapshotId, setSnapshotId] = useState<string | null>(null);
+  const state = useTikTokRankings(accessToken, 10, accessToken ? snapshotId : null);
   const [metric, setMetric] = useState<RankingMetric>('viewers');
   const [period, setPeriod] = useState<RankingPeriod>('last_live');
   const selected = findSet(state.data, metric, period);
@@ -226,7 +283,10 @@ export function TikTokRankingLanding() {
               <p className="font-display text-xs font-bold uppercase text-[#2D3139]">{METRIC_LABELS[metric]} · {PERIOD_LABELS[period]}</p>
               <p className="mt-1 text-[10px] text-gray-400">Actualizado {formatDate(state.data.captured_at)} · Ventana: {formatWindow(selected)}</p>
             </div>
-            <RankingControls metric={metric} period={period} onMetric={setMetric} onPeriod={setPeriod} />
+            <div className="flex flex-wrap items-center gap-2">
+              {accessToken && <SnapshotCalendar accessToken={accessToken} value={snapshotId} onChange={setSnapshotId} />}
+              <RankingControls metric={metric} period={period} onMetric={setMetric} onPeriod={setPeriod} />
+            </div>
           </div>
           {!selected || selected.entries.length === 0
             ? <EmptyState title="Sin actividad para este período" detail="TikTok no devolvió participantes para esta combinación." />

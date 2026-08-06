@@ -212,8 +212,10 @@ export async function POST(request: NextRequest) {
     ];
     if (permissions && typeof permissions === 'object') {
       for (const field of permFields) {
-        if (field in permissions) {
-          updateData[field] = !!permissions[field];
+        const legacyField = field.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+        const permissionValue = permissions[field] ?? permissions[legacyField];
+        if (permissionValue !== undefined) {
+          updateData[field] = !!permissionValue;
         }
       }
       // Sync soundboard_disabled with overall permission state
@@ -224,13 +226,19 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Ejecutar la actualización en Supabase
-    const { error: updateError } = await supabaseAdmin
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
-      .upsert(updateData, { onConflict: 'id' });
+      .update(updateData)
+      .eq('id', userId)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('[Admin Users Update DB Error]:', updateError);
       return NextResponse.json({ error: `Error al actualizar la base de datos: ${updateError.message}` }, { status: 500 });
+    }
+    if (!updatedProfile) {
+      return NextResponse.json({ error: 'El perfil del usuario no existe.' }, { status: 404 });
     }
 
     // Sincronizar con la tabla interview_history si se cambiaron los nombres de usuario

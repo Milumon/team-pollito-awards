@@ -109,12 +109,15 @@ export async function POST(request: NextRequest) {
       // 2. Fetch user's profile and check approved status
       const { data, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url, perm_trigger_sounds, perm_trigger_media, perm_trigger_animations, perm_tts_text')
+        .select('id, roblox_user, tiktok_user, link_status, roblox_avatar_url, soundboard_disabled, perm_trigger_sounds, perm_trigger_media, perm_trigger_animations, perm_tts_text')
         .eq('id', user.id)
         .maybeSingle();
 
       if (profileError || !data || data.link_status !== 'approved') {
         return NextResponse.json({ error: 'Membresía no aprobada' }, { status: 403 });
+      }
+      if (data.soundboard_disabled) {
+        return NextResponse.json({ error: 'Tu acceso a la botonera fue deshabilitado por un administrador.' }, { status: 403 });
       }
 
       // 3. Check granular permissions

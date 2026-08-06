@@ -759,7 +759,7 @@ export default function ComunidadPage() {
 
           </section>
 
-          <TikTokRankingLanding />
+          <TikTokRankingLanding accessToken={session?.access_token} />
 
           {/* BENEFICIOS SECTION */}
           <section id="beneficios" className="space-y-6 pt-8">
