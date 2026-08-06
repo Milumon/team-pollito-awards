@@ -34,6 +34,7 @@ export default function MinecraftLinkForm() {
   const [edition, setEdition] = useState<'java' | 'bedrock'>('java');
   const [username, setUsername] = useState('');
   const [account, setAccount] = useState<Account | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [step, setStep] = useState(1);
@@ -44,6 +45,7 @@ export default function MinecraftLinkForm() {
   const [codeExpired, setCodeExpired] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
+  const [replacingExisting, setReplacingExisting] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const formHasChanges = useRef(false);
 
@@ -57,6 +59,7 @@ export default function MinecraftLinkForm() {
         if (!active) return;
         const accounts = payload.accounts ?? [];
         const current = accounts.find((item) => item.edition === edition) ?? accounts[0] ?? null;
+        setAccounts(accounts);
         setAccount(current);
         if (formHasChanges.current) return;
         if (!formHasChanges.current && current?.username) setUsername(current.username);
@@ -66,7 +69,9 @@ export default function MinecraftLinkForm() {
           setExpiresAt(current.link_code_expires_at ?? null);
           setCodeExpired(false);
         }
-        if (isVerified(current) && !replaceMode) {
+        if (isVerified(current)) {
+          setReplaceMode(false);
+          setReplacingExisting(false);
           setCode(null);
           setStep(5);
         } else if (!replaceMode && current?.code) {
@@ -125,11 +130,14 @@ export default function MinecraftLinkForm() {
       });
       const payload = await response.json() as { account?: Account; code?: string; expiresAt?: string; error?: string };
       if (!response.ok) throw new Error(payload.error || 'No se pudo crear la solicitud.');
-      setAccount(payload.account ?? null);
+      const nextAccount = payload.account ?? null;
+      setAccount(nextAccount);
+      if (nextAccount) setAccounts((current) => [...current.filter((item) => item.edition !== nextAccount.edition), nextAccount]);
       setCode(payload.code ?? null);
       setExpiresAt(payload.expiresAt ?? null);
       setCodeExpired(false);
       formHasChanges.current = false;
+      setReplacingExisting(false);
       setStep(3);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'No se pudo crear la solicitud.');
@@ -150,8 +158,12 @@ export default function MinecraftLinkForm() {
     window.setTimeout(() => setCopied(false), 2200);
   };
 
-  const beginReplacement = () => {
+  const beginLink = (targetEdition: 'java' | 'bedrock', replaceExisting: boolean) => {
+    const existingAccount = accounts.find((item) => item.edition === targetEdition);
+    setEdition(targetEdition);
+    setUsername(existingAccount?.username ?? '');
     setReplaceMode(true);
+    setReplacingExisting(replaceExisting);
     setCode(null);
     setCodeExpired(false);
     formHasChanges.current = true;
@@ -176,11 +188,11 @@ export default function MinecraftLinkForm() {
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-8 sm:py-16">
         <div className="mb-8 flex items-center gap-3"><span className="text-4xl">🐣</span><div><p className="font-display text-sm font-bold uppercase tracking-[0.3em] text-[#D4A000]">Minecraft · Team Pollito</p><h1 className="font-display text-4xl font-black uppercase leading-[0.92] tracking-tight text-[#2D3139] sm:text-5xl">Vincula tu cuenta</h1></div></div>
 
-        {!replaceMode && account && isVerified(account) ? <SuccessCard account={account} onReplace={beginReplacement} /> : loading ? <p className="text-[#64748B]">Cargando tu aventura...</p> : (
+            {!replaceMode && account && isVerified(account) ? <SuccessCard accounts={accounts} onLink={beginLink} /> : loading ? <p className="text-[#64748B]">Cargando tu aventura...</p> : (
           <>
             <Progress current={step} />
             {codeExpired && <ExpiredCard saving={saving} onRegenerate={requestCode} />}
-            {replaceMode && <div className="mb-6 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4 text-sm font-medium text-[#7A6330]">Estás creando una nueva vinculación. La anterior dejará de funcionar cuando completes este proceso.</div>}
+            {replaceMode && replacingExisting && <div className="mb-6 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4 text-sm font-medium text-[#7A6330]">Estás cambiando esta cuenta. La vinculación anterior dejará de funcionar cuando completes este proceso.</div>}
             {step === 1 && <StepOne edition={edition} setEdition={(value) => { formHasChanges.current = true; setEdition(value); }} username={username} setUsername={(value) => { formHasChanges.current = true; setUsername(value); }} onNext={() => { setMessage(null); setStep(2); }} />}
             {step === 2 && <StepTwo edition={edition} username={username} saving={saving} onBack={() => setStep(1)} onSubmit={submit} />}
             {step === 3 && code && <StepThree edition={edition} code={code} expiresAt={expiresAt} remainingSeconds={remainingSeconds} saving={saving} onNext={() => setStep(4)} onBack={editAccount} onRegenerate={requestCode} onCopy={copyCommand} copied={copied} />}
@@ -198,7 +210,7 @@ function Progress({ current }: Readonly<{ current: number }>) {
 }
 
 function StepOne({ edition, setEdition, username, setUsername, onNext }: Readonly<{ edition: 'java' | 'bedrock'; setEdition: (value: 'java' | 'bedrock') => void; username: string; setUsername: (value: string) => void; onNext: () => void }>) {
-  return <Card title="Empecemos, pollito" icon="🥚"><p className="text-sm font-medium text-[#64748B]">Escribe el nombre exacto que usas en Minecraft.</p><label className="mt-5 block text-sm font-bold text-[#45413A]">Edición<select value={edition} onChange={(event) => setEdition(event.target.value as 'java' | 'bedrock')} className="mt-2 w-full rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] px-4 py-3 text-[#2D3139]"><option value="java">Java</option><option value="bedrock">Bedrock</option></select></label><label className="mt-4 block text-sm font-bold text-[#45413A]">Username de Minecraft<input value={username} onChange={(event) => setUsername(event.target.value)} required maxLength={32} className="mt-2 w-full rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] px-4 py-3 text-[#2D3139]" placeholder="Ejemplo: Pollito123" /></label><button type="button" onClick={onNext} disabled={!username.trim()} className="mt-6 w-full rounded-xl bg-[#FFD500] px-5 py-3 font-black text-black disabled:cursor-not-allowed disabled:opacity-50">Continuar ✨</button></Card>;
+  return <Card title="Empecemos, pollito" icon="🥚"><p className="text-sm font-medium text-[#64748B]">Escribe el nombre que usas en Minecraft. Las mayúsculas no importan.</p><label className="mt-5 block text-sm font-bold text-[#45413A]">Edición<select value={edition} onChange={(event) => setEdition(event.target.value as 'java' | 'bedrock')} className="mt-2 w-full rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] px-4 py-3 text-[#2D3139]"><option value="java">Java</option><option value="bedrock">Bedrock</option></select></label><label className="mt-4 block text-sm font-bold text-[#45413A]">Username de Minecraft<input value={username} onChange={(event) => setUsername(event.target.value)} required maxLength={32} className="mt-2 w-full rounded-xl border border-[#E8DFC5] bg-[#FFFDF5] px-4 py-3 text-[#2D3139]" placeholder="Ejemplo: Pollito123" /></label><button type="button" onClick={onNext} disabled={!username.trim()} className="mt-6 w-full rounded-xl bg-[#FFD500] px-5 py-3 font-black text-black disabled:cursor-not-allowed disabled:opacity-50">Continuar ✨</button></Card>;
 }
 
 function StepTwo({ edition, username, saving, onBack, onSubmit }: Readonly<{ edition: string; username: string; saving: boolean; onBack: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }>) {
@@ -237,7 +249,6 @@ function Card({ title, icon, children }: Readonly<{ title: string; icon: string;
   return <section className="rounded-3xl border-2 border-[#FFD500] bg-white p-6 shadow-[7px_7px_0_#FFDFA0] sm:p-8"><div className="flex items-center gap-3"><span className="text-4xl" aria-hidden>{icon}</span><h2 className="font-display text-2xl font-black text-[#2D3139]">{title}</h2></div>{children}</section>;
 }
 
-function SuccessCard({ account, onReplace }: Readonly<{ account: Account; onReplace: () => void }>) {
-  const port = account.edition === 'bedrock' ? '19132' : '25565';
-  return <section className="rounded-3xl border-2 border-emerald-300 bg-white p-6 text-center shadow-[7px_7px_0_#A7F3D0] sm:p-10"><div className="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-[#FFF7DC] text-5xl"><img src={`https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/96`} alt="" className="h-full w-full" onError={(event) => { event.currentTarget.style.display = 'none'; }} />🐣</div><p className="mt-5 text-sm font-bold uppercase tracking-widest text-emerald-600">Cuenta vinculada</p><h2 className="mt-2 font-display text-3xl font-black text-[#2D3139]">¡Todo listo, {account.username}! 🎉</h2><span className="mt-4 inline-flex rounded-full bg-[#DCFCE7] px-4 py-2 text-sm font-black text-[#166534]">Activo ✅</span><div className="mx-auto mt-6 max-w-sm rounded-2xl bg-[#FFFDF5] p-4 text-left text-sm font-medium text-[#64748B]"><p><strong className="text-[#2D3139]">Edición:</strong> {account.edition}</p><p className="mt-1"><strong className="text-[#2D3139]">Vinculada:</strong> {formatDate(account.verified_at)}</p></div><p className="mt-6 text-sm font-medium text-[#64748B]">Abre Minecraft y agrega estos datos en campos separados:</p><ConnectionDetails port={port} /><button type="button" onClick={onReplace} className="mt-5 text-sm font-bold text-[#9A8D70] underline">Vincular otra cuenta</button></section>;
+function SuccessCard({ accounts, onLink }: Readonly<{ accounts: Account[]; onLink: (edition: 'java' | 'bedrock', replaceExisting: boolean) => void }>) {
+  return <section className="rounded-3xl border-2 border-emerald-300 bg-white p-6 shadow-[7px_7px_0_#A7F3D0] sm:p-10"><div className="text-center"><div className="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-[#FFF7DC] text-5xl">🐣</div><p className="mt-5 text-sm font-bold uppercase tracking-widest text-emerald-600">Tus cuentas de Minecraft</p><h2 className="mt-2 font-display text-3xl font-black text-[#2D3139]">¡Todo listo! 🎉</h2><p className="mt-3 text-sm font-medium leading-relaxed text-[#64748B]">Puedes tener una cuenta Java y una cuenta Bedrock.</p></div><div className="mt-6 space-y-3">{(['java', 'bedrock'] as const).map((edition) => { const linkedAccount = accounts.find((account) => account.edition === edition && isVerified(account)); const label = edition === 'java' ? 'Minecraft Java' : 'Minecraft Bedrock'; return <div key={edition} className="rounded-2xl border border-[#E8DFC5] bg-[#FFFDF5] p-4"><div className="flex items-center justify-between gap-3"><div className="text-left"><p className="font-black text-[#2D3139]">{label}</p>{linkedAccount ? <p className="mt-1 text-sm font-medium text-[#64748B]">{linkedAccount.username} · Activa ✅</p> : <p className="mt-1 text-sm font-medium text-[#9A8D70]">Todavía no vinculada</p>}</div><button type="button" onClick={() => onLink(edition, Boolean(linkedAccount))} className="shrink-0 rounded-xl bg-[#FFD500] px-3 py-2 text-xs font-black text-black">{linkedAccount ? 'Cambiar' : 'Vincular'}</button></div></div>; })}</div></section>;
 }
