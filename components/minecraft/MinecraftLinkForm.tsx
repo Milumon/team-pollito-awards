@@ -57,6 +57,7 @@ export default function MinecraftLinkForm() {
         if (!active) return;
         const current = payload.accounts?.[0] ?? null;
         setAccount(current);
+        if (formHasChanges.current) return;
         if (!formHasChanges.current && current?.username) setUsername(current.username);
         if (!formHasChanges.current && current?.edition) setEdition(current.edition);
         if (current?.code && !isVerified(current)) {
