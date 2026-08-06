@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized } from '@/lib/adminAuth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getSupabaseAdminUser } from '@/lib/supabaseAdminAuth';
+import { createTemporaryPassword, encryptPasswordReset } from '@/lib/minecraftPasswordReset';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,52 @@ export async function POST(request: NextRequest) {
   const action = body.action;
   const reason = typeof body.reason === 'string' ? body.reason.trim() : null;
   const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action === 'revoke' ? 'revoked' : null;
+
+  if (!accountId || !status || (status === 'rejected' && !reason)) {
+    if (action !== 'reset_password' || !accountId) return NextResponse.json({ error: 'Acción o solicitud inválida.' }, { status: 400 });
+  }
+
+  if (action === 'reset_password') {
+    const { data: account, error: accountError } = await supabaseAdmin
+      .from('minecraft_accounts')
+      .select('id, user_id, username, edition, status')
+      .eq('id', accountId)
+      .maybeSingle();
+
+    if (accountError) {
+      console.error('[Admin Minecraft password reset lookup]:', accountError.message);
+      return NextResponse.json({ error: 'No se pudo consultar la cuenta.' }, { status: 500 });
+    }
+    if (!account || account.status === 'revoked') return NextResponse.json({ error: 'La cuenta no puede recibir un reset.' }, { status: 400 });
+
+    const bridgeToken = process.env.MINECRAFT_BRIDGE_TOKEN;
+    if (!bridgeToken) return NextResponse.json({ error: 'El bridge de Minecraft no está configurado.' }, { status: 503 });
+
+    const temporaryPassword = createTemporaryPassword();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    await supabaseAdmin.from('minecraft_password_resets').update({ status: 'superseded', consumed_at: new Date().toISOString() }).eq('account_id', account.id).eq('status', 'pending');
+    const { error: insertError } = await supabaseAdmin.from('minecraft_password_resets').insert({
+      account_id: account.id,
+      username: account.username,
+      encrypted_payload: encryptPasswordReset(account.username, temporaryPassword, bridgeToken),
+      expires_at: expiresAt,
+    });
+
+    if (insertError) {
+      console.error('[Admin Minecraft password reset insert]:', insertError.message);
+      return NextResponse.json({ error: 'No se pudo crear el reset.' }, { status: 500 });
+    }
+
+    const adminUser = await getSupabaseAdminUser(request);
+    await supabaseAdmin.from('minecraft_audit_log').insert({
+      actor_user_id: adminUser?.id ?? null,
+      target_user_id: account.user_id,
+      action: 'minecraft_password_reset_requested',
+      metadata: { accountId: account.id, edition: account.edition, username: account.username, expiresAt },
+    });
+
+    return NextResponse.json({ temporaryPassword, expiresAt });
+  }
 
   if (!accountId || !status || (status === 'rejected' && !reason)) {
     return NextResponse.json({ error: 'Acción o solicitud inválida.' }, { status: 400 });

@@ -37,6 +37,21 @@ create table if not exists public.minecraft_accounts (
 create index if not exists minecraft_accounts_user_status_idx
   on public.minecraft_accounts(user_id, status);
 
+create table if not exists public.minecraft_password_resets (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.minecraft_accounts(id) on delete cascade,
+  username text not null,
+  encrypted_payload text not null,
+  status text not null default 'pending' check (status in ('pending', 'applied', 'failed', 'superseded', 'expired')),
+  error_message text,
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists minecraft_password_resets_pending_idx
+  on public.minecraft_password_resets(status, expires_at);
+
 alter table public.minecraft_accounts add column if not exists link_code text;
 
 create table if not exists public.minecraft_audit_log (
@@ -50,6 +65,7 @@ create table if not exists public.minecraft_audit_log (
 
 alter table public.minecraft_server_status enable row level security;
 alter table public.minecraft_accounts enable row level security;
+alter table public.minecraft_password_resets enable row level security;
 alter table public.minecraft_audit_log enable row level security;
 
 drop policy if exists "Anyone can read Minecraft status" on public.minecraft_server_status;
