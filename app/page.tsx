@@ -647,8 +647,8 @@ export default function ComunidadPage() {
                       <Users className="w-4 h-4" />
                       Únete a la Comunidad
                     </Button>
-                    <Button variant="secondary" size="lg" onClick={() => scrollToSection('timeline-ingreso')}>
-                      ¿Cómo funciona?
+                    <Button variant="secondary" size="lg" onClick={requestPwaInstall}>
+                      📲 Instalar app
                     </Button>
                   </div>
                 </>
