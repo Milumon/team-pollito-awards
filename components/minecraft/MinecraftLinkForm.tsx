@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
@@ -45,6 +45,7 @@ export default function MinecraftLinkForm() {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const formHasChanges = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -56,8 +57,8 @@ export default function MinecraftLinkForm() {
         if (!active) return;
         const current = payload.accounts?.[0] ?? null;
         setAccount(current);
-        if (current?.username) setUsername(current.username);
-        if (current?.edition) setEdition(current.edition);
+        if (!formHasChanges.current && current?.username) setUsername(current.username);
+        if (!formHasChanges.current && current?.edition) setEdition(current.edition);
         if (current?.code && !isVerified(current)) {
           setCode(current.code);
           setExpiresAt(current.link_code_expires_at ?? null);
@@ -126,6 +127,7 @@ export default function MinecraftLinkForm() {
       setCode(payload.code ?? null);
       setExpiresAt(payload.expiresAt ?? null);
       setCodeExpired(false);
+      formHasChanges.current = false;
       setStep(3);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : 'No se pudo crear la solicitud.');
@@ -150,6 +152,7 @@ export default function MinecraftLinkForm() {
     setReplaceMode(true);
     setCode(null);
     setCodeExpired(false);
+    formHasChanges.current = true;
     setStep(1);
     setMessage(null);
   };
@@ -159,6 +162,7 @@ export default function MinecraftLinkForm() {
     setExpiresAt(null);
     setRemainingSeconds(null);
     setCodeExpired(false);
+    formHasChanges.current = true;
     setStep(1);
     setMessage(null);
   };
@@ -175,7 +179,7 @@ export default function MinecraftLinkForm() {
             <Progress current={step} />
             {codeExpired && <ExpiredCard saving={saving} onRegenerate={requestCode} />}
             {replaceMode && <div className="mb-6 rounded-2xl border border-amber-200 bg-[#FFF7DC] p-4 text-sm font-medium text-[#7A6330]">Estás creando una nueva vinculación. La anterior dejará de funcionar cuando completes este proceso.</div>}
-            {step === 1 && <StepOne edition={edition} setEdition={setEdition} username={username} setUsername={setUsername} onNext={() => { setMessage(null); setStep(2); }} />}
+            {step === 1 && <StepOne edition={edition} setEdition={(value) => { formHasChanges.current = true; setEdition(value); }} username={username} setUsername={(value) => { formHasChanges.current = true; setUsername(value); }} onNext={() => { setMessage(null); setStep(2); }} />}
             {step === 2 && <StepTwo edition={edition} username={username} saving={saving} onBack={() => setStep(1)} onSubmit={submit} />}
             {step === 3 && code && <StepThree edition={edition} code={code} expiresAt={expiresAt} remainingSeconds={remainingSeconds} onNext={() => setStep(4)} onBack={editAccount} onCopy={copyCommand} copied={copied} />}
             {step === 4 && code && <StepFour code={code} onBack={editAccount} onCopy={copyCommand} copied={copied} message={message} />}
