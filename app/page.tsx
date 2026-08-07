@@ -74,6 +74,9 @@ type Testimonial = {
   testimonial: string;
 };
 
+const ROBLOX_COMMUNITY_URL = 'https://www.roblox.com/es/communities/994126945/MILUMON-TEAM-POLLITO#!/about';
+const ROBLOX_SHIRT_URL = 'https://www.roblox.com/es/catalog/75919610314518/Camiseta-Team-Pollito';
+
 // Roles estáticos mapeados por Roblox username
 const getMemberRole = (username: string) => {
   const name = username.toLowerCase().replace('@', '').trim();
@@ -574,49 +577,52 @@ export default function ComunidadPage() {
         />
 
         {/* CONTENEDOR PRINCIPAL */}
-        <div className="max-w-6xl mx-auto px-4 mt-12 space-y-20">
-          
+        <div className="mx-auto mt-8 flex max-w-6xl flex-col gap-16 px-4 sm:mt-12 sm:gap-20">
           {/* HERO SECTION */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-            {/* Left Col: Info */}
-            <div className="md:col-span-7 space-y-6">
+          <section className="relative isolate min-h-[650px] overflow-hidden rounded-[2rem] bg-[#101216] text-white shadow-[0_20px_60px_rgba(27,29,34,.18)] sm:min-h-[620px]">
+            <div className="absolute inset-0 -z-20 bg-[#101216]" />
+            <img src="/images/fondo.png" alt="" aria-hidden="true" className="absolute inset-0 -z-10 hidden h-full w-full object-cover object-center md:block" />
+            <img src="/images/fondomobileadaptado.png" alt="" aria-hidden="true" className="absolute inset-0 -z-10 h-full w-full object-cover object-top md:hidden" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0c0e12]/95 via-[#0c0e12]/70 to-transparent md:from-[#0c0e12]/90 md:via-[#0c0e12]/45" />
+            <div className="flex min-h-[650px] items-start px-6 pb-12 pt-28 sm:min-h-[620px] sm:px-10 sm:pb-14 sm:pt-32 md:items-center md:pt-8">
+              <div className="max-w-xl space-y-6">
               {session && statusInfo.status === 'approved' ? (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                    <h2 className="font-display text-4xl font-bold leading-none tracking-tight text-left sm:text-5xl md:text-6xl">
                       ¡Bienvenido al Team, <br />
-                      <span className="font-display font-bold text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
+                      <span className="mt-1 block font-display text-4xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-5xl md:text-6xl">
                         @{statusInfo.roblox_user || 'POLLITO'}!
                       </span>
                     </h2>
-                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
+                    <span className="shrink-0 text-5xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] md:text-6xl">🐣</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
-                    Tu vinculación está activa. Ya eres parte del Team Pollito 🐣. Disfruta de la consola en vivo, dispara sonidos y animaciones en pantalla y destaca en el stream.
+                  <p className="max-w-xl font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
+                    Tu cuenta está lista. Participa en los directos, juega con la comunidad y usa las herramientas del LIVE.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <Link href="/panel/sonidos" className="decoration-transparent">
                       <Button variant="primary" size="lg">
-                        ✓ Ir a la Consola
+                        ✓ Participar en el LIVE
                       </Button>
                     </Link>
                     <Button variant="secondary" size="lg" onClick={requestPwaInstall}>
-                      📲 Instalar app
+                      📲 Añadir a pantalla de inicio
                     </Button>
                   </div>
                 </>
               ) : session && statusInfo.status === 'pending' ? (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                    <h2 className="font-display text-4xl font-bold leading-none tracking-tight text-left sm:text-5xl md:text-6xl">
                       ¡Hola, <br />
-                      <span className="font-display font-bold text-4xl sm:text-5xl md:text-6xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
+                      <span className="mt-1 block font-display text-4xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-5xl md:text-6xl">
                         @{statusInfo.roblox_user || 'POLLITO'}!
                       </span>
                     </h2>
-                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">📅</span>
+                    <span className="shrink-0 text-5xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] md:text-6xl">📅</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
+                  <p className="max-w-xl font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
                     Tu entrevista de admisión ya está programada. Consulta los detalles de la fecha y el horario del stream de Milumon para participar en vivo.
                   </p>
                   <div className="flex flex-wrap gap-4">
@@ -631,16 +637,16 @@ export default function ComunidadPage() {
               ) : (
                 <>
                   <div className="flex items-start gap-4">
-                    <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl tracking-tight leading-none text-[#2D3139] text-left">
+                    <h2 className="font-display text-4xl font-bold leading-none tracking-tight text-left sm:text-5xl md:text-6xl">
                       Bienvenidos a <br />
-                      <span className="font-display font-bold text-5xl sm:text-6xl md:text-7xl block mt-1 tracking-tighter text-[#FFB000] text-shadow-hard-lg">
-                        Milumon Community
+                      <span className="mt-1 block font-display text-5xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-6xl md:text-7xl">
+                        Team Pollito
                       </span>
                     </h2>
-                    <span className="text-5xl md:text-6xl animate-bounce shrink-0 filter drop-shadow-[3px_3px_0_rgba(0,0,0,0.15)]">🐣</span>
+                    <span className="shrink-0 text-5xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] md:text-6xl">🐣</span>
                   </div>
-                  <p className="font-sans text-sm sm:text-base font-semibold text-[#475569] max-w-xl leading-relaxed text-left">
-                    La comunidad oficial para fans de Milumon. Conéctate con otros pollitos, participa en eventos semanales y sé parte de algo lindo en Roblox y TikTok.
+                  <p className="max-w-xl font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
+                    Juega, participa en los directos y comparte momentos con la comunidad en Roblox y Minecraft.
                   </p>
                   <div className="flex flex-wrap gap-4">
                     <Button variant="primary" size="lg" onClick={handleJoinClick}>
@@ -648,76 +654,53 @@ export default function ComunidadPage() {
                       Únete a la Comunidad
                     </Button>
                     <Button variant="secondary" size="lg" onClick={requestPwaInstall}>
-                      📲 Instalar app
+                      📲 Añadir a pantalla de inicio
                     </Button>
                   </div>
                 </>
               )}
-            </div>
-
-            {/* Right Col: Mascot / Avatar — sin marco brutalista */}
-            <div className="md:col-span-5 flex justify-center">
-              {session && statusInfo.status === 'approved' && statusInfo.avatar_url ? (
-                <div className="relative w-full max-w-[280px] aspect-square">
-                  <div className="absolute inset-0 bg-[#FFF9E6] rounded-3xl -rotate-3" />
-                  <img
-                    src={statusInfo.avatar_url}
-                    alt={statusInfo.roblox_user}
-                    className="relative w-full h-full object-cover rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
-                  />
-                  <span className="absolute -bottom-3 -right-3 text-4xl animate-bounce select-none">🐣</span>
-                </div>
-              ) : (
-                <div className="relative w-full max-w-[280px] aspect-square flex items-center justify-center">
-                  <div className="absolute inset-0 bg-[#FFF9E6] rounded-3xl -rotate-3" />
-                  <img
-                    src="/images/hero-chick.png"
-                    alt="Milumon Chick Mascot"
-                    className="relative w-full h-full object-contain drop-shadow-[0_16px_40px_rgba(0,0,0,0.12)]"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      const parent = e.currentTarget.parentElement;
-                      if (parent) {
-                        const div = document.createElement('div');
-                        div.className = 'relative text-center';
-                        div.innerHTML = `<div class='text-9xl animate-bounce select-none'>🐣</div>`;
-                        parent.appendChild(div);
-                      }
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* MINECRAFT FEATURE */}
-          <section className="overflow-hidden rounded-3xl bg-[#1B1D22] px-6 py-8 text-white shadow-[0_16px_40px_rgba(27,29,34,.14)] sm:px-10 sm:py-10">
-            <div className="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
-              <div className="max-w-2xl">
-                <div className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.16em] text-[#FFD500]">
-                  <span aria-hidden="true">⛏️</span>
-                  Nueva aventura
-                </div>
-                <h3 className="font-display text-3xl font-black tracking-tight sm:text-4xl">
-                  El servidor Minecraft del Team Pollito
-                </h3>
-                <p className="mt-3 max-w-xl text-sm font-medium leading-relaxed text-gray-300 sm:text-base">
-                  Entra al mundo de la comunidad, protege tus construcciones y juega con otros pollitos. Vincula tu cuenta para desbloquear el acceso.
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-3">
-                <Link href="/minecraft" className="rounded-xl bg-[#FFD500] px-5 py-3 text-sm font-black text-black transition hover:brightness-105">
-                  Ver servidor
-                </Link>
-                <Link href="/minecraft/link" className="rounded-xl border border-white/20 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">
-                  Vincular cuenta
-                </Link>
               </div>
             </div>
           </section>
 
+          {/* JUEGA CON NOSOTROS */}
+          <section className="order-3 space-y-6">
+            <div className="text-center">
+              <p className="font-display text-xs font-bold uppercase tracking-[0.25em] text-[#D4A000]">Dos formas de jugar</p>
+              <h3 className="mt-2 font-display text-3xl font-bold tracking-tight text-[#2D3139] sm:text-4xl">Juega con nosotros</h3>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              <article className="flex h-full flex-col overflow-hidden rounded-3xl border-2 border-[#FFD500] bg-white shadow-[8px_8px_0_#FFD500]">
+                <div className="flex min-h-48 items-center justify-center bg-[#FFF7DC] p-6 sm:min-h-56">
+                  <img src="/images/polooficial.webp" alt="Polo oficial del Team Pollito en Roblox" className="h-44 w-44 object-contain drop-shadow-[0_12px_18px_rgba(76,59,18,.16)] sm:h-52 sm:w-52" />
+                </div>
+                <div className="flex flex-1 flex-col p-6 sm:p-7">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D4A000]">Roblox</p>
+                  <h4 className="mt-2 font-display text-2xl font-bold text-[#2D3139]">La comunidad oficial</h4>
+                  <p className="mt-3 flex-1 text-sm font-medium leading-relaxed text-[#64748B]">Únete al grupo oficial de Team Pollito y lleva el polo oficial en tus partidas.</p>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <a href={ROBLOX_COMMUNITY_URL} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl bg-[#FFD500] px-4 py-3 text-sm font-black text-black transition hover:brightness-105">Unirte a la comunidad</a>
+                    <a href={ROBLOX_SHIRT_URL} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center rounded-xl border-2 border-[#E8DFC5] px-4 py-3 text-sm font-black text-[#64748B] transition hover:border-[#FFD500]">Ver polo oficial</a>
+                  </div>
+                </div>
+              </article>
+              <article className="flex h-full flex-col overflow-hidden rounded-3xl border-2 border-[#FFD500] bg-[#1B1D22] text-white shadow-[8px_8px_0_#FFD500]">
+                <div className="flex min-h-48 items-center justify-center bg-[radial-gradient(circle_at_center,_#35373d,_#1B1D22)] p-6 sm:min-h-56"><span className="text-8xl drop-shadow-[4px_4px_0_rgba(0,0,0,.3)]" aria-hidden="true">⛏️</span></div>
+                <div className="flex flex-1 flex-col p-6 sm:p-7">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#FFD500]">Minecraft</p>
+                  <h4 className="mt-2 font-display text-2xl font-bold">Construye con los pollitos</h4>
+                  <p className="mt-3 flex-1 text-sm font-medium leading-relaxed text-gray-300">Explora y construye en un mundo compartido para 20 jugadores. Necesitas una cuenta de la comunidad y la aprobación de un Administrador.</p>
+                  <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                    <Link href="/minecraft" className="inline-flex items-center justify-center rounded-xl bg-[#FFD500] px-4 py-3 text-sm font-black text-black transition hover:brightness-105">Ver servidor</Link>
+                    <Link href="/minecraft/guias#como-entrar" className="inline-flex items-center justify-center rounded-xl border border-white/25 px-4 py-3 text-sm font-black text-white transition hover:bg-white/10">Cómo entrar</Link>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
           {/* TESTIMONIOS: inmediatamente debajo del hero */}
-          <section id="testimonios" className="space-y-6 py-2">
+          <section id="testimonios" className="order-6 space-y-6 py-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -759,26 +742,28 @@ export default function ComunidadPage() {
 
           </section>
 
-          <TikTokRankingLanding accessToken={session?.access_token} />
+          <div className="order-5">
+            <TikTokRankingLanding accessToken={session?.access_token} />
+          </div>
 
           {/* BENEFICIOS SECTION */}
-          <section id="beneficios" className="space-y-6 pt-8">
+          <section id="beneficios" className="order-2 space-y-6 pt-8">
             <div className="text-center">
               <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
-                ¿Qué obtienes al entrar? 🐣
+                ¿Qué puedes hacer en Team Pollito? 🐣
               </h3>
               <p className="font-sans text-xs text-gray-500 font-bold mt-2">
-                Beneficios especiales para toda el que sea Team Pollito
+                Juega, participa y comparte con la comunidad.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {[
-                { emoji: '🐣', title: 'Juega en vivo con Milumon', desc: 'Únete a las partidas de Roblox y diviértete.' },
-                { emoji: '📣', title: 'Controla el Stream', desc: 'Envía divertidos sonidos y mensajes TTS en vivo.' },
-                { emoji: '🎁', title: 'Sorteos de Robux', desc: 'Participa automáticamente en los sorteos del grupo.' },
-                { emoji: '✨', title: 'Lluvia de Efectos', desc: 'Lanza animaciones de patitas y plumas en pantalla.' },
-                { emoji: '⭐', title: 'Destaca tu Avatar', desc: 'Muestra tu personaje oficial en la lista de miembros.' },
-                { emoji: '🤝', title: 'Conoce nuevos amigos', desc: 'Charla y juega con otros pollitos de la comunidad.' }
+                { emoji: '🎮', title: 'Participa en el LIVE', desc: 'Envía sonidos, efectos y mensajes que aparecen en directo.' },
+                { emoji: '🏆', title: 'Mira los rankings', desc: 'Descubre quiénes destacaron en la comunidad.' },
+                { emoji: '🎲', title: 'Juega Roblox', desc: 'Únete al grupo y juega con otros pollitos.' },
+                { emoji: '⛏️', title: 'Juega Minecraft', desc: 'Construye y explora en un mundo compartido.' },
+                { emoji: '⭐', title: 'Personaliza tu perfil', desc: 'Conecta tus cuentas y muestra tu identidad.' },
+                { emoji: '🤝', title: 'Conoce otros pollitos', desc: 'Participa y juega siempre con respeto.' }
               ].map((b, i) => (
                 <div key={i} className="bg-white border border-gray-200/80 p-7 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,.06)] hover:shadow-[0_8px_24px_rgba(0,0,0,.1)] hover:translate-y-[-2px] transition-all duration-200 flex flex-col items-start gap-4">
                   <span className="text-4xl">{b.emoji}</span>
@@ -796,13 +781,13 @@ export default function ComunidadPage() {
           </section>
 
           {/* TIMELINE DE INGRESO */}
-          <section id="timeline-ingreso" className="space-y-8 pt-8">
+          <section id="timeline-ingreso" className="order-7 space-y-8 pt-8">
             <div className="text-center">
               <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
-                Cómo ingresar al Team Pollito 🐣
+                ¿Quieres ser Miembro Oficial? 🐣
               </h3>
               <p className="font-sans text-sm text-gray-500 mt-2">
-                Sigue estos 5 sencillos pasos para unirte
+                Completa estos pasos para unirte oficialmente al equipo.
               </p>
             </div>
             <div className="relative">
@@ -810,11 +795,11 @@ export default function ComunidadPage() {
               <div className="hidden md:block absolute top-6 left-[10%] right-[10%] h-px border-t border-dashed border-[#E5D9B4] z-0" />
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6">
                 {[
-                  { id: '1', title: 'Inicia Sesión', desc: 'Inicia sesión de forma rápida y segura con tu cuenta de Google.', icon: LogIn },
-                  { id: '2', title: 'Elige tu Horario', desc: 'Selecciona una fecha y hora libre en nuestro calendario de admisiones.', icon: CalendarDays },
-                  { id: '3', title: 'Vincula Cuentas', desc: 'Introduce tus nombres oficiales de Roblox y TikTok para tu verificación.', icon: Link2 },
-                  { id: '4', title: 'Entrevista en Vivo', desc: 'Preséntate en el stream en vivo de Milumon en la fecha que elegiste.', icon: Headphones },
-                  { id: '5', title: 'Acceso VIP', desc: '¡Listo! Si eres aprobado, obtendrás tu rango VIP y la consola de stream.', icon: Crown }
+                  { id: '1', title: 'Crea tu cuenta', desc: 'Inicia sesión de forma rápida y segura con Google.', icon: LogIn },
+                  { id: '2', title: 'Elige un horario', desc: 'Selecciona una fecha y hora disponible para tu entrevista.', icon: CalendarDays },
+                  { id: '3', title: 'Conecta Roblox y TikTok', desc: 'Comparte tus cuentas para que podamos comprobarlas.', icon: Link2 },
+                  { id: '4', title: 'Preséntate en el LIVE', desc: 'Habla con Milumon en el directo del horario que elegiste.', icon: Headphones },
+                  { id: '5', title: 'Espera la aprobación', desc: 'Si eres aprobado, aparecerás como Miembro Oficial.', icon: Crown }
                 ].map((step, idx) => (
                   <div key={idx} className="relative z-10 flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-[0_4px_16px_rgba(0,0,0,.05)] md:flex-col md:items-center md:gap-3 md:border-transparent md:bg-transparent md:p-0 md:text-center md:shadow-none">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FFF7DC] text-[#D4A000] md:h-12 md:w-12">
@@ -839,7 +824,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* REGLAS & TESTIMONIOS */}
-          <section id="reglas-testimonios" className="w-full pt-8">
+          <section id="reglas-testimonios" className="order-4 w-full pt-8">
             <div id="reglas" className="w-full space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <span className="text-lg">📋</span>
@@ -848,8 +833,8 @@ export default function ComunidadPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 {[
                   { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
-                  { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
-                  { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos.' }
+                  { id: '02', title: 'Nada de spam', desc: 'No llenes el chat ni publiques tus propias cuentas sin permiso.' },
+                  { id: '03', title: 'Protege tu información', desc: 'No compartas datos personales y avisa si alguien te molesta.' }
                 ].map(rule => (
                   <div key={rule.id} className="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_4px_12px_rgba(0,0,0,.04)]">
                     <span className="shrink-0 w-7 h-7 rounded-full bg-[#FFC200]/15 text-[#D4A000] font-display font-bold text-xs flex items-center justify-center border border-[#FFC200]/20">{rule.id}</span>
@@ -871,7 +856,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* ADMISIÓN / VIP SECTION */}
-          <section id="admision" className="pt-8">
+          <section id="admision" className="order-8 pt-8">
             {session && !loadingStatus && statusInfo.status === 'approved' ? (
               null
             ) : (
@@ -1527,7 +1512,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* SECCIÓN MIEMBROS OFICIALES */}
-          <section id="miembros" className="bg-white border border-gray-200 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,.06)] space-y-6 pt-8">
+          <section id="miembros" className="order-9 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 pt-8 shadow-[0_4px_20px_rgba(0,0,0,.06)]">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <h3 className="font-display font-bold text-xl flex items-center gap-2 text-[#2D3139]">
                 👥 Miembros Oficiales
@@ -1618,13 +1603,13 @@ export default function ComunidadPage() {
             </button>
             <div className="flex items-center gap-2 mb-5 pb-4 border-b border-gray-100">
               <span className="text-xl">📋</span>
-              <h3 className="font-display font-bold text-xl text-[#2D3139]">Reglamento Completo</h3>
+              <h3 className="font-display font-bold text-xl text-[#2D3139]">Todas las reglas</h3>
             </div>
             <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1">
               {[
                 { id: '01', title: 'Respeto ante todo', desc: 'Sé amable y respeta a todos los miembros.' },
-                { id: '02', title: 'No spam ni autopromoción', desc: 'Mantén el chat limpio y de calidad.' },
-                { id: '03', title: 'No toxicidad', desc: 'Cero tolerancia a comportamientos tóxicos o discusiones agresivas.' },
+                { id: '02', title: 'Nada de spam', desc: 'No llenes el chat ni publiques tus propias cuentas sin permiso.' },
+                { id: '03', title: 'Protege tu información', desc: 'No compartas datos personales y avisa si alguien te molesta.' },
                 { id: '04', title: 'Sigue al staff', desc: 'Escucha y respeta las indicaciones de moderadores y administradores.' },
                 { id: '05', title: 'Diviértete', desc: 'Disfruta al máximo, apoya a los demás y pásala de 10.' }
               ].map(rule => (

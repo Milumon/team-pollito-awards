@@ -107,7 +107,7 @@ export function PwaInstallWidget() {
         <div>
           <p className="font-display text-sm font-bold text-[#2D3139]">Lleva el Team Pollito contigo</p>
           <p className="mt-1 text-xs font-medium leading-relaxed text-gray-500">
-            {isIOS ? 'Ten el Team Pollito a un toque desde tu pantalla de inicio.' : 'Instala la app para entrar más rápido desde tu celular.'}
+            {isIOS ? 'Ten el Team Pollito a un toque desde tu pantalla de inicio.' : 'Añade Team Pollito a tu pantalla de inicio para entrar más rápido.'}
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export function PwaInstallWidget() {
         </button>
         {!isIOS && (
           <button type="button" onClick={() => void install()} disabled={isInstalling} className="rounded-lg bg-[#FFC200] px-3 py-2 text-xs font-bold text-black transition hover:brightness-105 disabled:opacity-60">
-            {isInstalling ? 'Instalando...' : 'Instalar app'}
+            {isInstalling ? 'Añadiendo...' : 'Añadir a pantalla de inicio'}
           </button>
         )}
       </div>
