@@ -25,6 +25,9 @@ function createLinkCode() {
 export async function GET() {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (session.linkStatus !== 'approved') {
+    return NextResponse.json({ error: 'Solo los Miembros Oficiales pueden vincular Minecraft.' }, { status: 403 });
+  }
 
   const { data, error } = await supabaseAdmin
     .from('minecraft_accounts')
@@ -49,6 +52,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const session = await getServerSession();
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (session.linkStatus !== 'approved') {
+    return NextResponse.json({ error: 'Solo los Miembros Oficiales pueden vincular Minecraft.' }, { status: 403 });
+  }
 
   let body: { edition?: unknown; username?: unknown; playerId?: unknown };
   try {

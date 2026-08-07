@@ -56,6 +56,9 @@ type InterviewStatus = {
   testimonial_approved?: boolean;
   is_admin?: boolean;
   already_interviewed?: boolean;
+  needs_application?: boolean;
+  legacy_minecraft_username?: string | null;
+  legacy_minecraft_edition?: 'java' | 'bedrock' | null;
 };
 
 type VerifiedRobloxProfile = {
@@ -672,6 +675,26 @@ export default function ComunidadPage() {
                     </Link>
                     <Button variant="secondary" size="lg" className="w-full sm:w-auto" onClick={requestPwaInstall}>
                       📲 Añadir a pantalla de inicio
+                    </Button>
+                  </div>
+                </>
+              ) : session && statusInfo.needs_application ? (
+                <>
+                  <div className="flex items-start gap-4">
+                    <h2 className="font-display text-4xl font-bold leading-none tracking-tight text-left sm:text-5xl md:text-6xl">
+                      Completa tu <br />
+                      <span className="mt-1 block font-display text-4xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-5xl md:text-6xl">
+                        registro
+                      </span>
+                    </h2>
+                    <span className="shrink-0 text-5xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] md:text-6xl">📝</span>
+                  </div>
+                  <p className="max-w-xl font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
+                    Detectamos una vinculación de Minecraft, pero todavía no tienes una postulación web. Completa tus datos para que un Administrador pueda revisar tu ingreso.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <Button variant="primary" size="lg" onClick={() => scrollToSection('admision')}>
+                      Completar mi registro
                     </Button>
                   </div>
                 </>

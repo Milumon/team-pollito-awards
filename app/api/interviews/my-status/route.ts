@@ -32,6 +32,17 @@ export async function GET(request: NextRequest) {
 
     const isAdminUser = !!profile?.is_admin;
 
+    const { data: legacyMinecraftAccount, error: minecraftError } = await supabaseAdmin
+      .from('minecraft_accounts')
+      .select('edition, username')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (minecraftError) {
+      return NextResponse.json({ error: minecraftError.message }, { status: 500 });
+    }
+
     if (profile?.link_status === 'approved') {
       return NextResponse.json({
         status: 'approved',
@@ -103,7 +114,13 @@ export async function GET(request: NextRequest) {
         .eq('id', user.id);
     }
 
-    return NextResponse.json({ status: 'none', is_admin: isAdminUser });
+    return NextResponse.json({
+      status: 'none',
+      is_admin: isAdminUser,
+      needs_application: Boolean(legacyMinecraftAccount),
+      legacy_minecraft_username: legacyMinecraftAccount?.username || null,
+      legacy_minecraft_edition: legacyMinecraftAccount?.edition || null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
