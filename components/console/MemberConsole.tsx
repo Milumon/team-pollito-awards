@@ -35,6 +35,11 @@ import { TikTokRankingConsole } from '@/components/tiktok-rankings/RankingViews'
 import { TikTokRankingHistory } from '@/components/tiktok-rankings/HistoryViews';
 import { MemberHomeView } from '@/components/console/routes/MemberHomeView';
 import { MemberSoundsView } from '@/components/console/routes/MemberSoundsView';
+import {
+  MEMBER_DISPLAY_NAME_INPUT_PATTERN,
+  MEMBER_DISPLAY_NAME_MAX_LENGTH,
+  MEMBER_DISPLAY_NAME_MIN_LENGTH,
+} from '@/lib/memberDisplayName';
 const AudioPreview = dynamic(() => import('@/components/ui/AudioPreview'), { ssr: false });
 
 type StoredRobloxProfile = {
@@ -1437,18 +1442,22 @@ export default function MemberConsole({
                             value={newNickname}
                             onChange={(e) => {
                               const val = e.target.value;
-                              if (val.length <= 15) {
+                              if (val.length <= MEMBER_DISPLAY_NAME_MAX_LENGTH) {
                                   setNewNickname(val);
                               }
                             }}
                             placeholder="Ej: Milumon"
+                            minLength={MEMBER_DISPLAY_NAME_MIN_LENGTH}
+                            maxLength={MEMBER_DISPLAY_NAME_MAX_LENGTH}
+                            pattern={MEMBER_DISPLAY_NAME_INPUT_PATTERN}
+                            title="Usa letras, números, espacios y, como máximo, un guion bajo en posición intermedia."
                             disabled={submittingNickname}
                             className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3 font-semibold text-sm outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] disabled:opacity-50 text-white placeholder-gray-500 "
                             required
                           />
                           <div className="flex justify-between text-[8px] font-mono text-gray-500">
-                            <span>Solo letras, números y espacios</span>
-                            <span>{newNickname.length}/15</span>
+                            <span>Letras, números, espacios y un _ intermedio</span>
+                            <span>{newNickname.length}/{MEMBER_DISPLAY_NAME_MAX_LENGTH}</span>
                           </div>
                         </div>
 
@@ -1468,7 +1477,7 @@ export default function MemberConsole({
 
                         <button
                           type="submit"
-                          disabled={submittingNickname || newNickname.trim().length < 3 || newNickname.trim().length > 15}
+                          disabled={submittingNickname || newNickname.trim().length < MEMBER_DISPLAY_NAME_MIN_LENGTH || newNickname.trim().length > MEMBER_DISPLAY_NAME_MAX_LENGTH}
                           className="w-full py-3.5 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                           {submittingNickname ? (
@@ -1789,18 +1798,22 @@ export default function MemberConsole({
                     value={newNickname}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (val.length <= 15) {
+                      if (val.length <= MEMBER_DISPLAY_NAME_MAX_LENGTH) {
                         setNewNickname(val);
                       }
                     }}
                     placeholder="Ej: Milumon"
+                    minLength={MEMBER_DISPLAY_NAME_MIN_LENGTH}
+                    maxLength={MEMBER_DISPLAY_NAME_MAX_LENGTH}
+                    pattern={MEMBER_DISPLAY_NAME_INPUT_PATTERN}
+                    title="Usa letras, números, espacios y, como máximo, un guion bajo en posición intermedia."
                     disabled={submittingNickname}
                     className="w-full bg-[#2b2d31] border border-neutral-700/60 rounded-2xl p-3 font-semibold text-sm outline-none focus:border-[#FFC200] focus:ring-1 focus:ring-[#FFC200] text-white placeholder-gray-600 "
                     required
                   />
                   <div className="flex justify-between text-[8px] font-mono text-gray-500">
-                    <span>Solo letras, números y espacios</span>
-                    <span>{newNickname.length}/15</span>
+                    <span>Letras, números, espacios y un _ intermedio</span>
+                    <span>{newNickname.length}/{MEMBER_DISPLAY_NAME_MAX_LENGTH}</span>
                   </div>
                 </div>
 
@@ -1820,7 +1833,7 @@ export default function MemberConsole({
 
                 <button
                   type="submit"
-                  disabled={submittingNickname || newNickname.trim().length < 3 || newNickname.trim().length > 15}
+                  disabled={submittingNickname || newNickname.trim().length < MEMBER_DISPLAY_NAME_MIN_LENGTH || newNickname.trim().length > MEMBER_DISPLAY_NAME_MAX_LENGTH}
                   className="w-full py-3 bg-[#FFC200] hover:brightness-105 text-black font-display font-semibold text-xs rounded-lg border border-neutral-700/60 transition-all flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,0,0,.3)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {submittingNickname ? (

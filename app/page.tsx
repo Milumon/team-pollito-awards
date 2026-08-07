@@ -26,6 +26,11 @@ import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
 import { TikTokRankingLanding } from '@/components/tiktok-rankings/RankingViews';
 import { PwaInstallWidget, requestPwaInstall } from '@/components/PwaInstallWidget';
+import {
+  MEMBER_DISPLAY_NAME_INPUT_PATTERN,
+  MEMBER_DISPLAY_NAME_MAX_LENGTH,
+  MEMBER_DISPLAY_NAME_MIN_LENGTH,
+} from '@/lib/memberDisplayName';
 
 type Member = {
   roblox_user: string;
@@ -1712,9 +1717,10 @@ export default function ComunidadPage() {
                 <input
                   value={identityDisplayName}
                   onChange={(event) => setIdentityDisplayName(event.target.value)}
-                  minLength={3}
-                  maxLength={15}
-                  pattern="[a-zA-Z0-9 ]+"
+                  minLength={MEMBER_DISPLAY_NAME_MIN_LENGTH}
+                  maxLength={MEMBER_DISPLAY_NAME_MAX_LENGTH}
+                  pattern={MEMBER_DISPLAY_NAME_INPUT_PATTERN}
+                  title="Usa letras, números, espacios y, como máximo, un guion bajo en posición intermedia."
                   required
                   className="mt-2 w-full rounded-xl border border-white/15 bg-[#25282e] px-4 py-3 text-white outline-none placeholder:text-gray-500 focus:border-[#FFD500]"
                   placeholder="Ejemplo: Pollito123"

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { tagRobloxUser } from '@/lib/robloxAdmin';
+import { isValidMemberDisplayName } from '@/lib/memberDisplayName';
 
 const DEFAULT_NAME = (robloxUser: string) => `🐣 ${robloxUser} 🐣`;
-const NAME_PATTERN = /^[a-zA-Z0-9 ]+$/;
 const TIKTOK_PATTERN = /^[a-zA-Z0-9._]{1,24}$/;
 
 async function getUser(request: NextRequest) {
@@ -60,8 +60,8 @@ export async function POST(request: NextRequest) {
   const tiktokUser = typeof body.tiktokUser === 'string' ? body.tiktokUser.trim().replace(/^@/, '').toLowerCase() : '';
   const minecraftUsername = typeof body.minecraftUsername === 'string' ? body.minecraftUsername.trim() : '';
 
-  if (displayName.length < 3 || displayName.length > 15 || !NAME_PATTERN.test(displayName)) {
-    return NextResponse.json({ error: 'El Nombre Oficial debe tener entre 3 y 15 caracteres y solo puede usar letras, números y espacios.' }, { status: 400 });
+  if (!isValidMemberDisplayName(displayName)) {
+    return NextResponse.json({ error: 'El Nombre Oficial debe tener entre 3 y 15 caracteres y solo puede usar letras, números, espacios y un guion bajo en posición intermedia.' }, { status: 400 });
   }
   if (!tiktokUser || !TIKTOK_PATTERN.test(tiktokUser)) {
     return NextResponse.json({ error: 'Escribe un usuario de TikTok válido.' }, { status: 400 });

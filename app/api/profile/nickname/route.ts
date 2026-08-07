@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+import { isValidMemberDisplayName } from '@/lib/memberDisplayName';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || '',
@@ -149,19 +151,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'El nombre no puede estar vacío.' }, { status: 400 });
     }
 
-    // Regex: solo alfanumérico y espacios simples
-    const nicknameRegex = /^[a-zA-Z0-9 ]+$/;
-    if (!nicknameRegex.test(nicknameInput)) {
+    if (!isValidMemberDisplayName(nicknameInput)) {
       return NextResponse.json(
-        { error: 'El nickname solo puede contener letras, números y espacios.' },
-        { status: 400 }
-      );
-    }
-
-    // Longitud: 3 a 15 caracteres
-    if (nicknameInput.length < 3 || nicknameInput.length > 15) {
-      return NextResponse.json(
-        { error: 'El nickname debe tener entre 3 y 15 caracteres.' },
+        { error: 'El nickname debe tener entre 3 y 15 caracteres y solo puede contener letras, números, espacios y un guion bajo en posición intermedia.' },
         { status: 400 }
       );
     }
