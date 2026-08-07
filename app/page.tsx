@@ -49,7 +49,10 @@ type InterviewStatus = {
   interview_date?: string;
   interview_time?: string;
   roblox_user?: string;
+  roblox_display_name?: string | null;
   tiktok_user?: string;
+  declared_minecraft_username?: string | null;
+  identity_confirmed_at?: string | null;
   ban_reason?: string;
   return_reason?: string;
   rejection_reason?: string;
@@ -150,6 +153,14 @@ export default function ComunidadPage() {
   // Modal Rules State
   const [showRulesModal, setShowRulesModal] = useState(false);
 
+  // Initial identity confirmation
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [identityDisplayName, setIdentityDisplayName] = useState('');
+  const [identityTiktokUser, setIdentityTiktokUser] = useState('');
+  const [identityMinecraftUsername, setIdentityMinecraftUsername] = useState('');
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const [identityError, setIdentityError] = useState<string | null>(null);
+
   // Loading states
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
@@ -218,6 +229,14 @@ export default function ComunidadPage() {
         const data = await res.json();
         console.log('DEBUG: /api/interviews/my-status devolvió:', data);
         setStatusInfo(data);
+        if (data.status === 'approved') {
+          const suggestedName = data.roblox_user || 'Pollito';
+          const savedName = data.roblox_display_name?.replace(/^🐣\s*|\s*🐣$/g, '').trim();
+          setIdentityDisplayName(data.identity_confirmed_at ? (savedName || suggestedName) : suggestedName);
+          setIdentityTiktokUser(data.tiktok_user || '');
+          setIdentityMinecraftUsername(data.declared_minecraft_username || '');
+          setIdentityModalOpen(!data.identity_confirmed_at);
+        }
         if (data.testimonial) {
           setUserTestimonial(data.testimonial);
         }
@@ -242,6 +261,52 @@ export default function ComunidadPage() {
       console.error('DEBUG ERROR: Excepción en fetchUserStatus:', err);
     } finally {
       setLoadingStatus(false);
+    }
+  };
+
+  const handleIdentitySubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!session) return;
+    setIdentitySaving(true);
+    setIdentityError(null);
+
+    try {
+      const response = await fetch('/api/profile/identity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          displayName: identityDisplayName,
+          tiktokUser: identityTiktokUser,
+          minecraftUsername: identityMinecraftUsername,
+        }),
+      });
+      const data = await response.json() as { error?: string; identityConfirmed?: boolean; detailsSaved?: boolean; profile?: InterviewStatus };
+      if (!response.ok) {
+        if (data.detailsSaved) {
+          setStatusInfo((current) => ({
+            ...current,
+            tiktok_user: identityTiktokUser.replace(/^@/, '').trim().toLowerCase(),
+            declared_minecraft_username: identityMinecraftUsername.trim() || null,
+          }));
+        }
+        throw new Error(data.error || 'No se pudo confirmar tu identidad.');
+      }
+
+      setStatusInfo((current) => ({
+        ...current,
+        roblox_display_name: data.profile?.roblox_display_name || `🐣 ${identityDisplayName.trim()} 🐣`,
+        tiktok_user: data.profile?.tiktok_user || identityTiktokUser.trim().toLowerCase(),
+        declared_minecraft_username: data.profile?.declared_minecraft_username || identityMinecraftUsername.trim() || null,
+        identity_confirmed_at: data.profile?.identity_confirmed_at || new Date().toISOString(),
+      }));
+      setIdentityModalOpen(false);
+    } catch (error: unknown) {
+      setIdentityError(error instanceof Error ? error.message : 'No se pudo confirmar tu identidad.');
+    } finally {
+      setIdentitySaving(false);
     }
   };
 
@@ -1590,6 +1655,96 @@ export default function ComunidadPage() {
 
         </div>
       </div>
+
+      {identityModalOpen && session && statusInfo.status === 'approved' && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-[#090a0c]/75 p-4 backdrop-blur-sm">
+          <div className="my-6 w-full max-w-2xl rounded-3xl border-2 border-[#FFD500] bg-[#17191e] p-5 text-white shadow-[10px_10px_0_#FFD500] sm:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-display text-xs font-bold uppercase tracking-[0.22em] text-[#FFD500]">Miembro Oficial</p>
+                <h2 className="mt-2 font-display text-3xl font-black tracking-tight sm:text-4xl">Confirma tu identidad</h2>
+              </div>
+              <span className="text-4xl" aria-hidden="true">🐣</span>
+            </div>
+            <p className="mt-4 max-w-xl text-sm font-medium leading-relaxed text-gray-300">
+              Este será tu Nombre Oficial dentro de Team Pollito. Se mostrará en Roblox y Minecraft cuando tu cuenta esté vinculada.
+            </p>
+
+            <form onSubmit={handleIdentitySubmit} className="mt-6 space-y-5">
+              <label className="block text-sm font-bold text-white">
+                Nombre Oficial del Team
+                <input
+                  value={identityDisplayName}
+                  onChange={(event) => setIdentityDisplayName(event.target.value)}
+                  minLength={3}
+                  maxLength={15}
+                  pattern="[a-zA-Z0-9 ]+"
+                  required
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#25282e] px-4 py-3 text-white outline-none placeholder:text-gray-500 focus:border-[#FFD500]"
+                  placeholder="Ejemplo: Pollito123"
+                />
+                <span className="mt-1 block text-xs font-medium text-gray-500">Usaremos 🐣 {identityDisplayName.trim() || 'TuUsuario'} 🐣</span>
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-[#202328] p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#FFD500]">Roblox</p>
+                  <p className="mt-2 truncate font-black">🐣 {identityDisplayName.trim() || 'TuUsuario'} 🐣</p>
+                  <p className="mt-1 truncate text-xs text-gray-500">Cuenta: @{statusInfo.roblox_user}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-[#202328] p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#FFD500]">Minecraft</p>
+                  <p className="mt-2 truncate font-black">🐣 {identityDisplayName.trim() || 'TuUsuario'} 🐣</p>
+                  <p className="mt-1 text-xs text-gray-500">Se usará cuando apruebes tu cuenta.</p>
+                </div>
+              </div>
+
+              <label className="block text-sm font-bold text-white">
+                Usuario de TikTok
+                <div className="mt-2 flex gap-2">
+                  <span className="flex items-center rounded-xl border border-white/15 bg-[#25282e] px-3 text-gray-400">@</span>
+                  <input
+                    value={identityTiktokUser}
+                    onChange={(event) => setIdentityTiktokUser(event.target.value.replace(/^@/, ''))}
+                    maxLength={24}
+                    required
+                    className="min-w-0 flex-1 rounded-xl border border-white/15 bg-[#25282e] px-4 py-3 text-white outline-none placeholder:text-gray-500 focus:border-[#FFD500]"
+                    placeholder="tu_usuario"
+                  />
+                  <a href={`https://www.tiktok.com/@${identityTiktokUser.replace(/^@/, '').trim()}`} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center rounded-xl border border-white/15 px-3 text-xs font-bold text-gray-300 transition hover:border-[#FFD500] hover:text-white">Ver perfil</a>
+                </div>
+              </label>
+
+              <label className="block text-sm font-bold text-white">
+                Usuario de Minecraft <span className="font-medium text-gray-500">(opcional)</span>
+                <input
+                  value={identityMinecraftUsername}
+                  onChange={(event) => setIdentityMinecraftUsername(event.target.value)}
+                  maxLength={32}
+                  className="mt-2 w-full rounded-xl border border-white/15 bg-[#25282e] px-4 py-3 text-white outline-none placeholder:text-gray-500 focus:border-[#FFD500]"
+                  placeholder="Ejemplo: Pollito123"
+                />
+                <span className="mt-1 block text-xs font-medium text-gray-500">Guardaremos este dato para precargar la vinculación. Todavía no es acceso al servidor.</span>
+              </label>
+
+              {identityMinecraftUsername.trim() && (
+                <Link href={`/minecraft/link?username=${encodeURIComponent(identityMinecraftUsername.trim())}`} className="block rounded-xl border border-[#FFD500]/40 bg-[#FFD500]/10 px-4 py-3 text-sm font-bold text-[#FFD500] transition hover:bg-[#FFD500]/20">
+                  Después podrás vincular {identityMinecraftUsername.trim()} en Minecraft →
+                </Link>
+              )}
+
+              {identityError && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-200">{identityError}</div>
+              )}
+
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setIdentityModalOpen(false)} className="rounded-xl border border-white/15 px-5 py-3 text-sm font-bold text-gray-300 transition hover:bg-white/5">Ahora no</button>
+                <button type="submit" disabled={identitySaving} className="rounded-xl bg-[#FFD500] px-5 py-3 text-sm font-black text-black transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50">{identitySaving ? 'Guardando...' : 'Confirmar mi identidad'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE REGLAS COMPLETAS */}
       {showRulesModal && (

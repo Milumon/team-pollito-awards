@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     // 2. Check profiles link_status first
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('link_status, roblox_user, roblox_user_id, tiktok_user, roblox_avatar_url, rejection_reason, testimonial, testimonial_approved, is_admin')
+      .select('link_status, roblox_user, roblox_user_id, roblox_display_name, tiktok_user, roblox_avatar_url, declared_minecraft_username, identity_confirmed_at, rejection_reason, testimonial, testimonial_approved, is_admin')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -36,8 +36,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         status: 'approved',
         roblox_user: profile.roblox_user,
+        roblox_display_name: profile.roblox_display_name,
         tiktok_user: profile.tiktok_user,
         avatar_url: profile.roblox_avatar_url,
+        declared_minecraft_username: profile.declared_minecraft_username,
+        identity_confirmed_at: profile.identity_confirmed_at,
         testimonial: profile.testimonial,
         testimonial_approved: profile.testimonial_approved,
         is_admin: isAdminUser,

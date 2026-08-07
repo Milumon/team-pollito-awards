@@ -8,6 +8,7 @@ const supabaseAdmin = createClient(
 );
 
 let cachedBotId: number | null = null;
+const ROBLOX_NOT_FRIEND_MESSAGE = 'No tienes agregado a MilumonRT como amigo en Roblox. Agrégalo y vuelve a intentarlo.';
 
 async function getBotUserId(cookie: string): Promise<number | null> {
   if (cachedBotId) return cachedBotId;
@@ -88,6 +89,9 @@ async function setRobloxContactTag(
     if (!response.ok) {
       const text = await response.text();
       console.error(`Roblox API Error (${response.status}):`, text);
+      if (response.status === 403 && text.includes('"code":3') && text.toLowerCase().includes('not a friend')) {
+        return { success: false, error: ROBLOX_NOT_FRIEND_MESSAGE };
+      }
       return { success: false, error: `Error de Roblox (${response.status}): ${text || 'desconocido'}` };
     }
 
@@ -215,8 +219,11 @@ export async function POST(request: NextRequest) {
     const robloxResult = await setRobloxContactTag(Number(profile.roblox_user_id), finalTag, cleanCookie);
 
     if (!robloxResult.success) {
+      const errorMessage = robloxResult.error === ROBLOX_NOT_FRIEND_MESSAGE
+        ? robloxResult.error
+        : `No se pudo actualizar tu tag en Roblox. Detalle: ${robloxResult.error || 'error desconocido.'}`;
       return NextResponse.json(
-        { error: `No se pudo actualizar tu tag en Roblox. Detalle: ${robloxResult.error || 'error desconocido.'}` },
+        { error: errorMessage },
         { status: 502 }
       );
     }
