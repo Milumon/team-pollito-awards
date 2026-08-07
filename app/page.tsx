@@ -1677,6 +1677,11 @@ export default function ComunidadPage() {
             <p className="mt-4 max-w-xl text-sm font-medium leading-relaxed text-gray-300">
               Este será tu Nombre Oficial dentro de Team Pollito. Se mostrará en Roblox y Minecraft cuando tu cuenta esté vinculada.
             </p>
+            {statusInfo.is_admin && statusInfo.roblox_user?.toLowerCase() === 'milumonrt' && (
+              <p className="mt-3 rounded-xl border border-[#FFD500]/25 bg-[#FFD500]/10 px-4 py-3 text-xs font-semibold leading-relaxed text-[#FFE98A]">
+                Como Administrador, tu nombre se guardará en Team Pollito y Minecraft. Roblox no intentará etiquetar tu propia cuenta.
+              </p>
+            )}
 
             <form onSubmit={handleIdentitySubmit} className="mt-6 space-y-5">
               <label className="block text-sm font-bold text-white">

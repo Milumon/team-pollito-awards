@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
-    .select('link_status, roblox_user_id, roblox_display_name')
+    .select('link_status, roblox_user_id, roblox_user, roblox_display_name, is_admin')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -93,15 +93,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No se pudieron guardar tus cuentas.' }, { status: 500 });
   }
 
-  try {
-    await tagRobloxUser(Number(profile.roblox_user_id), 'add', `🐣 ${displayName} 🐣`);
-  } catch (error) {
-    console.error('[Identity confirmation Roblox]:', error);
-    return NextResponse.json({
-      error: friendlyRobloxError(error),
-      identityConfirmed: false,
-      detailsSaved: true,
-    }, { status: 502 });
+  const isOwnerRobloxAccount = profile.is_admin && profile.roblox_user?.toLowerCase() === 'milumonrt';
+  if (!isOwnerRobloxAccount) {
+    try {
+      await tagRobloxUser(Number(profile.roblox_user_id), 'add', `🐣 ${displayName} 🐣`);
+    } catch (error) {
+      console.error('[Identity confirmation Roblox]:', error);
+      return NextResponse.json({
+        error: friendlyRobloxError(error),
+        identityConfirmed: false,
+        detailsSaved: true,
+      }, { status: 502 });
+    }
   }
 
   const { data: updatedProfile, error: updateError } = await supabaseAdmin
