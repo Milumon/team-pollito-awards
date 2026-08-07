@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import {
@@ -9,12 +10,8 @@ import {
   Check,
   Lock,
   ShieldAlert,
-  LogOut,
   Loader,
   Users,
-  ChevronRight,
-  Menu,
-  X,
   CalendarDays,
   Crown,
   Headphones,
@@ -27,8 +24,6 @@ import { Session } from '@supabase/supabase-js';
 import { Header } from '@/components/ui/Header';
 import { NavBar } from '@/components/ui/NavBar';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { TikTokRankingLanding } from '@/components/tiktok-rankings/RankingViews';
 import { PwaInstallWidget, requestPwaInstall } from '@/components/PwaInstallWidget';
 
@@ -80,6 +75,11 @@ type Testimonial = {
 const ROBLOX_COMMUNITY_URL = 'https://www.roblox.com/es/communities/994126945/MILUMON-TEAM-POLLITO#!/about';
 const ROBLOX_SHIRT_URL = 'https://www.roblox.com/es/catalog/75919610314518/Camiseta-Team-Pollito';
 
+function getMemberDisplayName(status: InterviewStatus) {
+  const displayName = status.roblox_display_name?.trim().replace(/^🐣\s*|\s*🐣$/g, '').trim();
+  return displayName || status.roblox_user || 'POLLITO';
+}
+
 // Roles estáticos mapeados por Roblox username
 const getMemberRole = (username: string) => {
   const name = username.toLowerCase().replace('@', '').trim();
@@ -109,7 +109,7 @@ function TestimonialCarousel({ testimonials }: { testimonials: Testimonial[] }) 
             className="testimonial-card relative shrink-0 overflow-hidden rounded-[22px] bg-[#f5e9bc] shadow-[0_10px_26px_rgba(76,59,18,.12)]"
           >
             {t.roblox_avatar_url ? (
-              <img src={t.roblox_avatar_url} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" style={{ transform: 'scale(1.35) translateY(-3%)', transformOrigin: 'center top' }} />
+              <Image src={t.roblox_avatar_url} alt="" aria-hidden="true" fill sizes="320px" unoptimized className="absolute inset-0 h-full w-full object-cover" style={{ transform: 'scale(1.35) translateY(-3%)', transformOrigin: 'center top' }} />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center bg-[#fff8dc] text-7xl">🐣</div>
             )}
@@ -147,7 +147,6 @@ export default function ComunidadPage() {
   const [testimonialSubmitting, setTestimonialSubmitting] = useState(false);
   const [testimonialSuccess, setTestimonialSuccess] = useState(false);
   const [testimonialError, setTestimonialError] = useState<string | null>(null);
-  const [isEditingTestimonial, setIsEditingTestimonial] = useState(false);
   const [showTestimonialModal, setShowTestimonialModal] = useState(false);
 
   // Modal Rules State
@@ -357,7 +356,6 @@ export default function ComunidadPage() {
       }
 
       setTestimonialSuccess(true);
-      setIsEditingTestimonial(false);
       setStatusInfo(prev => ({
         ...prev,
         testimonial: userTestimonial.trim(),
@@ -529,7 +527,8 @@ export default function ComunidadPage() {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      element.style.scrollMarginTop = '88px';
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -646,32 +645,32 @@ export default function ComunidadPage() {
           {/* HERO SECTION */}
           <section className="relative isolate min-h-[650px] overflow-hidden rounded-[2rem] bg-[#101216] text-white shadow-[0_20px_60px_rgba(27,29,34,.18)] sm:min-h-[620px]">
             <div className="absolute inset-0 -z-20 bg-[#101216]" />
-            <img src="/images/fondo.png" alt="" aria-hidden="true" className="absolute inset-0 -z-10 hidden h-full w-full object-cover object-center md:block" />
-            <img src="/images/fondomobileadaptado.png" alt="" aria-hidden="true" className="absolute inset-0 -z-10 h-full w-full object-cover object-top md:hidden" />
+            <Image src="/images/fondo.png" alt="" aria-hidden="true" fill sizes="100vw" className="absolute inset-0 -z-10 hidden h-full w-full object-cover object-center md:block" />
+            <Image src="/images/fondomobileadaptado.png" alt="" aria-hidden="true" fill sizes="100vw" className="absolute inset-0 -z-10 h-full w-full object-cover object-top md:hidden" />
             <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#0c0e12]/95 via-[#0c0e12]/70 to-transparent md:from-[#0c0e12]/90 md:via-[#0c0e12]/45" />
             <div className="flex min-h-[650px] items-start px-6 pb-12 pt-28 sm:min-h-[620px] sm:px-10 sm:pb-14 sm:pt-32 md:items-center md:pt-8">
               <div className="max-w-xl space-y-6">
               {session && statusInfo.status === 'approved' ? (
                 <>
-                  <div className="flex items-start gap-4">
-                    <h2 className="font-display text-4xl font-bold leading-none tracking-tight text-left sm:text-5xl md:text-6xl">
-                      ¡Bienvenido al Team, <br />
-                      <span className="mt-1 block font-display text-4xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-5xl md:text-6xl">
-                        @{statusInfo.roblox_user || 'POLLITO'}!
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                    <h2 className="min-w-0 max-w-full break-words font-display text-3xl font-bold leading-[.95] tracking-tight text-left sm:text-5xl md:text-6xl">
+                      ¡Bienvenido <br className="sm:hidden" />al Team Pollito, <br />
+                      <span className="mt-2 block break-words font-display text-3xl font-bold tracking-tighter text-[#FFD500] text-shadow-hard-lg sm:text-5xl md:text-6xl">
+                        {getMemberDisplayName(statusInfo)}!
                       </span>
                     </h2>
-                    <span className="shrink-0 text-5xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] md:text-6xl">🐣</span>
+                    <span className="shrink-0 text-4xl drop-shadow-[3px_3px_0_rgba(0,0,0,0.3)] sm:text-5xl md:text-6xl">🐣</span>
                   </div>
-                  <p className="max-w-xl font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
+                  <p className="max-w-[28rem] break-words font-sans text-sm font-semibold leading-relaxed text-white/80 sm:text-base">
                     Tu cuenta está lista. Participa en los directos, juega con la comunidad y usa las herramientas del LIVE.
                   </p>
-                  <div className="flex flex-wrap gap-4">
-                    <Link href="/panel/sonidos" className="decoration-transparent">
-                      <Button variant="primary" size="lg">
-                        ✓ Participar en el LIVE
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
+                    <Link href="/panel/sonidos" className="w-full decoration-transparent sm:w-auto">
+                      <Button variant="primary" size="lg" className="w-full sm:w-auto">
+                        ✓ Interactuar con el directo
                       </Button>
                     </Link>
-                    <Button variant="secondary" size="lg" onClick={requestPwaInstall}>
+                    <Button variant="secondary" size="lg" className="w-full sm:w-auto" onClick={requestPwaInstall}>
                       📲 Añadir a pantalla de inicio
                     </Button>
                   </div>
@@ -737,7 +736,7 @@ export default function ComunidadPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <article className="flex h-full flex-col overflow-hidden rounded-3xl border-2 border-[#FFD500] bg-white shadow-[8px_8px_0_#FFD500]">
                 <div className="flex min-h-48 items-center justify-center bg-[#FFF7DC] p-6 sm:min-h-56">
-                  <img src="/images/polooficial.webp" alt="Polo oficial del Team Pollito en Roblox" className="h-44 w-44 object-contain drop-shadow-[0_12px_18px_rgba(76,59,18,.16)] sm:h-52 sm:w-52" />
+                  <Image src="/images/polooficial.webp" alt="Polo oficial del Team Pollito en Roblox" width={208} height={208} className="h-44 w-44 object-contain drop-shadow-[0_12px_18px_rgba(76,59,18,.16)] sm:h-52 sm:w-52" />
                 </div>
                 <div className="flex flex-1 flex-col p-6 sm:p-7">
                   <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#D4A000]">Roblox</p>
@@ -765,7 +764,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* TESTIMONIOS: inmediatamente debajo del hero */}
-          <section id="testimonios" className="order-6 space-y-6 py-2">
+          <section id="testimonios" className="order-2 scroll-mt-24 space-y-6 py-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -807,12 +806,12 @@ export default function ComunidadPage() {
 
           </section>
 
-          <div className="order-5">
+          <div className="order-4">
             <TikTokRankingLanding accessToken={session?.access_token} />
           </div>
 
           {/* BENEFICIOS SECTION */}
-          <section id="beneficios" className="order-2 space-y-6 pt-8">
+          <section id="beneficios" className="order-6 scroll-mt-24 space-y-6 pt-8">
             <div className="text-center">
               <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
                 ¿Qué puedes hacer en Team Pollito? 🐣
@@ -846,7 +845,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* TIMELINE DE INGRESO */}
-          <section id="timeline-ingreso" className="order-7 space-y-8 pt-8">
+          <section id="timeline-ingreso" className="order-8 scroll-mt-24 space-y-8 pt-8">
             <div className="text-center">
               <h3 className="font-display font-bold text-3xl tracking-tight leading-none text-[#2D3139]">
                 ¿Quieres ser Miembro Oficial? 🐣
@@ -889,7 +888,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* REGLAS & TESTIMONIOS */}
-          <section id="reglas-testimonios" className="order-4 w-full pt-8">
+          <section id="reglas-testimonios" className="order-7 scroll-mt-24 w-full pt-8">
             <div id="reglas" className="w-full space-y-5">
               <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
                 <span className="text-lg">📋</span>
@@ -921,7 +920,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* ADMISIÓN / VIP SECTION */}
-          <section id="admision" className="order-8 pt-8">
+          <section id="admision" className="order-9 scroll-mt-24 pt-8">
             {session && !loadingStatus && statusInfo.status === 'approved' ? (
               null
             ) : (
@@ -1310,9 +1309,12 @@ export default function ComunidadPage() {
                                       <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
                                         <div className="flex items-center gap-3">
                                           {verifiedRobloxProfile.avatarUrl ? (
-                                            <img
+                                            <Image
                                               src={verifiedRobloxProfile.avatarUrl}
                                               alt={verifiedRobloxProfile.displayName}
+                                              width={56}
+                                              height={56}
+                                              unoptimized
                                               className="w-14 h-14 rounded-xl object-cover border border-white"
                                               style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
                                             />
@@ -1489,9 +1491,12 @@ export default function ComunidadPage() {
                               <div className={`rounded-xl border p-3 ${robloxProfileConfirmed ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'}`}>
                                 <div className="flex items-center gap-3">
                                   {verifiedRobloxProfile.avatarUrl ? (
-                                    <img
+                                    <Image
                                       src={verifiedRobloxProfile.avatarUrl}
                                       alt={verifiedRobloxProfile.displayName}
+                                      width={56}
+                                      height={56}
+                                      unoptimized
                                       className="w-14 h-14 rounded-xl object-cover border border-white"
                                       style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
                                     />
@@ -1577,7 +1582,7 @@ export default function ComunidadPage() {
           </section>
 
           {/* SECCIÓN MIEMBROS OFICIALES */}
-          <section id="miembros" className="order-9 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 pt-8 shadow-[0_4px_20px_rgba(0,0,0,.06)]">
+          <section id="miembros" className="order-5 scroll-mt-24 space-y-6 rounded-2xl border border-gray-200 bg-white p-6 pt-8 shadow-[0_4px_20px_rgba(0,0,0,.06)]">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <h3 className="font-display font-bold text-xl flex items-center gap-2 text-[#2D3139]">
                 👥 Miembros Oficiales
@@ -1622,9 +1627,12 @@ export default function ComunidadPage() {
                       >
                         <div className="w-14 h-14 rounded-full border border-gray-100 bg-gray-50 overflow-hidden flex items-center justify-center">
                           {member.roblox_avatar_url ? (
-                            <img
+                            <Image
                               src={member.roblox_avatar_url}
                               alt={member.roblox_display_name}
+                              width={56}
+                              height={56}
+                              unoptimized
                               className="w-full h-full object-cover"
                               style={{ transform: 'scale(1.6) translateY(-8%)', transformOrigin: 'center top', objectPosition: 'center top' }}
                             />

@@ -45,7 +45,7 @@ export default function MinecraftAdminView() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { queueMicrotask(() => void load()); }, []);
 
   const update = async (accountId: string, action: 'approve' | 'reject' | 'revoke' | 'delete') => {
     if (action === 'delete' && !window.confirm('¿Eliminar definitivamente esta vinculación de Minecraft? El usuario del portal no se eliminará.')) return;

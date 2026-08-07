@@ -83,6 +83,10 @@ _Avoid_: Log del sistema, Historial de visitas, Entrada de consola
 Conjunto unificado de directrices visuales basadas en el estilo Neobrutalismo Oscuro Unificado (tipografía Anton/Inter, color amarillo #FFD500, bordes de 3px y sombras duras amarillas en modo oscuro y negras en modo claro). **Excepción**: El Panel de Control (admin) usa un estilo propio más sobrio — `border border-neutral-700/60`, sombras suaves `shadow-[0_4px_12px_rgba(0,0,0,.25)]`, color acento `#FFC200` (no `#FFD500`), y fondos `#2b2d31` / `#35373d` / `#171A20`. Los bordes de 3px y sombras duras son EXCLUSIVOS del sitio público y del panel del miembro.
 _Avoid_: Estilo SaaS, UI gamer, Tema Discord
 
+**Guía de Instalación PWA (PWA Installation Guide)**:
+Instrucciones contextuales para instalar Team Pollito según el navegador y el dispositivo de origen. Debe usar el nombre y los controles propios del navegador detectado, distinguir Safari de Chrome en iOS, y ofrecer una alternativa para navegadores integrados dentro de otras aplicaciones.
+_Avoid_: Instrucciones genéricas de aplicación, Tutorial de móvil
+
 **Envío de Audio (Audio Submission)**:
 Audio subido por un Miembro Oficial desde la consola, sujeto a revisión de un Administrador antes de ser disponibilizado como Sonido Público o Sonido Privado. Mientras está en revisión, solo el Miembro que lo envió puede verlo en su historial de envíos.
 _Avoid_: Propuesta de sonido, Audio pendiente, Upload de usuario

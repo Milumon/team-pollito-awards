@@ -25,11 +25,6 @@ function isVerified(account: Account | null) {
   return Boolean(account?.verified_at && account.status === 'approved');
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return 'Hoy';
-  return new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium' }).format(new Date(value));
-}
-
 export default function MinecraftLinkForm() {
   const [edition, setEdition] = useState<'java' | 'bedrock'>('java');
   const [username, setUsername] = useState('');
@@ -87,7 +82,7 @@ export default function MinecraftLinkForm() {
           setMessage(null);
         }
       } catch (error: unknown) {
-        if (active && !account) setMessage(error instanceof Error ? error.message : 'No se pudo cargar la vinculación.');
+        if (active) setMessage(error instanceof Error ? error.message : 'No se pudo cargar la vinculación.');
       } finally {
         if (active) setLoading(false);
       }
@@ -99,7 +94,7 @@ export default function MinecraftLinkForm() {
       active = false;
       window.clearInterval(interval);
     };
-  }, [code, replaceMode, step]);
+  }, [code, edition, replaceMode, step]);
 
   useEffect(() => {
     if (!code || !expiresAt) return;
