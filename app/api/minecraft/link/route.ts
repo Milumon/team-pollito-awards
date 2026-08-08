@@ -86,52 +86,42 @@ export async function POST(request: NextRequest) {
   }
 
   if (existingAccount) {
-    // A request started with a different auth provider can leave a pending row
-    // under another user id even when both auth users have the same email.
-    // Recover only that incomplete state; verified accounts remain protected.
+    // A request can be left under another profile when the user changes auth
+    // provider. It is safe to recover it before Minecraft verifies the code;
+    // verified accounts remain protected by the conflict below.
     if (existingAccount.status === 'pending' && !existingAccount.verified_at) {
-      const [{ data: currentUser }, { data: previousUser }] = await Promise.all([
-        supabaseAdmin.auth.admin.getUserById(session.user.id),
-        supabaseAdmin.auth.admin.getUserById(existingAccount.user_id),
-      ]);
+      const code = createLinkCode();
+      const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
+      const { data, error } = await supabaseAdmin
+        .from('minecraft_accounts')
+        .update({
+          user_id: session.user.id,
+          username,
+          player_id: `pending:${session.user.id}:${edition}`,
+          link_code_hash: hashCode(code),
+          link_code: code,
+          link_code_expires_at: expiresAt,
+          verified_at: null,
+          status: 'pending',
+          rejection_reason: null,
+          approved_by: null,
+          approved_at: null,
+          revoked_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingAccount.id)
+        .select('id, edition, username, player_id, status, rejection_reason, verified_at, link_code, link_code_expires_at, created_at, updated_at')
+        .single();
 
-      const currentEmail = currentUser.user?.email?.trim().toLowerCase();
-      const previousEmail = previousUser.user?.email?.trim().toLowerCase();
-
-      if (currentEmail && currentEmail === previousEmail) {
-        const code = createLinkCode();
-        const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
-        const { data, error } = await supabaseAdmin
-          .from('minecraft_accounts')
-          .update({
-            user_id: session.user.id,
-            username,
-            player_id: `pending:${session.user.id}:${edition}`,
-            link_code_hash: hashCode(code),
-            link_code: code,
-            link_code_expires_at: expiresAt,
-            verified_at: null,
-            status: 'pending',
-            rejection_reason: null,
-            approved_by: null,
-            approved_at: null,
-            revoked_at: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingAccount.id)
-          .select('id, edition, username, player_id, status, rejection_reason, verified_at, link_code, link_code_expires_at, created_at, updated_at')
-          .single();
-
-        if (error) {
-          if (error.code === '23505') {
-            return NextResponse.json({ error: 'Ya tienes una solicitud de Minecraft para esta edición.' }, { status: 409 });
-          }
-          console.error('[Minecraft link recovery]:', error.message);
-          return NextResponse.json({ error: 'No se pudo recuperar la solicitud anterior.' }, { status: 500 });
+      if (error) {
+        if (error.code === '23505') {
+          return NextResponse.json({ error: 'Ya tienes una solicitud de Minecraft para esta edición.' }, { status: 409 });
         }
-
-        return NextResponse.json({ account: data, code, expiresAt }, { status: 201 });
+        console.error('[Minecraft link recovery]:', error.message);
+        return NextResponse.json({ error: 'No se pudo recuperar la solicitud anterior.' }, { status: 500 });
       }
+
+      return NextResponse.json({ account: data, code, expiresAt }, { status: 201 });
     }
 
     return NextResponse.json({ error: 'Esa cuenta de Minecraft ya está vinculada a otro usuario.' }, { status: 409 });
