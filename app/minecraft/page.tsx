@@ -90,9 +90,9 @@ export default function MinecraftPage() {
 
   const online = status?.status === 'online' && !status.stale;
   const players = status?.players ?? [];
-  const ready = accounts.some((account) => account.status === 'approved' && account.verified_at);
+  const ready = (['java', 'bedrock'] as const).every((edition) => accounts.some((account) => account.edition === edition && account.status === 'approved' && account.verified_at));
   const playHref = !session ? '/acceso?returnTo=/minecraft' : ready ? '/minecraft/guias#como-entrar' : '/minecraft/link';
-  const playLabel = ready ? 'Entrar al servidor' : 'Unirme al servidor';
+  const playLabel = ready ? 'Entrar al servidor' : 'Configurar Minecraft';
 
   const logout = async () => { await supabase.auth.signOut(); };
 
